@@ -1,9 +1,13 @@
 # SiteSnap — room-by-room inspection photos
 
 Pick the rooms, walk the property, shoot as you go. Photos are filed into
-numbered room folders automatically and export three ways: to the phone's
-Photos app, as a ZIP with the folder structure inside, or straight to
-OneDrive / Google Drive via an automation webhook.
+numbered room folders automatically. Rate each room Good / Fair / Poor, add
+notes (damage, meter readings), then export four ways: to the phone's Photos
+app, as a ZIP with the folder structure and notes inside, as a printable PDF
+report, or straight to OneDrive / Google Drive via an automation webhook.
+
+The app works offline once loaded (service worker + IndexedDB) — shoot the
+whole property with no signal and export when you're back online.
 
 ## Run locally
 
@@ -43,13 +47,15 @@ you control (n8n, Zapier, or Make), and the workflow files it into the drive.
 
 Each POST is `multipart/form-data` with fields:
 
-| field      | example                          |
-|------------|----------------------------------|
-| `address`  | `23 High Street`                 |
-| `postcode` | `E6 1AB`                         |
-| `folder`   | `04. Kitchen`                    |
-| `filename` | `Kitchen_2.jpg`                  |
-| `file`     | (the JPEG binary)                |
+| field       | example                          |
+|-------------|----------------------------------|
+| `address`   | `23 High Street`                 |
+| `postcode`  | `E6 1AB`                         |
+| `folder`    | `04. Kitchen`                    |
+| `filename`  | `Kitchen_2.jpg`                  |
+| `condition` | `Good` (or empty)                |
+| `note`      | room note text (or empty)        |
+| `file`      | (the JPEG binary)                |
 
 ### n8n recipe (3 nodes)
 

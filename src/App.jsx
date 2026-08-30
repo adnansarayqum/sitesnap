@@ -3,6 +3,7 @@ import {
   Camera, Trash2, GripVertical, ChevronLeft, Plus, Minus, MapPin,
   CloudUpload, Check, X, Loader2, ImagePlus, ArrowRight, ArrowLeft,
   Undo2, FolderTree, CircleCheck, Image as ImageIcon, Download, Link2,
+  StickyNote, FileText, Printer, AlertTriangle,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -14,16 +15,24 @@ const PRESETS = [
   { base: "External", steppable: false },
   { base: "Hallway", steppable: false },
   { base: "Living Room", steppable: false },
+  { base: "Dining Room", steppable: false },
   { base: "Kitchen", steppable: false },
+  { base: "Utility Room", steppable: false },
   { base: "Bedroom", steppable: true },
+  { base: "Ensuite", steppable: true },
   { base: "Bathroom", steppable: true },
   { base: "WC", steppable: false },
   { base: "Landing", steppable: false },
   { base: "Stairs", steppable: false },
+  { base: "Conservatory", steppable: false },
   { base: "Garden", steppable: false },
   { base: "Garage", steppable: false },
   { base: "Loft", steppable: false },
+  { base: "Meters", steppable: false },
+  { base: "Smoke / CO Alarms", steppable: false },
 ];
+
+const CONDITIONS = ["Good", "Fair", "Poor"];
 
 function uid(p) {
   return `${p}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
@@ -196,6 +205,14 @@ export default function SiteSnap() {
     persist(inspection, next);
   }
 
+  function setRoomMeta(roomId, patch) {
+    setRooms((prev) => {
+      const next = prev.map((r) => (r.id === roomId ? { ...r, ...patch } : r));
+      persist(inspection, next);
+      return next;
+    });
+  }
+
   function addRoom(name) {
     setRooms((prev) => {
       const next = [...prev, { id: uid("room"), name, photoIds: [] }];
@@ -274,6 +291,7 @@ export default function SiteSnap() {
               const last = r.photoIds[r.photoIds.length - 1];
               if (last) deletePhoto(r.id, last);
             }}
+            onMeta={(patch) => setRoomMeta(rooms[walkIndex].id, patch)}
             onExit={() => setScreen("board")}
           />
         )}
@@ -288,6 +306,7 @@ export default function SiteSnap() {
               onBack={() => setScreen("board")}
               onCapture={(dataUrl, file) => addPhoto(room.id, dataUrl, file)}
               onDelete={(pid) => deletePhoto(room.id, pid)}
+              onMeta={(patch) => setRoomMeta(room.id, patch)}
               onSaveToPhotos={() => shareFiles(filesFor(room.photoIds, room.name.replace(/\s+/g, "_")), `${room.name} photos`)}
             />
           );
@@ -297,6 +316,7 @@ export default function SiteSnap() {
           <FinishScreen
             inspection={inspection}
             rooms={rooms}
+            photoCache={photoCache}
             totalPhotos={totalPhotos}
             filesForRoom={(room) => filesFor(room.photoIds, room.name.replace(/\s+/g, "_"))}
             onBack={() => setScreen("board")}
@@ -328,14 +348,14 @@ function HomeScreen({ onNew }) {
         <div className="ss-eyebrow">Property inspections</div>
         <h1 className="ss-h1">Every photo,<br />already filed.</h1>
         <p className="ss-lede">
-          Pick the rooms, walk the property, shoot as you go. Photos land in the
-          right folder by themselves — one tap saves everything to your Camera
-          Roll and OneDrive at the end.
+          Pick the rooms, walk the property, shoot as you go. Photos file
+          themselves into numbered room folders — rate each room, add notes,
+          and export everything in one tap at the end.
         </p>
         <div className="ss-home-steps">
           <div><span className="ss-step-n">1</span> Set up the property</div>
-          <div><span className="ss-step-n">2</span> Walk &amp; shoot room by room</div>
-          <div><span className="ss-step-n">3</span> Export — Photos + OneDrive</div>
+          <div><span className="ss-step-n">2</span> Walk, shoot &amp; rate each room</div>
+          <div><span className="ss-step-n">3</span> Export — Photos, ZIP, OneDrive, PDF report</div>
         </div>
       </div>
       <div className="ss-footer">
@@ -487,7 +507,7 @@ function BoardScreen({ inspection, rooms, photoCache, totalPhotos, doneRooms, on
       <TopBar
         title={inspection.address}
         eyebrow={inspection.postcode || "Inspection in progress"}
-        right={<span className="ss-badge">{totalPhotos} photos</span>}
+        right={<span className="ss-badge">{totalPhotos} photo{totalPhotos === 1 ? "" : "s"}</span>}
       />
 
       <div className="ss-progress-wrap">
@@ -508,6 +528,8 @@ function BoardScreen({ inspection, rooms, photoCache, totalPhotos, doneRooms, on
                 <div className="ss-row-main">
                   <span className="ss-index">{pad(index + 1)}</span>
                   <span className="ss-row-name">{room.name}</span>
+                  {room.condition && <span className={`ss-cdot ${room.condition.toLowerCase()}`} title={room.condition} />}
+                  {room.note ? <StickyNote size={12} className="ss-note-flag" /> : null}
                 </div>
                 <span className="ss-row-right">
                   {thumb ? (
@@ -555,14 +577,17 @@ function BoardScreen({ inspection, rooms, photoCache, totalPhotos, doneRooms, on
 
 /* ---------------- walkthrough capture ---------------- */
 
-function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDeleteLast, onExit }) {
+function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDeleteLast, onMeta, onExit }) {
   const inputRef = useRef(null);
   const continuous = useRef(false);
+  const [noteOpen, setNoteOpen] = useState(false);
   const room = rooms[index];
   const count = room.photoIds.length;
   const lastId = room.photoIds[count - 1];
   const last = lastId ? photoCache[lastId] : null;
   const isLast = index === rooms.length - 1;
+
+  useEffect(() => { setNoteOpen(false); }, [index]);
 
   function openCamera() {
     continuous.current = true;
@@ -594,6 +619,30 @@ function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDeleteLast
         <div className="ss-tally">{count}</div>
         <div className="ss-live-sub">photo{count === 1 ? "" : "s"} in this room</div>
 
+        <div className="ss-live-cond">
+          {CONDITIONS.map((c) => (
+            <button key={c}
+              className={`${c.toLowerCase()} ${room.condition === c ? "on" : ""}`}
+              onClick={() => onMeta({ condition: room.condition === c ? null : c })}>
+              {c}
+            </button>
+          ))}
+        </div>
+
+        {noteOpen ? (
+          <textarea
+            className="ss-live-note" autoFocus rows={2}
+            placeholder="Note — damage, meter reading, anything worth recording…"
+            value={room.note || ""}
+            onChange={(e) => onMeta({ note: e.target.value })}
+            onBlur={() => { if (!(room.note || "").trim()) setNoteOpen(false); }}
+          />
+        ) : (
+          <button className="ss-live-note-btn" onClick={() => setNoteOpen(true)}>
+            <StickyNote size={13} /> {room.note ? "Edit note" : "Add note"}
+          </button>
+        )}
+
         {last && (
           <div className="ss-last">
             <img src={last.dataUrl} alt="Last photo" />
@@ -622,7 +671,7 @@ function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDeleteLast
 
 /* ---------------- room review ---------------- */
 
-function RoomScreen({ room, photos, onBack, onCapture, onDelete, onSaveToPhotos }) {
+function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, onSaveToPhotos }) {
   const inputRef = useRef(null);
   const continuous = useRef(false);
   const [viewPhoto, setViewPhoto] = useState(null);
@@ -657,6 +706,25 @@ function RoomScreen({ room, photos, onBack, onCapture, onDelete, onSaveToPhotos 
       {note && <div className="ss-note">{note}</div>}
 
       <div className="ss-scroll">
+        <div className="ss-meta">
+          <div className="ss-cond-row">
+            <span className="ss-cond-label">Condition</span>
+            {CONDITIONS.map((c) => (
+              <button key={c}
+                className={`ss-cond ${c.toLowerCase()} ${room.condition === c ? "on" : ""}`}
+                onClick={() => onMeta({ condition: room.condition === c ? null : c })}>
+                {c}
+              </button>
+            ))}
+          </div>
+          <textarea
+            className="ss-note-input" rows={2}
+            placeholder="Notes — damage, decor, meter readings…"
+            value={room.note || ""}
+            onChange={(e) => onMeta({ note: e.target.value })}
+          />
+        </div>
+
         {photos.length === 0 ? (
           <div className="ss-empty">
             <Camera size={22} />
@@ -688,6 +756,14 @@ function RoomScreen({ room, photos, onBack, onCapture, onDelete, onSaveToPhotos 
           </div>
           <img src={viewPhoto.dataUrl} alt="Full view" />
           <div className="ss-lightbox-bottom">
+            {viewPhoto.takenAt && (
+              <div className="ss-lb-time">
+                {new Date(viewPhoto.takenAt).toLocaleString("en-GB", {
+                  weekday: "short", day: "numeric", month: "short",
+                  hour: "2-digit", minute: "2-digit",
+                })}
+              </div>
+            )}
             <button className="ss-btn ss-btn-danger"
               onClick={(e) => { e.stopPropagation(); onDelete(viewPhoto.id); setViewPhoto(null); }}>
               <Trash2 size={16} /> Delete photo
@@ -701,12 +777,14 @@ function RoomScreen({ room, photos, onBack, onCapture, onDelete, onSaveToPhotos 
 
 /* ---------------- finish / export ---------------- */
 
-function FinishScreen({ inspection, rooms, totalPhotos, filesForRoom, onBack, onSaveAll, onDone }) {
+function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom, onBack, onSaveAll, onDone }) {
   const [note, setNote] = useState(null);
   const [zipBusy, setZipBusy] = useState(false);
   const [hookUrl, setHookUrl] = useState("");
   const [hookOpen, setHookOpen] = useState(false);
-  const [upload, setUpload] = useState(null); // { statuses, running, doneAll }
+  const [upload, setUpload] = useState(null); // { statuses, running, doneAll, sent, total }
+  const [reportOpen, setReportOpen] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(false);
   const populated = rooms.filter((r) => r.photoIds.length > 0);
 
   useEffect(() => { loadWebhook().then((u) => setHookUrl(u || "")); }, []);
@@ -739,6 +817,19 @@ function FinishScreen({ inspection, rooms, totalPhotos, filesForRoom, onBack, on
         const folder = root.folder(`${pad(i + 1)}. ${safeName(room.name)}`);
         filesForRoom(room).forEach((f) => folder.file(f.name, f));
       });
+      const noteLines = [
+        `${inspection.address}${inspection.postcode ? ", " + inspection.postcode : ""}`,
+        `Inspected: ${new Date(inspection.startedAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}`,
+        `${totalPhotos} photos · ${populated.length} of ${rooms.length} rooms photographed`,
+        "",
+      ];
+      rooms.forEach((room, i) => {
+        noteLines.push(`${pad(i + 1)}. ${room.name}${room.condition ? ` — ${room.condition}` : ""} (${room.photoIds.length} photo${room.photoIds.length === 1 ? "" : "s"})`);
+        if (room.note && room.note.trim()) noteLines.push(`    Note: ${room.note.trim()}`);
+      });
+      if (rooms.some((r) => r.condition || (r.note && r.note.trim()))) {
+        root.file("Inspection notes.txt", noteLines.join("\n"));
+      }
       const blob = await zip.generateAsync({ type: "blob" });
       const fileName = `${rootName}.zip`;
       const zipFile = new File([blob], fileName, { type: "application/zip" });
@@ -775,7 +866,8 @@ function FinishScreen({ inspection, rooms, totalPhotos, filesForRoom, onBack, on
     saveWebhook(url);
     const statuses = {};
     populated.forEach((r) => { statuses[r.id] = "queued"; });
-    setUpload({ statuses, running: true, doneAll: false });
+    const total = populated.reduce((s, r) => s + r.photoIds.length, 0);
+    setUpload({ statuses, running: true, doneAll: false, sent: 0, total });
     let anyFailed = false;
     for (const room of populated) {
       const idx = rooms.indexOf(room);
@@ -788,10 +880,13 @@ function FinishScreen({ inspection, rooms, totalPhotos, filesForRoom, onBack, on
         fd.append("postcode", inspection.postcode || "");
         fd.append("folder", `${pad(idx + 1)}. ${room.name}`);
         fd.append("filename", f.name);
+        fd.append("condition", room.condition || "");
+        fd.append("note", room.note || "");
         fd.append("file", f, f.name);
         try {
           const res = await fetch(url, { method: "POST", body: fd });
           if (!res.ok) { ok = false; break; }
+          setUpload((s) => s && ({ ...s, sent: s.sent + 1 }));
         } catch { ok = false; break; }
       }
       if (!ok) anyFailed = true;
@@ -821,7 +916,11 @@ function FinishScreen({ inspection, rooms, totalPhotos, filesForRoom, onBack, on
             const st = upload ? upload.statuses[room.id] : null;
             return (
               <div key={room.id} className={`ss-tree-row ${room.photoIds.length === 0 ? "dim" : ""}`}>
-                <span>{pad(i + 1)}. {room.name}</span>
+                <span>
+                  {pad(i + 1)}. {room.name}
+                  {room.condition && <span className={`ss-cbadge ${room.condition.toLowerCase()}`}>{room.condition}</span>}
+                  {room.note && room.note.trim() ? <StickyNote size={11} className="ss-note-flag" /> : null}
+                </span>
                 <span className="ss-tree-right">
                   {st === "uploading" && <Loader2 size={13} className="ss-spin" />}
                   {st === "done" && <CircleCheck size={14} className="ss-ok" />}
@@ -842,10 +941,16 @@ function FinishScreen({ inspection, rooms, totalPhotos, filesForRoom, onBack, on
           <Download size={19} />
           {zipBusy ? "Building ZIP…" : "Export ZIP (numbered folders)"}
         </button>
+        <button className="ss-btn ss-btn-ghost ss-btn-big" style={{ marginTop: 8 }} onClick={() => setReportOpen(true)} disabled={totalPhotos === 0}>
+          <FileText size={19} /> Report (print / save PDF)
+        </button>
         <button className="ss-btn ss-btn-ghost ss-btn-big" style={{ marginTop: 8 }} onClick={uploadViaWebhook} disabled={(upload && upload.running) || totalPhotos === 0}>
           <CloudUpload size={19} />
-          {upload ? (upload.running ? "Uploading…" : upload.doneAll ? "Uploaded ✓ — upload again" : "Retry failed uploads") : "Upload to cloud"}
+          {upload ? (upload.running ? `Uploading ${upload.sent} of ${upload.total}…` : upload.doneAll ? "Uploaded ✓ — upload again" : "Retry failed uploads") : "Upload to cloud"}
         </button>
+        {upload && upload.running && (
+          <div className="ss-upbar"><div style={{ width: `${upload.total ? Math.round((upload.sent / upload.total) * 100) : 0}%` }} /></div>
+        )}
 
         <button className="ss-hook-toggle" onClick={() => setHookOpen((o) => !o)}>
           <Link2 size={13} /> {hookUrl ? "Cloud upload link set — change" : "Set cloud upload link"}
@@ -882,7 +987,81 @@ function FinishScreen({ inspection, rooms, totalPhotos, filesForRoom, onBack, on
       </div>
 
       <div className="ss-footer">
-        <button className="ss-btn ss-btn-ghost" onClick={onDone}>Close inspection & start fresh</button>
+        <button className="ss-btn ss-btn-ghost" onClick={() => setConfirmClose(true)}>Close inspection & start fresh</button>
+      </div>
+
+      {confirmClose && (
+        <div className="ss-modal-back" onClick={() => setConfirmClose(false)}>
+          <div className="ss-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="ss-modal-icon"><AlertTriangle size={22} /></div>
+            <div className="ss-modal-title">Close this inspection?</div>
+            <p>
+              All {totalPhotos} photo{totalPhotos === 1 ? "" : "s"} and notes will be removed
+              from this device. Anything already exported or uploaded is unaffected.
+            </p>
+            <button className="ss-btn ss-btn-danger" onClick={onDone}>
+              <Trash2 size={16} /> Delete &amp; close
+            </button>
+            <button className="ss-btn ss-btn-ghost" style={{ marginTop: 8 }} onClick={() => setConfirmClose(false)}>
+              Keep inspection
+            </button>
+          </div>
+        </div>
+      )}
+
+      {reportOpen && (
+        <ReportView inspection={inspection} rooms={rooms} photoCache={photoCache} onClose={() => setReportOpen(false)} />
+      )}
+    </div>
+  );
+}
+
+/* ---------------- printable report ---------------- */
+
+function ReportView({ inspection, rooms, photoCache, onClose }) {
+  const totalPhotos = rooms.reduce((s, r) => s + r.photoIds.length, 0);
+  const covered = rooms.filter((r) => r.photoIds.length > 0).length;
+  const date = new Date(inspection.startedAt).toLocaleDateString("en-GB", {
+    weekday: "long", day: "numeric", month: "long", year: "numeric",
+  });
+  return (
+    <div className="ss-report">
+      <div className="ss-report-bar ss-noprint">
+        <button className="close" onClick={onClose}><X size={16} /> Close</button>
+        <button className="print" onClick={() => window.print()}><Printer size={15} /> Print / Save PDF</button>
+      </div>
+      <div className="ss-report-page">
+        <header className="ss-rep-head">
+          <div className="ss-rep-brand"><Camera size={15} strokeWidth={2.6} /> SiteSnap</div>
+          <h1>{inspection.address}{inspection.postcode ? `, ${inspection.postcode}` : ""}</h1>
+          <div className="ss-rep-meta">
+            <span>Photo inspection report</span>
+            <span>{date}</span>
+            <span>{totalPhotos} photo{totalPhotos === 1 ? "" : "s"} · {covered} of {rooms.length} areas</span>
+          </div>
+        </header>
+        {rooms.map((room, i) => {
+          const photos = room.photoIds.map((id) => photoCache[id]).filter(Boolean);
+          if (!photos.length && !room.condition && !(room.note && room.note.trim())) return null;
+          return (
+            <section key={room.id} className="ss-rep-room">
+              <div className="ss-rep-room-head">
+                <h2>{pad(i + 1)}. {room.name}</h2>
+                {room.condition && <span className={`ss-cbadge ${room.condition.toLowerCase()}`}>{room.condition}</span>}
+                <span className="ss-rep-count">{photos.length} photo{photos.length === 1 ? "" : "s"}</span>
+              </div>
+              {room.note && room.note.trim() && <p className="ss-rep-note">{room.note.trim()}</p>}
+              {photos.length > 0 && (
+                <div className="ss-rep-grid">
+                  {photos.map((p) => <img key={p.id} src={p.dataUrl} alt="" />)}
+                </div>
+              )}
+            </section>
+          );
+        })}
+        <footer className="ss-rep-foot">
+          Generated with SiteSnap · {new Date().toLocaleDateString("en-GB")}
+        </footer>
       </div>
     </div>
   );
@@ -1006,6 +1185,7 @@ function StyleBlock() {
         --hivis: #D9F44F;
         --hivis-deep: #1C2A08;
         --red: #C43C2B;
+        --amber: #A66A00;
       }
       * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
       html, body { background: var(--paper); margin: 0; }
@@ -1212,6 +1392,94 @@ function StyleBlock() {
         box-shadow: 0 10px 30px rgba(16,36,29,.3);
       }
       .ss-toast button { display: flex; align-items: center; gap: 5px; background: rgba(255,255,255,.14); color: var(--hivis); border-radius: 999px; padding: 7px 13px; font-weight: 800; font-size: 13px; }
+
+      /* ---- condition & notes ---- */
+      .ss-cdot { width: 9px; height: 9px; border-radius: 999px; flex-shrink: 0; }
+      .ss-cdot.good { background: var(--pine); }
+      .ss-cdot.fair { background: var(--amber); }
+      .ss-cdot.poor { background: var(--red); }
+      .ss-note-flag { color: var(--muted); flex-shrink: 0; }
+      .ss-cbadge { font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; margin-left: 7px; vertical-align: 1px; }
+      .ss-cbadge.good { background: #EAF3EC; color: var(--pine); }
+      .ss-cbadge.fair { background: #F6EFDD; color: var(--amber); }
+      .ss-cbadge.poor { background: #F8E7E3; color: var(--red); }
+      .ss-tree-row .ss-note-flag { margin-left: 6px; vertical-align: -1px; }
+
+      .ss-meta { background: var(--card); border: 1px solid var(--line); border-radius: 13px; padding: 12px; margin-bottom: 14px; }
+      .ss-cond-row { display: flex; align-items: center; gap: 6px; }
+      .ss-cond-label { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-right: auto; }
+      .ss-cond { padding: 8px 14px; border-radius: 999px; font-weight: 800; font-size: 13px; border: 1.5px solid var(--line); color: var(--muted); background: var(--paper); }
+      .ss-cond.good.on { background: #EAF3EC; border-color: var(--pine); color: var(--pine); }
+      .ss-cond.fair.on { background: #F6EFDD; border-color: var(--amber); color: var(--amber); }
+      .ss-cond.poor.on { background: #F8E7E3; border-color: var(--red); color: var(--red); }
+      .ss-note-input {
+        width: 100%; margin-top: 10px; background: var(--paper); border: 1px solid var(--line);
+        border-radius: 10px; padding: 10px 12px; font-size: 15px; font-family: inherit;
+        color: var(--ink); outline: none; resize: vertical; min-height: 44px;
+      }
+      .ss-note-input:focus { border-color: var(--pine); }
+
+      .ss-live-cond { display: flex; gap: 8px; margin-top: 18px; }
+      .ss-live-cond button {
+        padding: 9px 18px; border-radius: 999px; font-weight: 800; font-size: 13px;
+        border: 1.5px solid rgba(217,244,79,.3); color: rgba(217,244,79,.65);
+      }
+      .ss-live-cond button.on.good { background: var(--hivis); border-color: var(--hivis); color: var(--hivis-deep); }
+      .ss-live-cond button.on.fair { background: #E8B04B; border-color: #E8B04B; color: #3A2A00; }
+      .ss-live-cond button.on.poor { background: #FF8A73; border-color: #FF8A73; color: #4A130A; }
+      .ss-live-note-btn { display: flex; align-items: center; gap: 6px; margin-top: 14px; font-size: 13px; font-weight: 700; color: rgba(217,244,79,.65); padding: 6px 10px; }
+      .ss-live-note {
+        width: 100%; max-width: 320px; margin-top: 14px; background: rgba(217,244,79,.08);
+        border: 1.5px solid rgba(217,244,79,.35); border-radius: 12px; padding: 10px 12px;
+        font-size: 15px; font-family: inherit; color: var(--hivis); outline: none; resize: none;
+      }
+      .ss-live-note::placeholder { color: rgba(217,244,79,.4); }
+
+      /* ---- upload progress ---- */
+      .ss-upbar { height: 6px; border-radius: 999px; background: #E2E7E0; overflow: hidden; margin-top: 10px; }
+      .ss-upbar > div { height: 100%; background: var(--pine); border-radius: 999px; transition: width .25s ease; }
+
+      /* ---- modal ---- */
+      .ss-modal-back { position: fixed; inset: 0; z-index: 60; background: rgba(10,14,11,.55); display: flex; align-items: center; justify-content: center; padding: 24px; }
+      .ss-modal { width: 100%; max-width: 340px; background: var(--card); border-radius: 18px; padding: 22px; text-align: center; box-shadow: 0 20px 60px rgba(16,36,29,.35); }
+      .ss-modal-icon { width: 44px; height: 44px; margin: 0 auto 12px; border-radius: 13px; background: #F8E7E3; color: var(--red); display: flex; align-items: center; justify-content: center; }
+      .ss-modal-title { font-size: 18px; font-weight: 800; margin-bottom: 6px; }
+      .ss-modal p { font-size: 13.5px; color: var(--muted); line-height: 1.5; margin: 0 0 16px; }
+
+      /* ---- lightbox timestamp ---- */
+      .ss-lb-time { text-align: center; color: rgba(255,255,255,.65); font-size: 12.5px; font-weight: 600; margin-bottom: 10px; }
+
+      /* ---- report ---- */
+      .ss-report { position: fixed; inset: 0; z-index: 70; background: #fff; overflow-y: auto; }
+      .ss-report-bar {
+        position: sticky; top: 0; z-index: 5; display: flex; justify-content: space-between;
+        padding: 12px 16px; background: rgba(255,255,255,.95); backdrop-filter: blur(8px);
+        border-bottom: 1px solid var(--line);
+      }
+      .ss-report-bar button { display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 13.5px; padding: 9px 14px; border-radius: 10px; }
+      .ss-report-bar .close { color: var(--muted); }
+      .ss-report-bar .print { background: var(--pine); color: #fff; }
+      .ss-report-page { max-width: 720px; margin: 0 auto; padding: 28px 22px 48px; color: var(--ink); }
+      .ss-rep-head { border-bottom: 3px solid var(--pine); padding-bottom: 18px; margin-bottom: 22px; }
+      .ss-rep-brand { display: flex; align-items: center; gap: 6px; font-weight: 900; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--pine); margin-bottom: 10px; }
+      .ss-rep-head h1 { font-size: 26px; font-weight: 900; margin: 0 0 8px; line-height: 1.15; }
+      .ss-rep-meta { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; font-weight: 600; color: var(--muted); }
+      .ss-rep-room { margin-bottom: 24px; break-inside: avoid-page; }
+      .ss-rep-room-head { display: flex; align-items: center; gap: 4px; margin-bottom: 8px; }
+      .ss-rep-room-head h2 { font-size: 16px; font-weight: 800; margin: 0; }
+      .ss-rep-count { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--muted); }
+      .ss-rep-note { font-size: 13.5px; color: var(--ink); background: #F5F7F3; border-left: 3px solid var(--pine); border-radius: 0 8px 8px 0; padding: 8px 12px; margin: 0 0 10px; white-space: pre-wrap; }
+      .ss-rep-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+      .ss-rep-grid img { width: 100%; aspect-ratio: 4/3; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); }
+      .ss-rep-foot { margin-top: 30px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); font-weight: 600; }
+
+      @media print {
+        .ss-noprint, .ss-col, .ss-toast, .ss-modal-back { display: none !important; }
+        .ss-root { background: #fff; }
+        .ss-report { position: static; overflow: visible; }
+        .ss-report-page { max-width: none; padding: 0; }
+        .ss-rep-grid img { border: none; }
+      }
     `}</style>
   );
 }
