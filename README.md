@@ -14,9 +14,14 @@ npm run dev
 
 ## Deploy (free)
 
-**Vercel** (recommended): push this folder to a GitHub repo, import it at
-vercel.com — it auto-detects Vite. Done. Netlify and Cloudflare Pages work
-identically.
+**Railway**: at [railway.com/new](https://railway.com/new) choose
+**Deploy from GitHub repo** and pick this repo. It builds with
+`npm run build` and serves `dist/` via the `start` script (see
+`railway.json`). After the first deploy, open the service → **Settings →
+Networking → Generate Domain** to get the public HTTPS URL.
+
+**Vercel / Netlify / Cloudflare Pages** also work: import the repo and
+they auto-detect Vite.
 
 HTTPS is required (all three provide it) — the camera and the Save-to-Photos
 share sheet only work on secure origins.
