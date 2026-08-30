@@ -232,10 +232,12 @@ export default function SiteSnap() {
     setScreen("home");
   }
 
-  function filesFor(photoIds, label) {
+  // compressedOnly: webhook/Graph uploads have 4-5MB request limits, so the
+  // cloud path always sends the compressed copy; exports keep full quality.
+  function filesFor(photoIds, label, compressedOnly = false) {
     return photoIds
       .map((id, i) => {
-        const orig = originals.current[id];
+        const orig = compressedOnly ? null : originals.current[id];
         if (orig) {
           const ext = (orig.type && orig.type.split("/")[1]) || "jpg";
           return new File([orig], `${label}_${i + 1}.${ext}`, { type: orig.type || "image/jpeg" });
@@ -319,6 +321,7 @@ export default function SiteSnap() {
             photoCache={photoCache}
             totalPhotos={totalPhotos}
             filesForRoom={(room) => filesFor(room.photoIds, room.name.replace(/\s+/g, "_"))}
+            filesForUpload={(room) => filesFor(room.photoIds, room.name.replace(/\s+/g, "_"), true)}
             onBack={() => setScreen("board")}
             onSaveAll={() => shareFiles(filesFor(rooms.flatMap((r) => r.photoIds), "inspection"), "Inspection photos")}
             onDone={finishAndReset}
@@ -777,7 +780,7 @@ function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, onSaveT
 
 /* ---------------- finish / export ---------------- */
 
-function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom, onBack, onSaveAll, onDone }) {
+function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom, filesForUpload, onBack, onSaveAll, onDone }) {
   const [note, setNote] = useState(null);
   const [zipBusy, setZipBusy] = useState(false);
   const [hookUrl, setHookUrl] = useState("");
@@ -873,7 +876,7 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
       const idx = rooms.indexOf(room);
       setUpload((s) => s && ({ ...s, statuses: { ...s.statuses, [room.id]: "uploading" } }));
       let ok = true;
-      const files = filesForRoom(room);
+      const files = filesForUpload(room);
       for (const f of files) {
         const fd = new FormData();
         fd.append("address", inspection.address);
@@ -883,11 +886,17 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
         fd.append("condition", room.condition || "");
         fd.append("note", room.note || "");
         fd.append("file", f, f.name);
-        try {
-          const res = await fetch(url, { method: "POST", body: fd });
-          if (!res.ok) { ok = false; break; }
-          setUpload((s) => s && ({ ...s, sent: s.sent + 1 }));
-        } catch { ok = false; break; }
+        // one automatic retry — mobile signal drops mid-property are routine
+        let sent = false;
+        for (let attempt = 0; attempt < 2 && !sent; attempt++) {
+          try {
+            const res = await fetch(url, { method: "POST", body: fd });
+            if (res.ok) { sent = true; break; }
+            if (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429) break;
+          } catch { /* network error — loop retries once */ }
+        }
+        if (!sent) { ok = false; break; }
+        setUpload((s) => s && ({ ...s, sent: s.sent + 1 }));
       }
       if (!ok) anyFailed = true;
       setUpload((s) => s && ({ ...s, statuses: { ...s.statuses, [room.id]: ok ? "done" : "failed" } }));
