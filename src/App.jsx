@@ -3,7 +3,7 @@ import {
   Camera, Trash2, GripVertical, ChevronLeft, Plus, Minus, MapPin,
   CloudUpload, Check, X, Loader2, ImagePlus, ArrowRight, ArrowLeft,
   Undo2, FolderTree, CircleCheck, Image as ImageIcon, Download, Link2,
-  StickyNote, FileText, Printer, AlertTriangle, Mic, MicOff, KeyRound,
+  StickyNote, FileText, Printer, AlertTriangle, Mic, MicOff, KeyRound, Briefcase,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -279,8 +279,8 @@ export default function SiteSnap() {
 
   const persist = useCallback((insp, rms) => { saveState(insp, rms); }, []);
 
-  function startInspection(address, postcode, roomList) {
-    const insp = { id: uid("insp"), address, postcode, startedAt: Date.now() };
+  function startInspection(address, postcode, roomList, caseDetails) {
+    const insp = { id: uid("insp"), address, postcode, startedAt: Date.now(), ...(caseDetails || {}) };
     const rms = roomList.map((r) => ({ id: r.id, name: r.name, photoIds: [] }));
     setInspection(insp);
     setRooms(rms);
@@ -292,7 +292,9 @@ export default function SiteSnap() {
   }
 
   async function addPhoto(roomId, dataUrl, originalFile) {
-    const photo = { id: uid("ph"), roomId, dataUrl, takenAt: Date.now() };
+    // a running number across the property, so findings can cite "Photo 12"
+    const no = rooms.reduce((n, r) => n + r.photoIds.length, 0) + 1;
+    const photo = { id: uid("ph"), roomId, no, dataUrl, takenAt: Date.now() };
     if (originalFile) originals.current[photo.id] = originalFile;
     setPhotoCache((c) => ({ ...c, [photo.id]: photo }));
     setRooms((prev) => {
@@ -365,6 +367,16 @@ export default function SiteSnap() {
     });
     removeAudio(memoId);
     delete audioCache.current[memoId];
+  }
+
+  function setInspectionMeta(patch) {
+    setInspection((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...patch };
+      persist(next, rooms);
+      setTimeout(refreshIndex, 0);
+      return next;
+    });
   }
 
   function setRoomMeta(roomId, patch) {
@@ -506,6 +518,7 @@ export default function SiteSnap() {
             filesForRoom={(room) => filesFor(room.photoIds, room.name.replace(/\s+/g, "_"))}
             filesForUpload={(room) => filesFor(room.photoIds, room.name.replace(/\s+/g, "_"), true)}
             audioCache={audioCache}
+            onUploadResult={(r) => setInspectionMeta({ lastUpload: r })}
             onBack={() => setScreen("board")}
             onSaveAll={() => shareFiles(filesFor(rooms.flatMap((r) => r.photoIds), "inspection"), "Inspection photos")}
             onDone={finishAndReset}
@@ -576,10 +589,16 @@ function HomeScreen({ index, onNew, onOpen, onDiscard }) {
                 <div className="ss-row-main ss-job">
                   <span className="ss-row-name">{i.address}</span>
                   <span className="ss-job-sub">
-                    {i.postcode ? i.postcode + " · " : ""}
+                    {i.ref ? i.ref + " · " : i.postcode ? i.postcode + " · " : ""}
                     {i.photos} photo{i.photos === 1 ? "" : "s"} · {i.rooms} area{i.rooms === 1 ? "" : "s"}
                     {" · "}{relativeDay(i.startedAt)}
                   </span>
+                  {i.lastUpload && (
+                    <span className={`ss-job-up ${i.lastUpload.ok ? "ok" : "bad"}`}>
+                      {i.lastUpload.ok ? <CircleCheck size={11} /> : <X size={11} />}
+                      {i.lastUpload.ok ? "Uploaded" : "Upload incomplete"}
+                    </span>
+                  )}
                 </div>
               </button>
               <button className="ss-job-x" onClick={() => setConfirmId(i.id)} aria-label={`Discard ${i.address}`}>
@@ -642,6 +661,11 @@ function SetupScreen({ onBack, onStart }) {
   const [items, setItems] = useState([]); // {id, base, custom?}
   const [customName, setCustomName] = useState("");
   const [addingCustom, setAddingCustom] = useState(false);
+  const [caseOpen, setCaseOpen] = useState(false);
+  const [ref, setRef] = useState("");
+  const [client, setClient] = useState("");
+  const [occupier, setOccupier] = useState("");
+  const [solicitor, setSolicitor] = useState("");
 
   const countOf = (base) => items.filter((i) => i.base === base).length;
 
@@ -690,6 +714,23 @@ function SetupScreen({ onBack, onStart }) {
           className="ss-input" placeholder="Postcode (optional)" style={{ marginTop: 8 }}
           value={postcode} onChange={(e) => setPostcode(e.target.value.toUpperCase())}
         />
+
+        <button className="ss-case-toggle" onClick={() => setCaseOpen((o) => !o)}>
+          <Briefcase size={13} />
+          {caseOpen ? "Hide case details" : "Add case details (optional)"}
+        </button>
+        {caseOpen && (
+          <div className="ss-case">
+            <input className="ss-input" placeholder="Your reference" value={ref} onChange={(e) => setRef(e.target.value)} />
+            <input className="ss-input" placeholder="Client" value={client} onChange={(e) => setClient(e.target.value)} />
+            <input className="ss-input" placeholder="Occupier / tenant" value={occupier} onChange={(e) => setOccupier(e.target.value)} />
+            <input className="ss-input" placeholder="Instructing solicitor" value={solicitor} onChange={(e) => setSolicitor(e.target.value)} />
+            <p className="ss-fineprint" style={{ margin: "4px 2px 0" }}>
+              Carried into the report, the ZIP and the cloud upload, so they don't
+              have to be typed into the spreadsheet again.
+            </p>
+          </div>
+        )}
 
         <div className="ss-section-label" style={{ marginTop: 20 }}>Rooms &amp; areas</div>
         <div className="ss-chip-grid">
@@ -753,7 +794,10 @@ function SetupScreen({ onBack, onStart }) {
       <div className="ss-footer ss-footer-split">
         <span className="ss-count-note">{items.length} area{items.length === 1 ? "" : "s"}</span>
         <button className="ss-btn ss-btn-primary" disabled={!canStart}
-          onClick={() => onStart(address.trim(), postcode.trim(), named)}>
+          onClick={() => onStart(address.trim(), postcode.trim(), named, {
+            ref: ref.trim(), client: client.trim(),
+            occupier: occupier.trim(), solicitor: solicitor.trim(),
+          })}>
           Start inspection <ArrowRight size={17} strokeWidth={2.4} />
         </button>
       </div>
@@ -1006,6 +1050,7 @@ function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, onAddMe
             {[...photos].reverse().map((p) => (
               <button key={p.id} className="ss-cell" onClick={() => setViewPhoto(p)}>
                 <img src={p.dataUrl} alt="Inspection" />
+                {p.no ? <span className="ss-cell-no">{p.no}</span> : null}
               </button>
             ))}
           </div>
@@ -1027,6 +1072,7 @@ function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, onAddMe
           </div>
           <img src={viewPhoto.dataUrl} alt="Full view" />
           <div className="ss-lightbox-bottom">
+            {viewPhoto.no ? <div className="ss-lb-no">Photo {viewPhoto.no}</div> : null}
             {viewPhoto.takenAt && (
               <div className="ss-lb-time">
                 {new Date(viewPhoto.takenAt).toLocaleString("en-GB", {
@@ -1048,7 +1094,7 @@ function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, onAddMe
 
 /* ---------------- finish / export ---------------- */
 
-function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom, filesForUpload, audioCache, onBack, onSaveAll, onDone }) {
+function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom, filesForUpload, audioCache, onUploadResult, onBack, onSaveAll, onDone }) {
   const [note, setNote] = useState(null);
   const [zipBusy, setZipBusy] = useState(false);
   const [hookUrl, setHookUrl] = useState("");
@@ -1202,6 +1248,10 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
       inspectionId: inspection.id,
       address: inspection.address,
       postcode: inspection.postcode || "",
+      reference: inspection.ref || "",
+      client: inspection.client || "",
+      occupier: inspection.occupier || "",
+      solicitor: inspection.solicitor || "",
       inspectedAt: new Date(inspection.startedAt).toISOString(),
       totalPhotos,
       rooms: rooms.map((r, i) => ({
@@ -1212,6 +1262,8 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
         note: (r.note || "").trim(),
         photos: r.photoIds.length,
         voiceNotes: (r.memos || []).length,
+        // photo numbers so findings can cite them without matching by hand
+        photoNumbers: r.photoIds.map((id) => photoCache[id] && photoCache[id].no).filter(Boolean),
       })),
     };
     const nfd = baseFields(new FormData());
@@ -1226,6 +1278,7 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
     else setUpload((s) => s && ({ ...s, sent: s.sent + 1 }));
 
     setUpload((s) => s && ({ ...s, running: false, doneAll: !anyFailed }));
+    if (onUploadResult) onUploadResult({ at: Date.now(), ok: !anyFailed, total });
     flash(anyFailed ? "Something didn't send — check the link and tap upload to retry" : "Photos, voice notes and site notes all sent");
   }
 
@@ -1265,6 +1318,15 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
             );
           })}
         </div>
+
+        {inspection.lastUpload && !upload && (
+          <div className={`ss-lastup ${inspection.lastUpload.ok ? "ok" : "bad"}`}>
+            {inspection.lastUpload.ok ? <CircleCheck size={14} /> : <X size={14} />}
+            {inspection.lastUpload.ok ? "Uploaded to the cloud" : "Last upload didn't finish"}
+            {" · "}
+            {new Date(inspection.lastUpload.at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+          </div>
+        )}
 
         <div className="ss-section-label" style={{ marginTop: 18 }}>Export</div>
         <button className="ss-btn ss-btn-primary ss-btn-big" onClick={handleSaveAll}>
@@ -1381,6 +1443,14 @@ function ReportView({ inspection, rooms, photoCache, onClose }) {
             <span>{date}</span>
             <span>{totalPhotos} photo{totalPhotos === 1 ? "" : "s"} · {covered} of {rooms.length} areas</span>
           </div>
+          {(inspection.ref || inspection.client || inspection.occupier || inspection.solicitor) && (
+            <dl className="ss-rep-case">
+              {inspection.ref && (<><dt>Reference</dt><dd>{inspection.ref}</dd></>)}
+              {inspection.client && (<><dt>Client</dt><dd>{inspection.client}</dd></>)}
+              {inspection.occupier && (<><dt>Occupier</dt><dd>{inspection.occupier}</dd></>)}
+              {inspection.solicitor && (<><dt>Solicitor</dt><dd>{inspection.solicitor}</dd></>)}
+            </dl>
+          )}
         </header>
         {rooms.map((room, i) => {
           const photos = room.photoIds.map((id) => photoCache[id]).filter(Boolean);
@@ -1395,7 +1465,12 @@ function ReportView({ inspection, rooms, photoCache, onClose }) {
               {room.note && room.note.trim() && <p className="ss-rep-note">{room.note.trim()}</p>}
               {photos.length > 0 && (
                 <div className="ss-rep-grid">
-                  {photos.map((p) => <img key={p.id} src={p.dataUrl} alt="" />)}
+                  {photos.map((p) => (
+                    <figure key={p.id}>
+                      <img src={p.dataUrl} alt="" />
+                      {p.no ? <figcaption>Photo {p.no}</figcaption> : null}
+                    </figure>
+                  ))}
                 </div>
               )}
             </section>
@@ -1776,6 +1851,27 @@ function StyleBlock() {
         font-size: 15px; font-family: inherit; color: var(--hivis); outline: none; resize: none;
       }
       .ss-live-note::placeholder { color: rgba(217,244,79,.4); }
+
+      .ss-cell { position: relative; }
+      .ss-cell-no { position: absolute; left: 4px; bottom: 4px; font-size: 10px; font-weight: 800; background: rgba(10,14,11,.66); color: #fff; border-radius: 6px; padding: 1px 5px; font-variant-numeric: tabular-nums; }
+      .ss-lb-no { text-align: center; color: #fff; font-size: 13px; font-weight: 800; margin-bottom: 2px; }
+      .ss-rep-case { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; margin: 12px 0 0; font-size: 13px; }
+      .ss-rep-case dt { font-weight: 800; color: var(--muted); }
+      .ss-rep-case dd { margin: 0; }
+      .ss-rep-grid figure { margin: 0; }
+      .ss-rep-grid figcaption { font-size: 10.5px; font-weight: 700; color: var(--muted); margin-top: 3px; }
+
+      .ss-lastup { display: flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 700; border-radius: 10px; padding: 9px 12px; margin-top: 14px; }
+      .ss-lastup.ok { background: #EAF3EC; color: var(--pine); }
+      .ss-lastup.bad { background: #F8E7E3; color: var(--red); }
+
+      .ss-job-up { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 800; border-radius: 999px; padding: 2px 8px; margin-top: 4px; }
+      .ss-job-up.ok { background: #EAF3EC; color: var(--pine); }
+      .ss-job-up.bad { background: #F8E7E3; color: var(--red); }
+
+      /* ---- case details ---- */
+      .ss-case-toggle { display: flex; align-items: center; gap: 6px; margin: 10px auto 0; font-size: 12.5px; font-weight: 700; color: var(--muted); padding: 6px; }
+      .ss-case { display: flex; flex-direction: column; gap: 8px; background: var(--card); border: 1px solid var(--line); border-radius: 13px; padding: 12px; margin-top: 6px; }
 
       /* ---- inspection list ---- */
       .ss-job { flex-direction: column; align-items: flex-start; gap: 2px; }

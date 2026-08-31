@@ -36,6 +36,8 @@ export async function saveState(inspection, rooms) {
       startedAt: inspection.startedAt,
       photos: rooms.reduce((n, r) => n + r.photoIds.length, 0),
       rooms: rooms.length,
+      ref: inspection.ref || "",
+      lastUpload: inspection.lastUpload || null,
       updatedAt: Date.now(),
     };
     const i = list.findIndex((x) => x.id === inspection.id);
