@@ -1331,6 +1331,7 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
     else { if (!nres.confirmed) allConfirmed = false; setUpload((s) => s && ({ ...s, sent: s.sent + 1 })); }
 
     setUpload((s) => s && ({ ...s, running: false, doneAll: !anyFailed }));
+    setUpload((s) => s && ({ ...s, confirmed: !anyFailed && allConfirmed }));
     if (onUploadResult) onUploadResult({ at: Date.now(), ok: !anyFailed, confirmed: !anyFailed && allConfirmed, total });
     flash(anyFailed
       ? "Something didn't send — check the link and tap upload to retry"
@@ -1376,7 +1377,7 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
           })}
         </div>
 
-        {inspection.lastUpload && !upload && (
+        {inspection.lastUpload && (!upload || !upload.running) && (
           <div className={`ss-lastup ${inspection.lastUpload.ok ? "ok" : "bad"}`}>
             {inspection.lastUpload.ok ? <CircleCheck size={14} /> : <X size={14} />}
             {inspection.lastUpload.ok
@@ -1400,7 +1401,13 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
         </button>
         <button className="ss-btn ss-btn-ghost ss-btn-big" style={{ marginTop: 8 }} onClick={uploadViaWebhook} disabled={(upload && upload.running) || totalPhotos === 0}>
           <CloudUpload size={19} />
-          {upload ? (upload.running ? `Uploading ${upload.sent} of ${upload.total}…` : upload.doneAll ? "Uploaded ✓ — upload again" : "Retry failed uploads") : "Upload to cloud"}
+          {upload
+            ? upload.running
+              ? `Uploading ${upload.sent} of ${upload.total}…`
+              : upload.doneAll
+                ? (upload.confirmed ? "Filed ✓ — send again" : "Sent ✓ — send again")
+                : "Retry failed uploads"
+            : "Upload to cloud"}
         </button>
         {upload && upload.running && (
           <div className="ss-upbar"><div style={{ width: `${upload.total ? Math.round((upload.sent / upload.total) * 100) : 0}%` }} /></div>
