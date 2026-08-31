@@ -109,7 +109,7 @@ async function shareFiles(files, title) {
 
 import JSZip from "jszip";
 import {
-  loadState, saveState, clearState,
+  loadIndex, loadInspection, migrateLegacy, saveState, clearState,
   loadPhoto, savePhoto, removePhoto,
   loadAudio, saveAudio, removeAudio,
   loadWebhook, saveWebhook,
@@ -221,6 +221,7 @@ function VoiceMemo({ memos, onAdd, onDelete, dark }) {
 export default function SiteSnap() {
   const [screen, setScreen] = useState("loading"); // loading|home|setup|board|walk|room|finish
   const [inspection, setInspection] = useState(null);
+  const [index, setIndex] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [photoCache, setPhotoCache] = useState({});
   const [walkIndex, setWalkIndex] = useState(0);
@@ -232,26 +233,49 @@ export default function SiteSnap() {
 
   useEffect(() => {
     (async () => {
-      const data = await loadState();
-      if (data && data.inspection && data.rooms) {
-        setInspection(data.inspection);
-        setRooms(data.rooms);
-        const ids = data.rooms.flatMap((r) => r.photoIds);
-        const entries = await Promise.all(ids.map(async (id) => [id, await loadPhoto(id)]));
-        const cache = {};
-        entries.forEach(([id, p]) => { if (p) cache[id] = p; });
-        setPhotoCache(cache);
-        const memoIds = data.rooms.flatMap((r) => (r.memos || []).map((m) => m.id));
-        await Promise.all(memoIds.map(async (id) => {
-          const b = await loadAudio(id);
-          if (b) audioCache.current[id] = b;
-        }));
-        setScreen("board");
-      } else {
-        setScreen("home");
-      }
+      await migrateLegacy();
+      setIndex(await loadIndex());
+      setScreen("home");
     })();
   }, []);
+
+  async function refreshIndex() {
+    setIndex(await loadIndex());
+  }
+
+  // Photos and voice notes stay on disk until an inspection is closed, so
+  // opening one only pulls that property's media into memory.
+  async function openInspection(id) {
+    const data = await loadInspection(id);
+    if (!data || !data.inspection) { await refreshIndex(); return; }
+    setInspection(data.inspection);
+    setRooms(data.rooms || []);
+    const ids = (data.rooms || []).flatMap((r) => r.photoIds);
+    const entries = await Promise.all(ids.map(async (pid) => [pid, await loadPhoto(pid)]));
+    const cache = {};
+    entries.forEach(([pid, p]) => { if (p) cache[pid] = p; });
+    setPhotoCache(cache);
+    audioCache.current = {};
+    const memoIds = (data.rooms || []).flatMap((r) => (r.memos || []).map((m) => m.id));
+    await Promise.all(memoIds.map(async (mid) => {
+      const b = await loadAudio(mid);
+      if (b) audioCache.current[mid] = b;
+    }));
+    originals.current = {};
+    setScreen("board");
+  }
+
+  // Leaves the property loaded on disk — the surveyor is moving to the next
+  // job, not finishing this one.
+  async function backToHome() {
+    setInspection(null);
+    setRooms([]);
+    setPhotoCache({});
+    originals.current = {};
+    audioCache.current = {};
+    await refreshIndex();
+    setScreen("home");
+  }
 
   const persist = useCallback((insp, rms) => { saveState(insp, rms); }, []);
 
@@ -264,6 +288,7 @@ export default function SiteSnap() {
     originals.current = {};
     setScreen("board");
     persist(insp, rms);
+    setTimeout(refreshIndex, 0);
   }
 
   async function addPhoto(roomId, dataUrl, originalFile) {
@@ -361,15 +386,21 @@ export default function SiteSnap() {
   async function finishAndReset() {
     const ids = rooms.flatMap((r) => r.photoIds);
     const memoIds = rooms.flatMap((r) => (r.memos || []).map((m) => m.id));
-    await clearState();
+    await clearState(inspection.id);
     ids.forEach((id) => removePhoto(id));
     memoIds.forEach((id) => removeAudio(id));
-    setInspection(null);
-    setRooms([]);
-    setPhotoCache({});
-    originals.current = {};
-    audioCache.current = {};
-    setScreen("home");
+    await backToHome();
+  }
+
+  // Discards a whole property from the list without opening it.
+  async function discardInspection(id) {
+    const data = await loadInspection(id);
+    if (data && data.rooms) {
+      data.rooms.flatMap((r) => r.photoIds).forEach((pid) => removePhoto(pid));
+      data.rooms.flatMap((r) => (r.memos || []).map((m) => m.id)).forEach((mid) => removeAudio(mid));
+    }
+    await clearState(id);
+    await refreshIndex();
   }
 
   // compressedOnly: webhook/Graph uploads have 4-5MB request limits, so the
@@ -400,7 +431,14 @@ export default function SiteSnap() {
           <div className="ss-center"><Loader2 className="ss-spin" size={26} /></div>
         )}
 
-        {screen === "home" && <HomeScreen onNew={() => setScreen("setup")} />}
+        {screen === "home" && (
+          <HomeScreen
+            index={index}
+            onNew={() => setScreen("setup")}
+            onOpen={openInspection}
+            onDiscard={discardInspection}
+          />
+        )}
 
         {screen === "setup" && (
           <SetupScreen onBack={() => setScreen("home")} onStart={startInspection} />
@@ -415,6 +453,7 @@ export default function SiteSnap() {
             doneRooms={doneRooms}
             onReorder={reorderRooms}
             onAddRoom={addRoom}
+            onHome={backToHome}
             onOpenRoom={(id) => { setActiveRoomId(id); setScreen("room"); }}
             onWalk={(startIdx) => { setWalkIndex(startIdx); setScreen("walk"); }}
             onFinish={() => setScreen("finish")}
@@ -486,33 +525,113 @@ export default function SiteSnap() {
 
 /* ---------------- home ---------------- */
 
-function HomeScreen({ onNew }) {
-  return (
-    <div className="ss-col">
-      <div className="ss-home-hero">
-        <div className="ss-mark">
-          <Camera size={20} strokeWidth={2.4} />
+function HomeScreen({ index, onNew, onOpen, onDiscard }) {
+  const [confirmId, setConfirmId] = useState(null);
+  const open = [...index].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  const target = open.find((i) => i.id === confirmId);
+
+  if (open.length === 0) {
+    return (
+      <div className="ss-col">
+        <div className="ss-home-hero">
+          <div className="ss-mark"><Camera size={20} strokeWidth={2.4} /></div>
+          <div className="ss-eyebrow">Property inspections</div>
+          <h1 className="ss-h1">Every photo,<br />already filed.</h1>
+          <p className="ss-lede">
+            Pick the rooms, walk the property, shoot as you go. Photos file
+            themselves into numbered room folders — rate each room, add notes,
+            and export everything in one tap at the end.
+          </p>
+          <div className="ss-home-steps">
+            <div><span className="ss-step-n">1</span> Set up the property</div>
+            <div><span className="ss-step-n">2</span> Walk, shoot &amp; rate each room</div>
+            <div><span className="ss-step-n">3</span> Export — Photos, ZIP, OneDrive, PDF report</div>
+          </div>
         </div>
-        <div className="ss-eyebrow">Property inspections</div>
-        <h1 className="ss-h1">Every photo,<br />already filed.</h1>
-        <p className="ss-lede">
-          Pick the rooms, walk the property, shoot as you go. Photos file
-          themselves into numbered room folders — rate each room, add notes,
-          and export everything in one tap at the end.
-        </p>
-        <div className="ss-home-steps">
-          <div><span className="ss-step-n">1</span> Set up the property</div>
-          <div><span className="ss-step-n">2</span> Walk, shoot &amp; rate each room</div>
-          <div><span className="ss-step-n">3</span> Export — Photos, ZIP, OneDrive, PDF report</div>
+        <div className="ss-footer">
+          <button className="ss-btn ss-btn-primary ss-btn-big" onClick={onNew}>
+            <Plus size={20} strokeWidth={2.6} /> New inspection
+          </button>
         </div>
       </div>
+    );
+  }
+
+  return (
+    <div className="ss-col">
+      <div className="ss-topbar">
+        <span className="ss-tick" />
+        <div className="ss-topbar-text">
+          <div className="ss-eyebrow-sm">SiteSnap</div>
+          <div className="ss-title">In progress</div>
+        </div>
+        <span className="ss-badge">{open.length}</span>
+      </div>
+
+      <div className="ss-scroll">
+        <div className="ss-list">
+          {open.map((i) => (
+            <div key={i.id} className="ss-row">
+              <button className="ss-row-tap" onClick={() => onOpen(i.id)}>
+                <div className="ss-row-main ss-job">
+                  <span className="ss-row-name">{i.address}</span>
+                  <span className="ss-job-sub">
+                    {i.postcode ? i.postcode + " · " : ""}
+                    {i.photos} photo{i.photos === 1 ? "" : "s"} · {i.rooms} area{i.rooms === 1 ? "" : "s"}
+                    {" · "}{relativeDay(i.startedAt)}
+                  </span>
+                </div>
+              </button>
+              <button className="ss-job-x" onClick={() => setConfirmId(i.id)} aria-label={`Discard ${i.address}`}>
+                <Trash2 size={16} />
+              </button>
+            </div>
+          ))}
+        </div>
+        <p className="ss-fineprint">
+          Inspections stay on this device until you export and close them, so you
+          can run several properties in a day and upload when you have signal.
+        </p>
+      </div>
+
       <div className="ss-footer">
         <button className="ss-btn ss-btn-primary ss-btn-big" onClick={onNew}>
           <Plus size={20} strokeWidth={2.6} /> New inspection
         </button>
       </div>
+
+      {target && (
+        <div className="ss-modal-back" onClick={() => setConfirmId(null)}>
+          <div className="ss-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="ss-modal-icon"><AlertTriangle size={22} /></div>
+            <div className="ss-modal-title">Discard {target.address}?</div>
+            <p>
+              Its {target.photos} photo{target.photos === 1 ? "" : "s"} and notes will be
+              deleted from this device. Anything already exported or uploaded is unaffected.
+            </p>
+            <button className="ss-btn ss-btn-danger"
+              onClick={() => { onDiscard(target.id); setConfirmId(null); }}>
+              <Trash2 size={16} /> Delete inspection
+            </button>
+            <button className="ss-btn ss-btn-ghost" style={{ marginTop: 8 }} onClick={() => setConfirmId(null)}>
+              Keep it
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+function relativeDay(ts) {
+  const d = new Date(ts);
+  const today = new Date();
+  const sameDay = d.toDateString() === today.toDateString();
+  if (sameDay) return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  if (d.toDateString() === yesterday.toDateString()) return "yesterday";
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
 /* ---------------- setup (one screen) ---------------- */
@@ -644,7 +763,7 @@ function SetupScreen({ onBack, onStart }) {
 
 /* ---------------- board (overview) ---------------- */
 
-function BoardScreen({ inspection, rooms, photoCache, totalPhotos, doneRooms, onReorder, onAddRoom, onOpenRoom, onWalk, onFinish }) {
+function BoardScreen({ inspection, rooms, photoCache, totalPhotos, doneRooms, onReorder, onAddRoom, onHome, onOpenRoom, onWalk, onFinish }) {
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const firstEmpty = Math.max(0, rooms.findIndex((r) => r.photoIds.length === 0));
@@ -655,6 +774,7 @@ function BoardScreen({ inspection, rooms, photoCache, totalPhotos, doneRooms, on
       <TopBar
         title={inspection.address}
         eyebrow={inspection.postcode || "Inspection in progress"}
+        onBack={onHome}
         right={<span className="ss-badge">{totalPhotos} photo{totalPhotos === 1 ? "" : "s"}</span>}
       />
 
@@ -1656,6 +1776,13 @@ function StyleBlock() {
         font-size: 15px; font-family: inherit; color: var(--hivis); outline: none; resize: none;
       }
       .ss-live-note::placeholder { color: rgba(217,244,79,.4); }
+
+      /* ---- inspection list ---- */
+      .ss-job { flex-direction: column; align-items: flex-start; gap: 2px; }
+      .ss-job-sub { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+      .ss-job-x { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; color: #B9C2B8; flex-shrink: 0; border-radius: 10px; }
+      .ss-job-x:active { background: #F1F4EF; color: var(--red); }
+      .ss-row .ss-row-tap { padding: 10px 0 10px 12px; }
 
       /* ---- voice memos ---- */
       .ss-vm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }

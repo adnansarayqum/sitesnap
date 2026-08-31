@@ -2,18 +2,64 @@
 // holds far more than localStorage (photos are big).
 import { get, set, del } from "idb-keyval";
 
-const INSP_KEY = "sitesnap:inspection";
+const LEGACY_KEY = "sitesnap:inspection";   // pre-1.3: a single inspection
+const INDEX_KEY = "sitesnap:inspections";   // [{id, address, postcode, startedAt}]
 const HOOK_KEY = "sitesnap:webhook";
 const KEY_KEY = "sitesnap:webhookKey";
 
-export async function loadState() {
-  try { return (await get(INSP_KEY)) || null; } catch { return null; }
+const recordKey = (id) => `sitesnap:inspection:${id}`;
+
+// Several properties can be open at once — a surveyor doing three in a day
+// can't finish and wipe one before starting the next, and may be out of
+// signal all morning.
+export async function loadIndex() {
+  try { return (await get(INDEX_KEY)) || []; } catch { return []; }
 }
+
+async function writeIndex(list) {
+  try { await set(INDEX_KEY, list); } catch (e) { console.error("index save failed", e); }
+}
+
+export async function loadInspection(id) {
+  try { return (await get(recordKey(id))) || null; } catch { return null; }
+}
+
 export async function saveState(inspection, rooms) {
-  try { await set(INSP_KEY, { inspection, rooms }); } catch (e) { console.error("save failed", e); }
+  if (!inspection) return;
+  try {
+    await set(recordKey(inspection.id), { inspection, rooms });
+    const list = await loadIndex();
+    const summary = {
+      id: inspection.id,
+      address: inspection.address,
+      postcode: inspection.postcode || "",
+      startedAt: inspection.startedAt,
+      photos: rooms.reduce((n, r) => n + r.photoIds.length, 0),
+      rooms: rooms.length,
+      updatedAt: Date.now(),
+    };
+    const i = list.findIndex((x) => x.id === inspection.id);
+    if (i === -1) list.push(summary); else list[i] = summary;
+    await writeIndex(list);
+  } catch (e) { console.error("save failed", e); }
 }
-export async function clearState() {
-  try { await del(INSP_KEY); } catch {}
+
+export async function clearState(id) {
+  try {
+    await del(recordKey(id));
+    await writeIndex((await loadIndex()).filter((x) => x.id !== id));
+  } catch {}
+}
+
+// One-time move of a pre-1.3 inspection into the multi-inspection store, so
+// an upgrade mid-property doesn't lose the morning's work.
+export async function migrateLegacy() {
+  try {
+    const old = await get(LEGACY_KEY);
+    if (!old || !old.inspection || !old.rooms) return;
+    await saveState(old.inspection, old.rooms);
+    await del(LEGACY_KEY);
+  } catch (e) { console.error("migrate failed", e); }
 }
 
 export async function loadPhoto(id) {
