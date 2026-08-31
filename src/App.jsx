@@ -1096,6 +1096,9 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
     };
     const nfd = baseFields(new FormData());
     nfd.append("kind", "notes");
+    // a folder so this still files sensibly against a workflow that has no
+    // routing yet and builds its path from address/folder/filename
+    nfd.append("folder", "_Inspection");
     nfd.append("filename", "inspection.json");
     nfd.append("notes", JSON.stringify(payload));
     nfd.append("file", new File([JSON.stringify(payload, null, 2)], "inspection.json", { type: "application/json" }), "inspection.json");
