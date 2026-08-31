@@ -3,7 +3,7 @@ import {
   Camera, Trash2, GripVertical, ChevronLeft, Plus, Minus, MapPin,
   CloudUpload, Check, X, Loader2, ImagePlus, ArrowRight, ArrowLeft,
   Undo2, FolderTree, CircleCheck, Image as ImageIcon, Download, Link2,
-  StickyNote, FileText, Printer, AlertTriangle, Mic, MicOff, KeyRound, Briefcase,
+  StickyNote, FileText, Printer, AlertTriangle, Mic, MicOff, KeyRound, Briefcase, Smartphone,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -114,6 +114,7 @@ import {
   loadAudio, saveAudio, removeAudio,
   loadWebhook, saveWebhook,
   loadWebhookKey, saveWebhookKey,
+  setStorageErrorHandler, requestDurableStorage, storageEstimate,
 } from "./storage.js";
 
 /* ---------- voice memos ---------- */
@@ -227,13 +228,25 @@ export default function SiteSnap() {
   const [walkIndex, setWalkIndex] = useState(0);
   const [activeRoomId, setActiveRoomId] = useState(null);
   const [undoItem, setUndoItem] = useState(null); // {photo, roomId}
+  const [storageAlert, setStorageAlert] = useState(null);
+  const [durable, setDurable] = useState(true);
   const undoTimer = useRef(null);
   const originals = useRef({}); // id -> File/Blob (full quality, this session only)
   const audioCache = useRef({}); // memo id -> Blob
 
   useEffect(() => {
+    // A dropped write means photos that cannot be reshot, so it has to be
+    // visible on screen rather than only in the console.
+    setStorageErrorHandler(({ what, quota }) => {
+      setStorageAlert(quota
+        ? "This device is out of space. Free some up, then export or upload before shooting more — recent photos may not be saved."
+        : `${what} failed. Export or upload this inspection now, before closing the app.`);
+    });
     (async () => {
       await migrateLegacy();
+      // ask the browser not to evict an inspection under disk pressure;
+      // browsers usually grant this only once the app is on the home screen
+      requestDurableStorage().then((granted) => setDurable(granted));
       setIndex(await loadIndex());
       setScreen("home");
     })();
@@ -304,7 +317,13 @@ export default function SiteSnap() {
       persist(inspection, next);
       return next;
     });
-    savePhoto(photo);
+    savePhoto(photo).catch(() => {});
+    // low space long before it runs out, while there is still time to export
+    storageEstimate().then((e) => {
+      if (e && e.freeMB !== null && e.freeMB < 150) {
+        setStorageAlert(`Only about ${e.freeMB} MB left on this device — upload or export soon.`);
+      }
+    });
   }
 
   function deletePhoto(roomId, photoId) {
@@ -446,6 +465,7 @@ export default function SiteSnap() {
         {screen === "home" && (
           <HomeScreen
             index={index}
+            durable={durable}
             onNew={() => setScreen("setup")}
             onOpen={openInspection}
             onDiscard={discardInspection}
@@ -525,6 +545,14 @@ export default function SiteSnap() {
           />
         )}
 
+        {storageAlert && (
+          <div className="ss-alert">
+            <AlertTriangle size={16} />
+            <span>{storageAlert}</span>
+            <button onClick={() => setStorageAlert(null)} aria-label="Dismiss"><X size={15} /></button>
+          </div>
+        )}
+
         {undoItem && (
           <div className="ss-toast">
             <span>Photo deleted</span>
@@ -538,7 +566,7 @@ export default function SiteSnap() {
 
 /* ---------------- home ---------------- */
 
-function HomeScreen({ index, onNew, onOpen, onDiscard }) {
+function HomeScreen({ index, durable, onNew, onOpen, onDiscard }) {
   const [confirmId, setConfirmId] = useState(null);
   const open = [...index].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   const target = open.find((i) => i.id === confirmId);
@@ -596,7 +624,7 @@ function HomeScreen({ index, onNew, onOpen, onDiscard }) {
                   {i.lastUpload && (
                     <span className={`ss-job-up ${i.lastUpload.ok ? "ok" : "bad"}`}>
                       {i.lastUpload.ok ? <CircleCheck size={11} /> : <X size={11} />}
-                      {i.lastUpload.ok ? "Uploaded" : "Upload incomplete"}
+                      {i.lastUpload.ok ? (i.lastUpload.confirmed ? "Filed" : "Sent") : "Upload incomplete"}
                     </span>
                   )}
                 </div>
@@ -607,6 +635,15 @@ function HomeScreen({ index, onNew, onOpen, onDiscard }) {
             </div>
           ))}
         </div>
+        {durable === false && (
+          <div className="ss-tip">
+            <Smartphone size={14} />
+            <span>
+              Add SiteSnap to your home screen (Share → Add to Home Screen). It
+              stops the browser clearing photos you haven't uploaded yet.
+            </span>
+          </div>
+        )}
         <p className="ss-fineprint">
           Inspections stay on this device until you export and close them, so you
           can run several properties in a day and upload when you have signal.
@@ -1170,17 +1207,28 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
   // One POST per item, each tagged with `kind` so the cloud workflow can route
   // it: photos are filed, voice notes are transcribed, and the single notes
   // payload is what the AI drafting step reads.
+  // A 2xx only proves the workflow accepted the upload for processing — with
+  // Make's default reply ("Accepted") the file may still fail to reach the
+  // drive afterwards. A workflow that answers after it has filed the item
+  // returns something else, and that is the only response we treat as proof.
   async function postToHook(url, key, fd) {
     const headers = key ? { "x-make-apikey": key } : undefined;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const res = await fetch(url, { method: "POST", body: fd, headers });
-        if (res.ok) return true;
+        if (res.ok) {
+          let body = "";
+          try { body = (await res.text()).trim().toLowerCase(); } catch { /* opaque body */ }
+          const queuedOnly = body === "" || body === "accepted";
+          return { ok: true, confirmed: !queuedOnly };
+        }
         // don't retry a rejection the server will just repeat
-        if (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429) return false;
+        if (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429) {
+          return { ok: false, confirmed: false };
+        }
       } catch { /* network error — loop retries once */ }
     }
-    return false;
+    return { ok: false, confirmed: false };
   }
 
   function baseFields(fd) {
@@ -1203,6 +1251,7 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
     const total = populated.reduce((s, r) => s + r.photoIds.length, 0) + memoCount + 1;
     setUpload({ statuses, running: true, doneAll: false, sent: 0, total });
     let anyFailed = false;
+    let allConfirmed = true;
     for (const room of populated) {
       const idx = rooms.indexOf(room);
       setUpload((s) => s && ({ ...s, statuses: { ...s.statuses, [room.id]: "uploading" } }));
@@ -1216,7 +1265,9 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
         fd.append("condition", room.condition || "");
         fd.append("note", room.note || "");
         fd.append("file", f, f.name);
-        if (!(await postToHook(url, key, fd))) { ok = false; break; }
+        const r = await postToHook(url, key, fd);
+        if (!r.ok) { ok = false; break; }
+        if (!r.confirmed) allConfirmed = false;
         setUpload((s) => s && ({ ...s, sent: s.sent + 1 }));
       }
       if (!ok) anyFailed = true;
@@ -1237,8 +1288,9 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
         fd.append("filename", `${name}.${extFor(m.type)}`);
         fd.append("seconds", String(m.secs || 0));
         fd.append("file", blob, `${name}.${extFor(m.type)}`);
-        if (!(await postToHook(url, key, fd))) anyFailed = true;
-        else setUpload((s) => s && ({ ...s, sent: s.sent + 1 }));
+        const r = await postToHook(url, key, fd);
+        if (!r.ok) anyFailed = true;
+        else { if (!r.confirmed) allConfirmed = false; setUpload((s) => s && ({ ...s, sent: s.sent + 1 })); }
       }
     }
 
@@ -1274,12 +1326,17 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
     nfd.append("filename", "inspection.json");
     nfd.append("notes", JSON.stringify(payload));
     nfd.append("file", new File([JSON.stringify(payload, null, 2)], "inspection.json", { type: "application/json" }), "inspection.json");
-    if (!(await postToHook(url, key, nfd))) anyFailed = true;
-    else setUpload((s) => s && ({ ...s, sent: s.sent + 1 }));
+    const nres = await postToHook(url, key, nfd);
+    if (!nres.ok) anyFailed = true;
+    else { if (!nres.confirmed) allConfirmed = false; setUpload((s) => s && ({ ...s, sent: s.sent + 1 })); }
 
     setUpload((s) => s && ({ ...s, running: false, doneAll: !anyFailed }));
-    if (onUploadResult) onUploadResult({ at: Date.now(), ok: !anyFailed, total });
-    flash(anyFailed ? "Something didn't send — check the link and tap upload to retry" : "Photos, voice notes and site notes all sent");
+    if (onUploadResult) onUploadResult({ at: Date.now(), ok: !anyFailed, confirmed: !anyFailed && allConfirmed, total });
+    flash(anyFailed
+      ? "Something didn't send — check the link and tap upload to retry"
+      : allConfirmed
+        ? "Everything filed in the cloud"
+        : "Everything sent — your workflow will file it");
   }
 
   return (
@@ -1322,7 +1379,9 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
         {inspection.lastUpload && !upload && (
           <div className={`ss-lastup ${inspection.lastUpload.ok ? "ok" : "bad"}`}>
             {inspection.lastUpload.ok ? <CircleCheck size={14} /> : <X size={14} />}
-            {inspection.lastUpload.ok ? "Uploaded to the cloud" : "Last upload didn't finish"}
+            {inspection.lastUpload.ok
+              ? (inspection.lastUpload.confirmed ? "Filed in the cloud" : "Sent to the cloud")
+              : "Last upload didn't finish"}
             {" · "}
             {new Date(inspection.lastUpload.at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
           </div>
@@ -1868,6 +1927,21 @@ function StyleBlock() {
       .ss-job-up { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 800; border-radius: 999px; padding: 2px 8px; margin-top: 4px; }
       .ss-job-up.ok { background: #EAF3EC; color: var(--pine); }
       .ss-job-up.bad { background: #F8E7E3; color: var(--red); }
+
+      .ss-alert {
+        position: fixed; top: 0; left: 50%; transform: translateX(-50%); z-index: 60;
+        width: 100%; max-width: 430px; display: flex; align-items: flex-start; gap: 10px;
+        background: var(--red); color: #fff; padding: 12px 14px calc(12px + env(safe-area-inset-top));
+        padding-top: calc(12px + env(safe-area-inset-top));
+        font-size: 13px; font-weight: 700; line-height: 1.4;
+        box-shadow: 0 6px 20px rgba(16,36,29,.25);
+      }
+      .ss-alert svg { flex-shrink: 0; margin-top: 1px; }
+      .ss-alert span { flex: 1; }
+      .ss-alert button { color: rgba(255,255,255,.85); flex-shrink: 0; }
+
+      .ss-tip { display: flex; gap: 9px; align-items: flex-start; background: #F6EFDC; color: #7A4F00; border-radius: 12px; padding: 11px 13px; margin-top: 14px; font-size: 12.5px; font-weight: 600; line-height: 1.45; }
+      .ss-tip svg { flex-shrink: 0; margin-top: 1px; }
 
       /* ---- case details ---- */
       .ss-case-toggle { display: flex; align-items: center; gap: 6px; margin: 10px auto 0; font-size: 12.5px; font-weight: 700; color: var(--muted); padding: 6px; }
