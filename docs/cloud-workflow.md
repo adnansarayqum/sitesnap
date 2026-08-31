@@ -150,6 +150,26 @@ JSON.
 }
 ```
 
+## Confirming an upload actually filed
+
+By default a Make webhook replies `Accepted` the moment it receives an
+upload — before the OneDrive step runs. If that step then fails, the app has
+already been told 200 and will show the inspection as **Sent**.
+
+To get a real confirmation, make the scenario answer after it has filed the
+item:
+
+1. Webhook module → **Show advanced settings** → set the response to
+   **"Wait for the scenario to be completed"** (rather than returning
+   immediately).
+2. Add a **Webhooks → Webhook response** module at the end of each route,
+   status `200`, body `filed`.
+
+Any body other than `Accepted` is treated as proof, and the app then shows
+**Filed in the cloud** instead of **Sent to the cloud**. This matters because
+these photos are evidence — a tick that means "probably arrived" is worse
+than no tick at all.
+
 ## Access key
 
 To stop anyone who has the URL writing into your OneDrive:
