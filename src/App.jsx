@@ -11,30 +11,53 @@ import {
 /*  Mockup v2: walkthrough capture, one-screen setup, ledger overview  */
 /* ------------------------------------------------------------------ */
 
-const PRESETS = [
-  { base: "External", steppable: false },
-  { base: "Hallway", steppable: false },
-  { base: "Living Room", steppable: false },
-  { base: "Dining Room", steppable: false },
-  { base: "Kitchen", steppable: false },
-  { base: "Utility Room", steppable: false },
-  { base: "Bedroom", steppable: true },
-  { base: "Ensuite", steppable: true },
-  { base: "Bathroom", steppable: true },
-  { base: "WC", steppable: false },
-  { base: "Landing", steppable: false },
-  { base: "Stairs", steppable: false },
-  { base: "Conservatory", steppable: false },
-  { base: "Garden", steppable: false },
-  { base: "Garage", steppable: false },
-  { base: "Loft", steppable: false },
-  { base: "Attic", steppable: false },
-  { base: "External Walls & Drains", steppable: false },
-  { base: "Infestation", steppable: false },
-  { base: "Meters", steppable: false },
-  { base: "Smoke / CO Alarms", steppable: false },
-  { base: "Additional Claim Item", steppable: true },
+// The surveyor's own SOURCE list from his report workbook — folder names must
+// match these exactly or his macro can't line the photos up with the findings.
+// Numbered variants (Bedroom 1-4, Bathroom 1-3) come from the +/- stepper, so
+// they aren't listed separately.
+const PRESET_GROUPS = [
+  {
+    group: "Rooms",
+    items: [
+      { base: "Kitchen" }, { base: "Living Room" }, { base: "Dining Room" },
+      { base: "Bedroom", steppable: true }, { base: "Bedrooms" },
+      { base: "Bathroom", steppable: true }, { base: "Bathroom (Upstairs)" },
+      { base: "Upstairs Bathroom" }, { base: "Downstairs Bathroom" },
+      { base: "Wet Room" }, { base: "Toilet" }, { base: "Downstairs Toilet" },
+      { base: "Separate WC" }, { base: "WC" }, { base: "Utility Room" },
+      { base: "Hallway" }, { base: "Upstairs Hallway" }, { base: "Hallway and Landing" },
+      { base: "Landing" }, { base: "Landing/Stairs" },
+      { base: "Attic" }, { base: "Balcony" },
+    ],
+  },
+  {
+    group: "Services",
+    items: [
+      { base: "Boiler" }, { base: "Boiler/Heating" }, { base: "Heating" },
+      { base: "Electrics" }, { base: "Windows" },
+      { base: "Doors & Windows (Throughout)" },
+      { base: "Front Door" }, { base: "Back Door" },
+    ],
+  },
+  {
+    group: "Outside",
+    items: [
+      { base: "External" }, { base: "Exterior" }, { base: "External Areas" },
+      { base: "External Walls & Drains" }, { base: "Garden" },
+      { base: "Other (Exterior)" },
+    ],
+  },
+  {
+    group: "Whole property & other",
+    items: [
+      { base: "Property" }, { base: "Whole Property" }, { base: "Throughout Property" },
+      { base: "Infestation" }, { base: "Additional Claim Item", steppable: true },
+      { base: "Other" },
+    ],
+  },
 ];
+
+const PRESETS = PRESET_GROUPS.flatMap((g) => g.items);
 
 const CONDITIONS = ["Good", "Fair", "Poor"];
 
@@ -699,6 +722,7 @@ function SetupScreen({ onBack, onStart }) {
   const [customName, setCustomName] = useState("");
   const [addingCustom, setAddingCustom] = useState(false);
   const [caseOpen, setCaseOpen] = useState(false);
+  const [filter, setFilter] = useState("");
   const [ref, setRef] = useState("");
   const [client, setClient] = useState("");
   const [occupier, setOccupier] = useState("");
@@ -770,28 +794,42 @@ function SetupScreen({ onBack, onStart }) {
         )}
 
         <div className="ss-section-label" style={{ marginTop: 20 }}>Rooms &amp; areas</div>
-        <div className="ss-chip-grid">
-          {PRESETS.map((p) => {
-            const c = countOf(p.base);
-            return (
-              <div key={p.base} className={`ss-chip ${c ? "on" : ""}`}>
-                <button className="ss-chip-main" onClick={() => (p.steppable ? (c ? null : inc(p.base)) : toggle(p.base))}>
-                  {p.base}{c > 1 ? ` ×${c}` : ""}
-                </button>
-                {p.steppable ? (
-                  c > 0 ? (
-                    <span className="ss-stepper">
-                      <button onClick={() => dec(p.base)} aria-label={`Remove ${p.base}`}><Minus size={14} /></button>
-                      <button onClick={() => inc(p.base)} aria-label={`Add ${p.base}`}><Plus size={14} /></button>
-                    </span>
-                  ) : null
-                ) : c > 0 ? (
-                  <Check size={15} className="ss-chip-check" />
-                ) : null}
+        <input
+          className="ss-input ss-filter" placeholder="Filter areas…"
+          value={filter} onChange={(e) => setFilter(e.target.value)}
+        />
+        {PRESET_GROUPS.map((g) => {
+          const shown = g.items.filter((p) =>
+            p.base.toLowerCase().includes(filter.trim().toLowerCase()));
+          if (!shown.length) return null;
+          return (
+            <div key={g.group}>
+              <div className="ss-group-label">{g.group}</div>
+              <div className="ss-chip-grid">
+                {shown.map((p) => {
+                  const c = countOf(p.base);
+                  return (
+                    <div key={p.base} className={`ss-chip ${c ? "on" : ""}`}>
+                      <button className="ss-chip-main" onClick={() => (p.steppable ? (c ? null : inc(p.base)) : toggle(p.base))}>
+                        {p.base}{c > 1 ? ` ×${c}` : ""}
+                      </button>
+                      {p.steppable ? (
+                        c > 0 ? (
+                          <span className="ss-stepper">
+                            <button onClick={() => dec(p.base)} aria-label={`Remove ${p.base}`}><Minus size={14} /></button>
+                            <button onClick={() => inc(p.base)} aria-label={`Add ${p.base}`}><Plus size={14} /></button>
+                          </span>
+                        ) : null
+                      ) : c > 0 ? (
+                        <Check size={15} className="ss-chip-check" />
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
-        </div>
+            </div>
+          );
+        })}
 
         {addingCustom ? (
           <div className="ss-inline-add">
@@ -1261,6 +1299,8 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
         const fd = baseFields(new FormData());
         fd.append("kind", "photo");
         fd.append("folder", `${pad(idx + 1)}. ${room.name}`);
+        // the bare name matches the SOURCE column in the report workbook
+        fd.append("room", room.name);
         fd.append("filename", f.name);
         fd.append("condition", room.condition || "");
         fd.append("note", room.note || "");
@@ -1949,6 +1989,10 @@ function StyleBlock() {
 
       .ss-tip { display: flex; gap: 9px; align-items: flex-start; background: #F6EFDC; color: #7A4F00; border-radius: 12px; padding: 11px 13px; margin-top: 14px; font-size: 12.5px; font-weight: 600; line-height: 1.45; }
       .ss-tip svg { flex-shrink: 0; margin-top: 1px; }
+
+      .ss-filter { margin-bottom: 12px; font-size: 15px; padding: 11px 13px; }
+      .ss-group-label { font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 14px 2px 7px; }
+      .ss-chip-main { font-size: 13.5px; }
 
       /* ---- case details ---- */
       .ss-case-toggle { display: flex; align-items: center; gap: 6px; margin: 10px auto 0; font-size: 12.5px; font-weight: 700; color: var(--muted); padding: 6px; }
