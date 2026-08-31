@@ -4,6 +4,7 @@ import { get, set, del } from "idb-keyval";
 
 const INSP_KEY = "sitesnap:inspection";
 const HOOK_KEY = "sitesnap:webhook";
+const KEY_KEY = "sitesnap:webhookKey";
 
 export async function loadState() {
   try { return (await get(INSP_KEY)) || null; } catch { return null; }
@@ -30,4 +31,21 @@ export async function loadWebhook() {
 }
 export async function saveWebhook(url) {
   try { await set(HOOK_KEY, url); } catch {}
+}
+
+export async function loadAudio(id) {
+  try { return (await get(`sitesnap:audio:${id}`)) || null; } catch { return null; }
+}
+export async function saveAudio(id, blob) {
+  try { await set(`sitesnap:audio:${id}`, blob); } catch (e) { console.error("audio save failed", e); }
+}
+export async function removeAudio(id) {
+  try { await del(`sitesnap:audio:${id}`); } catch {}
+}
+
+export async function loadWebhookKey() {
+  try { return (await get(KEY_KEY)) || ""; } catch { return ""; }
+}
+export async function saveWebhookKey(key) {
+  try { await set(KEY_KEY, key); } catch {}
 }

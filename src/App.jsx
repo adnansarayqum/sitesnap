@@ -3,7 +3,7 @@ import {
   Camera, Trash2, GripVertical, ChevronLeft, Plus, Minus, MapPin,
   CloudUpload, Check, X, Loader2, ImagePlus, ArrowRight, ArrowLeft,
   Undo2, FolderTree, CircleCheck, Image as ImageIcon, Download, Link2,
-  StickyNote, FileText, Printer, AlertTriangle,
+  StickyNote, FileText, Printer, AlertTriangle, Mic, MicOff, KeyRound,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -28,8 +28,12 @@ const PRESETS = [
   { base: "Garden", steppable: false },
   { base: "Garage", steppable: false },
   { base: "Loft", steppable: false },
+  { base: "Attic", steppable: false },
+  { base: "External Walls & Drains", steppable: false },
+  { base: "Infestation", steppable: false },
   { base: "Meters", steppable: false },
   { base: "Smoke / CO Alarms", steppable: false },
+  { base: "Additional Claim Item", steppable: true },
 ];
 
 const CONDITIONS = ["Good", "Fair", "Poor"];
@@ -107,8 +111,110 @@ import JSZip from "jszip";
 import {
   loadState, saveState, clearState,
   loadPhoto, savePhoto, removePhoto,
+  loadAudio, saveAudio, removeAudio,
   loadWebhook, saveWebhook,
+  loadWebhookKey, saveWebhookKey,
 } from "./storage.js";
+
+/* ---------- voice memos ---------- */
+
+function canRecord() {
+  return typeof navigator !== "undefined" && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)
+    && typeof MediaRecorder !== "undefined";
+}
+
+function pickAudioType() {
+  if (typeof MediaRecorder === "undefined") return "";
+  const types = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"];
+  return types.find((t) => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || "";
+}
+
+function extFor(mime) {
+  if (!mime) return "webm";
+  if (mime.includes("mp4")) return "m4a";
+  if (mime.includes("ogg")) return "ogg";
+  return "webm";
+}
+
+function mmss(sec) {
+  const m = Math.floor(sec / 60), s = sec % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+// Records on the device and keeps the blob locally — works with no signal,
+// which browser speech-to-text does not. Transcription happens in the cloud
+// workflow after upload.
+function VoiceMemo({ memos, onAdd, onDelete, dark }) {
+  const [state, setState] = useState("idle"); // idle|recording|denied|unsupported
+  const [secs, setSecs] = useState(0);
+  const rec = useRef(null);
+  const chunks = useRef([]);
+  const timer = useRef(null);
+  const secsRef = useRef(0);
+
+  useEffect(() => () => {
+    if (timer.current) clearInterval(timer.current);
+    if (rec.current && rec.current.state === "recording") rec.current.stop();
+  }, []);
+
+  async function start() {
+    if (!canRecord()) { setState("unsupported"); return; }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mime = pickAudioType();
+      const mr = new MediaRecorder(stream, mime ? { mimeType: mime, audioBitsPerSecond: 32000 } : undefined);
+      chunks.current = [];
+      mr.ondataavailable = (e) => { if (e.data && e.data.size) chunks.current.push(e.data); };
+      mr.onstop = () => {
+        const type = mr.mimeType || mime || "audio/webm";
+        const blob = new Blob(chunks.current, { type });
+        stream.getTracks().forEach((t) => t.stop());
+        if (blob.size > 0) onAdd(blob, secsRef.current);
+        setState("idle");
+        setSecs(0);
+        if (timer.current) clearInterval(timer.current);
+      };
+      rec.current = mr;
+      mr.start();
+      setState("recording");
+      setSecs(0);
+      secsRef.current = 0;
+      timer.current = setInterval(() => {
+        secsRef.current += 1;
+        setSecs(secsRef.current);
+        if (secsRef.current >= 300) stop(); // 5 min cap keeps uploads sane
+      }, 1000);
+    } catch {
+      setState("denied");
+    }
+  }
+
+  function stop() {
+    if (rec.current && rec.current.state === "recording") rec.current.stop();
+  }
+
+  return (
+    <div className={`ss-vm ${dark ? "dark" : ""}`}>
+      {state === "recording" ? (
+        <button className="ss-vm-btn rec" onClick={stop}>
+          <span className="ss-vm-pulse" /> Stop · {mmss(secs)}
+        </button>
+      ) : (
+        <button className="ss-vm-btn" onClick={start}>
+          <Mic size={15} /> {memos.length ? "Record another" : "Record voice note"}
+        </button>
+      )}
+      {state === "denied" && <span className="ss-vm-msg"><MicOff size={13} /> Microphone blocked — allow it in your browser settings</span>}
+      {state === "unsupported" && <span className="ss-vm-msg"><MicOff size={13} /> Recording isn't supported here — type your note instead</span>}
+      {memos.map((m, i) => (
+        <span key={m.id} className="ss-vm-item">
+          <Mic size={12} /> Voice note {i + 1} · {mmss(m.secs || 0)}
+          <button onClick={() => onDelete(m.id)} aria-label="Delete voice note"><X size={13} /></button>
+        </span>
+      ))}
+    </div>
+  );
+}
 
 /* ================================================================== */
 
@@ -122,6 +228,7 @@ export default function SiteSnap() {
   const [undoItem, setUndoItem] = useState(null); // {photo, roomId}
   const undoTimer = useRef(null);
   const originals = useRef({}); // id -> File/Blob (full quality, this session only)
+  const audioCache = useRef({}); // memo id -> Blob
 
   useEffect(() => {
     (async () => {
@@ -134,6 +241,11 @@ export default function SiteSnap() {
         const cache = {};
         entries.forEach(([id, p]) => { if (p) cache[id] = p; });
         setPhotoCache(cache);
+        const memoIds = data.rooms.flatMap((r) => (r.memos || []).map((m) => m.id));
+        await Promise.all(memoIds.map(async (id) => {
+          const b = await loadAudio(id);
+          if (b) audioCache.current[id] = b;
+        }));
         setScreen("board");
       } else {
         setScreen("home");
@@ -205,6 +317,31 @@ export default function SiteSnap() {
     persist(inspection, next);
   }
 
+  async function addMemo(roomId, blob, secs) {
+    const id = uid("aud");
+    await saveAudio(id, blob);
+    audioCache.current[id] = blob;
+    setRooms((prev) => {
+      const next = prev.map((r) =>
+        r.id === roomId ? { ...r, memos: [...(r.memos || []), { id, secs, type: blob.type }] } : r
+      );
+      persist(inspection, next);
+      return next;
+    });
+  }
+
+  function deleteMemo(roomId, memoId) {
+    setRooms((prev) => {
+      const next = prev.map((r) =>
+        r.id === roomId ? { ...r, memos: (r.memos || []).filter((m) => m.id !== memoId) } : r
+      );
+      persist(inspection, next);
+      return next;
+    });
+    removeAudio(memoId);
+    delete audioCache.current[memoId];
+  }
+
   function setRoomMeta(roomId, patch) {
     setRooms((prev) => {
       const next = prev.map((r) => (r.id === roomId ? { ...r, ...patch } : r));
@@ -223,12 +360,15 @@ export default function SiteSnap() {
 
   async function finishAndReset() {
     const ids = rooms.flatMap((r) => r.photoIds);
+    const memoIds = rooms.flatMap((r) => (r.memos || []).map((m) => m.id));
     await clearState();
     ids.forEach((id) => removePhoto(id));
+    memoIds.forEach((id) => removeAudio(id));
     setInspection(null);
     setRooms([]);
     setPhotoCache({});
     originals.current = {};
+    audioCache.current = {};
     setScreen("home");
   }
 
@@ -294,6 +434,8 @@ export default function SiteSnap() {
               if (last) deletePhoto(r.id, last);
             }}
             onMeta={(patch) => setRoomMeta(rooms[walkIndex].id, patch)}
+            onAddMemo={(blob, secs) => addMemo(rooms[walkIndex].id, blob, secs)}
+            onDeleteMemo={(mid) => deleteMemo(rooms[walkIndex].id, mid)}
             onExit={() => setScreen("board")}
           />
         )}
@@ -309,6 +451,8 @@ export default function SiteSnap() {
               onCapture={(dataUrl, file) => addPhoto(room.id, dataUrl, file)}
               onDelete={(pid) => deletePhoto(room.id, pid)}
               onMeta={(patch) => setRoomMeta(room.id, patch)}
+              onAddMemo={(blob, secs) => addMemo(room.id, blob, secs)}
+              onDeleteMemo={(mid) => deleteMemo(room.id, mid)}
               onSaveToPhotos={() => shareFiles(filesFor(room.photoIds, room.name.replace(/\s+/g, "_")), `${room.name} photos`)}
             />
           );
@@ -322,6 +466,7 @@ export default function SiteSnap() {
             totalPhotos={totalPhotos}
             filesForRoom={(room) => filesFor(room.photoIds, room.name.replace(/\s+/g, "_"))}
             filesForUpload={(room) => filesFor(room.photoIds, room.name.replace(/\s+/g, "_"), true)}
+            audioCache={audioCache}
             onBack={() => setScreen("board")}
             onSaveAll={() => shareFiles(filesFor(rooms.flatMap((r) => r.photoIds), "inspection"), "Inspection photos")}
             onDone={finishAndReset}
@@ -580,7 +725,7 @@ function BoardScreen({ inspection, rooms, photoCache, totalPhotos, doneRooms, on
 
 /* ---------------- walkthrough capture ---------------- */
 
-function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDeleteLast, onMeta, onExit }) {
+function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDeleteLast, onMeta, onAddMemo, onDeleteMemo, onExit }) {
   const inputRef = useRef(null);
   const continuous = useRef(false);
   const [noteOpen, setNoteOpen] = useState(false);
@@ -646,6 +791,8 @@ function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDeleteLast
           </button>
         )}
 
+        <VoiceMemo memos={room.memos || []} onAdd={onAddMemo} onDelete={onDeleteMemo} dark />
+
         {last && (
           <div className="ss-last">
             <img src={last.dataUrl} alt="Last photo" />
@@ -674,7 +821,7 @@ function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDeleteLast
 
 /* ---------------- room review ---------------- */
 
-function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, onSaveToPhotos }) {
+function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, onAddMemo, onDeleteMemo, onSaveToPhotos }) {
   const inputRef = useRef(null);
   const continuous = useRef(false);
   const [viewPhoto, setViewPhoto] = useState(null);
@@ -722,10 +869,11 @@ function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, onSaveT
           </div>
           <textarea
             className="ss-note-input" rows={2}
-            placeholder="Notes — damage, decor, meter readings…"
+            placeholder="Notes — damage, decor, meter readings… (or use your keyboard's mic)"
             value={room.note || ""}
             onChange={(e) => onMeta({ note: e.target.value })}
           />
+          <VoiceMemo memos={room.memos || []} onAdd={onAddMemo} onDelete={onDeleteMemo} />
         </div>
 
         {photos.length === 0 ? (
@@ -780,17 +928,21 @@ function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, onSaveT
 
 /* ---------------- finish / export ---------------- */
 
-function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom, filesForUpload, onBack, onSaveAll, onDone }) {
+function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom, filesForUpload, audioCache, onBack, onSaveAll, onDone }) {
   const [note, setNote] = useState(null);
   const [zipBusy, setZipBusy] = useState(false);
   const [hookUrl, setHookUrl] = useState("");
+  const [hookKey, setHookKey] = useState("");
   const [hookOpen, setHookOpen] = useState(false);
   const [upload, setUpload] = useState(null); // { statuses, running, doneAll, sent, total }
   const [reportOpen, setReportOpen] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
   const populated = rooms.filter((r) => r.photoIds.length > 0);
 
-  useEffect(() => { loadWebhook().then((u) => setHookUrl(u || "")); }, []);
+  useEffect(() => {
+    loadWebhook().then((u) => setHookUrl(u || ""));
+    loadWebhookKey().then((k) => setHookKey(k || ""));
+  }, []);
 
   function flash(msg, ms = 3500) {
     setNote(msg);
@@ -820,19 +972,6 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
         const folder = root.folder(`${pad(i + 1)}. ${safeName(room.name)}`);
         filesForRoom(room).forEach((f) => folder.file(f.name, f));
       });
-      const noteLines = [
-        `${inspection.address}${inspection.postcode ? ", " + inspection.postcode : ""}`,
-        `Inspected: ${new Date(inspection.startedAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}`,
-        `${totalPhotos} photos · ${populated.length} of ${rooms.length} rooms photographed`,
-        "",
-      ];
-      rooms.forEach((room, i) => {
-        noteLines.push(`${pad(i + 1)}. ${room.name}${room.condition ? ` — ${room.condition}` : ""} (${room.photoIds.length} photo${room.photoIds.length === 1 ? "" : "s"})`);
-        if (room.note && room.note.trim()) noteLines.push(`    Note: ${room.note.trim()}`);
-      });
-      if (rooms.some((r) => r.condition || (r.note && r.note.trim()))) {
-        root.file("Inspection notes.txt", noteLines.join("\n"));
-      }
       const blob = await zip.generateAsync({ type: "blob" });
       const fileName = `${rootName}.zip`;
       const zipFile = new File([blob], fileName, { type: "application/zip" });
@@ -862,14 +1001,40 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
     setZipBusy(false);
   }
 
+  // One POST per item, each tagged with `kind` so the cloud workflow can route
+  // it: photos are filed, voice notes are transcribed, and the single notes
+  // payload is what the AI drafting step reads.
+  async function postToHook(url, key, fd) {
+    const headers = key ? { "x-make-apikey": key } : undefined;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetch(url, { method: "POST", body: fd, headers });
+        if (res.ok) return true;
+        // don't retry a rejection the server will just repeat
+        if (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429) return false;
+      } catch { /* network error — loop retries once */ }
+    }
+    return false;
+  }
+
+  function baseFields(fd) {
+    fd.append("address", inspection.address);
+    fd.append("postcode", inspection.postcode || "");
+    fd.append("inspectionId", inspection.id);
+    return fd;
+  }
+
   async function uploadViaWebhook() {
     const url = hookUrl.trim();
     if (!url) { setHookOpen(true); return; }
     if (upload && upload.running) return;
     saveWebhook(url);
+    const key = hookKey.trim();
+    saveWebhookKey(key);
     const statuses = {};
     populated.forEach((r) => { statuses[r.id] = "queued"; });
-    const total = populated.reduce((s, r) => s + r.photoIds.length, 0);
+    const memoCount = rooms.reduce((s, r) => s + (r.memos || []).length, 0);
+    const total = populated.reduce((s, r) => s + r.photoIds.length, 0) + memoCount + 1;
     setUpload({ statuses, running: true, doneAll: false, sent: 0, total });
     let anyFailed = false;
     for (const room of populated) {
@@ -878,31 +1043,67 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
       let ok = true;
       const files = filesForUpload(room);
       for (const f of files) {
-        const fd = new FormData();
-        fd.append("address", inspection.address);
-        fd.append("postcode", inspection.postcode || "");
+        const fd = baseFields(new FormData());
+        fd.append("kind", "photo");
         fd.append("folder", `${pad(idx + 1)}. ${room.name}`);
         fd.append("filename", f.name);
         fd.append("condition", room.condition || "");
         fd.append("note", room.note || "");
         fd.append("file", f, f.name);
-        // one automatic retry — mobile signal drops mid-property are routine
-        let sent = false;
-        for (let attempt = 0; attempt < 2 && !sent; attempt++) {
-          try {
-            const res = await fetch(url, { method: "POST", body: fd });
-            if (res.ok) { sent = true; break; }
-            if (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429) break;
-          } catch { /* network error — loop retries once */ }
-        }
-        if (!sent) { ok = false; break; }
+        if (!(await postToHook(url, key, fd))) { ok = false; break; }
         setUpload((s) => s && ({ ...s, sent: s.sent + 1 }));
       }
       if (!ok) anyFailed = true;
       setUpload((s) => s && ({ ...s, statuses: { ...s.statuses, [room.id]: ok ? "done" : "failed" } }));
     }
+
+    // voice notes — each one goes up for transcription
+    for (const room of rooms) {
+      const idx = rooms.indexOf(room);
+      for (const m of room.memos || []) {
+        const blob = audioCache.current[m.id];
+        if (!blob) continue;
+        const name = `${safeName(room.name).replace(/\s+/g, "_")}_note_${extFor(m.type)}`;
+        const fd = baseFields(new FormData());
+        fd.append("kind", "audio");
+        fd.append("folder", `${pad(idx + 1)}. ${room.name}`);
+        fd.append("room", room.name);
+        fd.append("filename", `${name}.${extFor(m.type)}`);
+        fd.append("seconds", String(m.secs || 0));
+        fd.append("file", blob, `${name}.${extFor(m.type)}`);
+        if (!(await postToHook(url, key, fd))) anyFailed = true;
+        else setUpload((s) => s && ({ ...s, sent: s.sent + 1 }));
+      }
+    }
+
+    // one structured payload for the whole inspection — this is what the AI
+    // drafting step reads, so it runs once per property rather than per photo
+    const payload = {
+      inspectionId: inspection.id,
+      address: inspection.address,
+      postcode: inspection.postcode || "",
+      inspectedAt: new Date(inspection.startedAt).toISOString(),
+      totalPhotos,
+      rooms: rooms.map((r, i) => ({
+        order: i + 1,
+        folder: `${pad(i + 1)}. ${r.name}`,
+        room: r.name,
+        condition: r.condition || "",
+        note: (r.note || "").trim(),
+        photos: r.photoIds.length,
+        voiceNotes: (r.memos || []).length,
+      })),
+    };
+    const nfd = baseFields(new FormData());
+    nfd.append("kind", "notes");
+    nfd.append("filename", "inspection.json");
+    nfd.append("notes", JSON.stringify(payload));
+    nfd.append("file", new File([JSON.stringify(payload, null, 2)], "inspection.json", { type: "application/json" }), "inspection.json");
+    if (!(await postToHook(url, key, nfd))) anyFailed = true;
+    else setUpload((s) => s && ({ ...s, sent: s.sent + 1 }));
+
     setUpload((s) => s && ({ ...s, running: false, doneAll: !anyFailed }));
-    flash(anyFailed ? "Some rooms failed — check the link and tap upload to retry" : "Every photo uploaded");
+    flash(anyFailed ? "Something didn't send — check the link and tap upload to retry" : "Photos, voice notes and site notes all sent");
   }
 
   return (
@@ -914,7 +1115,7 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
           <MapPin size={15} />
           <div>
             <div className="ss-summary-title">{inspection.address}{inspection.postcode ? `, ${inspection.postcode}` : ""}</div>
-            <div className="ss-summary-sub">{totalPhotos} photos · {populated.length} of {rooms.length} rooms</div>
+            <div className="ss-summary-sub">{totalPhotos} photo{totalPhotos === 1 ? "" : "s"} · {populated.length} of {rooms.length} rooms</div>
           </div>
         </div>
 
@@ -974,14 +1175,23 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
               inputMode="url"
               autoCapitalize="none"
             />
+            <div className="ss-key-row">
+              <KeyRound size={14} />
+              <input
+                className="ss-input" placeholder="Access key (optional)"
+                value={hookKey} onChange={(e) => setHookKey(e.target.value)}
+                autoCapitalize="none" autoComplete="off"
+              />
+            </div>
             <p className="ss-fineprint" style={{ marginTop: 8 }}>
-              Paste a webhook URL (n8n, Zapier or Make). Each photo is POSTed with
-              its address, folder name and file, and the workflow files it into
-              OneDrive or Google Drive — no Microsoft or Google sign-in needed in
-              this app.
+              Paste a webhook URL (Make, n8n or Zapier). Photos, voice notes and a
+              single site-notes file are POSTed with the address and folder name,
+              and your workflow files them into OneDrive or Google Drive — no
+              Microsoft or Google sign-in needed in this app. Set an access key
+              here and in your webhook so only your phone can upload.
             </p>
             <button className="ss-btn ss-btn-primary" style={{ width: "100%" }}
-              onClick={() => { saveWebhook(hookUrl.trim()); setHookOpen(false); flash("Upload link saved"); }}>
+              onClick={() => { saveWebhook(hookUrl.trim()); saveWebhookKey(hookKey.trim()); setHookOpen(false); flash("Upload link saved"); }}>
               Save link
             </button>
           </div>
@@ -1443,6 +1653,32 @@ function StyleBlock() {
         font-size: 15px; font-family: inherit; color: var(--hivis); outline: none; resize: none;
       }
       .ss-live-note::placeholder { color: rgba(217,244,79,.4); }
+
+      /* ---- voice memos ---- */
+      .ss-vm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+      .ss-vm-btn {
+        display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 800;
+        border: 1.5px solid var(--line); background: var(--paper); color: var(--pine);
+        border-radius: 999px; padding: 8px 14px;
+      }
+      .ss-vm-btn.rec { background: var(--red); border-color: var(--red); color: #fff; }
+      .ss-vm-pulse { width: 9px; height: 9px; border-radius: 999px; background: #fff; animation: ss-pulse 1.2s ease-in-out infinite; }
+      .ss-vm-item {
+        display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700;
+        background: var(--pine-soft, #EAF3EC); color: var(--pine); border-radius: 999px; padding: 6px 6px 6px 11px;
+      }
+      .ss-vm-item button { display: inline-flex; color: var(--muted); padding: 2px; }
+      .ss-vm-msg { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--muted); }
+      .ss-vm.dark .ss-vm-btn { background: rgba(217,244,79,.1); border-color: rgba(217,244,79,.35); color: var(--hivis); }
+      .ss-vm.dark .ss-vm-btn.rec { background: #FF8A73; border-color: #FF8A73; color: #4A130A; }
+      .ss-vm.dark .ss-vm-pulse { background: #4A130A; }
+      .ss-vm.dark .ss-vm-item { background: rgba(217,244,79,.14); color: var(--hivis); }
+      .ss-vm.dark .ss-vm-item button { color: rgba(217,244,79,.7); }
+      .ss-vm.dark .ss-vm-msg { color: rgba(217,244,79,.6); }
+      .ss-vm.dark { justify-content: center; }
+
+      .ss-key-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; color: var(--muted); }
+      .ss-key-row .ss-input { flex: 1; }
 
       /* ---- upload progress ---- */
       .ss-upbar { height: 6px; border-radius: 999px; background: #E2E7E0; overflow: hidden; margin-top: 10px; }
