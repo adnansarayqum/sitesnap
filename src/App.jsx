@@ -137,6 +137,7 @@ import {
   loadAudio, saveAudio, removeAudio,
   loadWebhook, saveWebhook,
   loadWebhookKey, saveWebhookKey,
+  loadArchive, archiveInspection,
   setStorageErrorHandler, requestDurableStorage, storageEstimate,
 } from "./storage.js";
 
@@ -253,6 +254,7 @@ export default function SiteSnap() {
   const [undoItem, setUndoItem] = useState(null); // {photo, roomId}
   const [storageAlert, setStorageAlert] = useState(null);
   const [durable, setDurable] = useState(true);
+  const [archive, setArchive] = useState([]);
   const undoTimer = useRef(null);
   const originals = useRef({}); // id -> File/Blob (full quality, this session only)
   const audioCache = useRef({}); // memo id -> Blob
@@ -271,6 +273,7 @@ export default function SiteSnap() {
       // browsers usually grant this only once the app is on the home screen
       requestDurableStorage().then((granted) => setDurable(granted));
       setIndex(await loadIndex());
+      setArchive(await loadArchive());
       setScreen("home");
     })();
   }, []);
@@ -440,6 +443,19 @@ export default function SiteSnap() {
   async function finishAndReset() {
     const ids = rooms.flatMap((r) => r.photoIds);
     const memoIds = rooms.flatMap((r) => (r.memos || []).map((m) => m.id));
+    await archiveInspection({
+      id: inspection.id,
+      address: inspection.address,
+      postcode: inspection.postcode || "",
+      ref: inspection.ref || "",
+      startedAt: inspection.startedAt,
+      closedAt: Date.now(),
+      photos: ids.length,
+      rooms: rooms.length,
+      lastUpload: inspection.lastUpload || null,
+      lastExport: inspection.lastExport || null,
+    });
+    setArchive(await loadArchive());
     await clearState(inspection.id);
     ids.forEach((id) => removePhoto(id));
     memoIds.forEach((id) => removeAudio(id));
@@ -488,6 +504,7 @@ export default function SiteSnap() {
         {screen === "home" && (
           <HomeScreen
             index={index}
+            archive={archive}
             durable={durable}
             onNew={() => setScreen("setup")}
             onOpen={openInspection}
@@ -562,6 +579,7 @@ export default function SiteSnap() {
             filesForUpload={(room) => filesFor(room.photoIds, room.name.replace(/\s+/g, "_"), true)}
             audioCache={audioCache}
             onUploadResult={(r) => setInspectionMeta({ lastUpload: r })}
+            onExportResult={(r) => setInspectionMeta({ lastExport: r })}
             onBack={() => setScreen("board")}
             onSaveAll={() => shareFiles(filesFor(rooms.flatMap((r) => r.photoIds), "inspection"), "Inspection photos")}
             onDone={finishAndReset}
@@ -589,12 +607,14 @@ export default function SiteSnap() {
 
 /* ---------------- home ---------------- */
 
-function HomeScreen({ index, durable, onNew, onOpen, onDiscard }) {
+function HomeScreen({ index, archive, durable, onNew, onOpen, onDiscard }) {
   const [confirmId, setConfirmId] = useState(null);
   const open = [...index].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   const target = open.find((i) => i.id === confirmId);
 
-  if (open.length === 0) {
+  const done = archive || [];
+
+  if (open.length === 0 && done.length === 0) {
     return (
       <div className="ss-col">
         <div className="ss-home-hero">
@@ -667,9 +687,40 @@ function HomeScreen({ index, durable, onNew, onOpen, onDiscard }) {
             </span>
           </div>
         )}
+        {open.length === 0 && (
+          <p className="ss-empty-note">Nothing in progress. Start a new inspection below.</p>
+        )}
+
+        {done.length > 0 && (
+          <>
+            <div className="ss-section-label" style={{ marginTop: 22 }}>Completed</div>
+            <div className="ss-list">
+              {done.slice(0, 25).map((a) => (
+                <div key={a.id} className="ss-row ss-row-done">
+                  <div className="ss-row-tap">
+                    <div className="ss-row-main ss-job">
+                      <span className="ss-row-name">{a.address}</span>
+                      <span className="ss-job-sub">
+                        {a.ref ? a.ref + " · " : ""}{a.photos} photo{a.photos === 1 ? "" : "s"}
+                        {" · closed "}{relativeDay(a.closedAt)}
+                      </span>
+                      <span className={`ss-job-up ${a.lastUpload && a.lastUpload.confirmed ? "ok" : a.lastUpload ? "warn" : "bad"}`}>
+                        {a.lastUpload
+                          ? (a.lastUpload.confirmed ? <><CircleCheck size={11} /> Filed in the cloud</> : <><CloudUpload size={11} /> Sent, not confirmed</>)
+                          : a.lastExport ? <><Download size={11} /> Exported only</> : <><X size={11} /> Never uploaded</>}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
         <p className="ss-fineprint">
           Inspections stay on this device until you export and close them, so you
           can run several properties in a day and upload when you have signal.
+          Closing one keeps this record but removes its photos from the phone.
         </p>
       </div>
 
@@ -1169,7 +1220,7 @@ function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, onAddMe
 
 /* ---------------- finish / export ---------------- */
 
-function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom, filesForUpload, audioCache, onUploadResult, onBack, onSaveAll, onDone }) {
+function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom, filesForUpload, audioCache, onUploadResult, onExportResult, onBack, onSaveAll, onDone }) {
   const [note, setNote] = useState(null);
   const [zipBusy, setZipBusy] = useState(false);
   const [hookUrl, setHookUrl] = useState("");
@@ -1178,6 +1229,7 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
   const [upload, setUpload] = useState(null); // { statuses, running, doneAll, sent, total }
   const [reportOpen, setReportOpen] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
+  const [acceptLoss, setAcceptLoss] = useState(false);
   const populated = rooms.filter((r) => r.photoIds.length > 0);
 
   useEffect(() => {
@@ -1196,7 +1248,7 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
 
   async function handleSaveAll() {
     const res = await onSaveAll();
-    if (res.ok) flash("All photos saved to your Photos app");
+    if (res.ok) { onExportResult && onExportResult({ at: Date.now(), kind: "photos" }); flash("All photos saved to your Photos app"); }
     else if (res.reason === "unsupported") flash("Bulk save needs the phone share sheet — on desktop use the ZIP export");
     else if (res.reason !== "cancelled") flash("Couldn't save — try again");
   }
@@ -1219,6 +1271,7 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
       if (canShareFiles() && navigator.canShare({ files: [zipFile] })) {
         try {
           await navigator.share({ files: [zipFile], title: fileName });
+          onExportResult && onExportResult({ at: Date.now(), kind: "zip" });
           flash("ZIP shared — folder structure is inside");
           setZipBusy(false);
           return;
@@ -1234,6 +1287,7 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
       a.click();
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 5000);
+      onExportResult && onExportResult({ at: Date.now(), kind: "zip" });
       flash("ZIP downloaded — folder structure is inside");
     } catch (e) {
       console.error(e);
@@ -1500,24 +1554,48 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
         <button className="ss-btn ss-btn-ghost" onClick={() => setConfirmClose(true)}>Close inspection & start fresh</button>
       </div>
 
-      {confirmClose && (
-        <div className="ss-modal-back" onClick={() => setConfirmClose(false)}>
-          <div className="ss-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="ss-modal-icon"><AlertTriangle size={22} /></div>
-            <div className="ss-modal-title">Close this inspection?</div>
-            <p>
-              All {totalPhotos} photo{totalPhotos === 1 ? "" : "s"} and notes will be removed
-              from this device. Anything already exported or uploaded is unaffected.
-            </p>
-            <button className="ss-btn ss-btn-danger" onClick={onDone}>
-              <Trash2 size={16} /> Delete &amp; close
-            </button>
-            <button className="ss-btn ss-btn-ghost" style={{ marginTop: 8 }} onClick={() => setConfirmClose(false)}>
-              Keep inspection
-            </button>
+      {confirmClose && (() => {
+        const filed = !!(inspection.lastUpload && inspection.lastUpload.confirmed);
+        const exported = !!inspection.lastExport;
+        const safe = filed || exported;
+        return (
+          <div className="ss-modal-back" onClick={() => { setConfirmClose(false); setAcceptLoss(false); }}>
+            <div className="ss-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="ss-modal-icon"><AlertTriangle size={22} /></div>
+              <div className="ss-modal-title">
+                {safe ? "Close this inspection?" : "This isn't saved anywhere yet"}
+              </div>
+              {safe ? (
+                <p>
+                  All {totalPhotos} photo{totalPhotos === 1 ? "" : "s"} and notes will be removed
+                  from this device. {filed
+                    ? "They are confirmed filed in the cloud."
+                    : "You exported them, so keep that copy safe."}
+                </p>
+              ) : (
+                <>
+                  <p>
+                    {totalPhotos === 1 ? "This photo has" : `These ${totalPhotos} photos have`} not been
+                    exported, and the cloud upload {inspection.lastUpload ? "was only accepted, never confirmed as filed" : "hasn't run"}.
+                    Closing now deletes the only copy, and you can't reshoot a property you have left.
+                  </p>
+                  <label className="ss-accept">
+                    <input type="checkbox" checked={acceptLoss} onChange={(e) => setAcceptLoss(e.target.checked)} />
+                    <span>I have the photos somewhere else, or I don't need them.</span>
+                  </label>
+                </>
+              )}
+              <button className="ss-btn ss-btn-danger" disabled={!safe && !acceptLoss} onClick={onDone}>
+                <Trash2 size={16} /> Delete &amp; close
+              </button>
+              <button className="ss-btn ss-btn-ghost" style={{ marginTop: 8 }}
+                onClick={() => { setConfirmClose(false); setAcceptLoss(false); }}>
+                {safe ? "Keep inspection" : "Go back and save it first"}
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {reportOpen && (
         <ReportView inspection={inspection} rooms={rooms} photoCache={photoCache} onClose={() => setReportOpen(false)} />
@@ -1993,6 +2071,14 @@ function StyleBlock() {
       .ss-filter { margin-bottom: 12px; font-size: 15px; padding: 11px 13px; }
       .ss-group-label { font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 14px 2px 7px; }
       .ss-chip-main { font-size: 13.5px; }
+
+      .ss-accept { display: flex; gap: 9px; align-items: flex-start; text-align: left; background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; margin-bottom: 14px; font-size: 13px; font-weight: 600; color: var(--ink); }
+      .ss-accept input { width: 19px; height: 19px; flex-shrink: 0; accent-color: var(--red); margin: 0; }
+
+      .ss-row-done { opacity: .82; }
+      .ss-row-done .ss-row-tap { cursor: default; }
+      .ss-job-up.warn { background: #F6EFDC; color: var(--amber); }
+      .ss-empty-note { font-size: 13.5px; color: var(--muted); text-align: center; padding: 22px 10px 4px; margin: 0; }
 
       /* ---- case details ---- */
       .ss-case-toggle { display: flex; align-items: center; gap: 6px; margin: 10px auto 0; font-size: 12.5px; font-weight: 700; color: var(--muted); padding: 6px; }

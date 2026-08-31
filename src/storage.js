@@ -86,6 +86,27 @@ export async function clearState(id) {
   } catch {}
 }
 
+// A closed inspection leaves its photos behind (they live in the cloud now)
+// but keeps a record, so "did Vernon Road actually go?" is answerable without
+// opening OneDrive.
+const ARCHIVE_KEY = "sitesnap:archive";
+
+export async function loadArchive() {
+  try { return (await get(ARCHIVE_KEY)) || []; } catch { return []; }
+}
+
+export async function archiveInspection(entry) {
+  try {
+    const list = await loadArchive();
+    list.unshift(entry);
+    await set(ARCHIVE_KEY, list.slice(0, 200));
+  } catch (e) { writeFailed("Saving the completed record", e); }
+}
+
+export async function clearArchive() {
+  try { await del(ARCHIVE_KEY); } catch {}
+}
+
 // One-time move of a pre-1.3 inspection into the multi-inspection store, so
 // an upgrade mid-property doesn't lose the morning's work.
 export async function migrateLegacy() {
