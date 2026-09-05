@@ -160,7 +160,7 @@ async function shareFiles(files, title) {
 import JSZip from "jszip";
 import {
   loadIndex, loadInspection, migrateLegacy, saveState, clearState,
-  loadPhoto, savePhoto, removePhoto,
+  loadPhoto, savePhoto, updatePhoto, removePhoto,
   loadAudio, saveAudio, removeAudio,
   loadWebhook, saveWebhook,
   loadWebhookKey, saveWebhookKey,
@@ -317,9 +317,23 @@ export default function SiteSnap() {
   function flushPhotoSaves() {
     Object.values(photoTimers.current).forEach(clearTimeout);
     photoTimers.current = {};
-    const batch = Object.values(pendingPhotos.current);
+    const batch = Object.entries(pendingPhotos.current);
     pendingPhotos.current = {};
-    return Promise.all(batch.map((p) => savePhoto(p).catch(() => {})));
+    return Promise.all(batch.map(([id, caption]) => updatePhoto(id, { caption }).catch(() => {})));
+  }
+
+  // Only the thumbnail lives in memory; the stored copy is read back from
+  // disk when something actually needs it (lightbox, export, upload, report).
+  // Before this, opening a 150-photo job meant ~120 MB of base64 in the heap.
+  async function fullPhoto(id) {
+    const light = photoCache[id];
+    if (light && light.dataUrl) return light;
+    const rec = await loadPhoto(id);
+    if (!rec) return light || null;
+    return { ...rec, ...(light || {}), dataUrl: rec.dataUrl };
+  }
+  function lighten(photo) {
+    return photo && photo.thumb ? { ...photo, dataUrl: null } : photo;
   }
   function flushAll() { return Promise.all([flushSave(), flushPhotoSaves()]); }
 
@@ -391,7 +405,19 @@ export default function SiteSnap() {
     const ids = (data.rooms || []).flatMap((r) => r.photoIds);
     const entries = await Promise.all(ids.map(async (pid) => [pid, await loadPhoto(pid)]));
     const cache = {};
-    entries.forEach(([pid, p]) => { if (p) cache[pid] = p; });
+    for (const [pid, p] of entries) {
+      if (!p) continue;
+      if (!p.thumb && p.dataUrl) {
+        // photo from before thumbnails existed — make one now so it too can
+        // be held lightly, and keep it for next time
+        try {
+          const img = await loadImage(p.dataUrl);
+          p.thumb = drawScaled(img, img.naturalWidth, img.naturalHeight, THUMB_DIM, 0.72);
+          updatePhoto(pid, { thumb: p.thumb }).catch(() => {});
+        } catch { /* keep the full copy in memory as before */ }
+      }
+      cache[pid] = lighten(p);
+    }
     setPhotoCache(cache);
     audioCache.current = {};
     const memoIds = (data.rooms || []).flatMap((r) => (r.memos || []).map((m) => m.id));
@@ -446,7 +472,11 @@ export default function SiteSnap() {
     setRooms((prev) => prev.map((r) =>
       r.id === roomId ? { ...r, photoIds: [...r.photoIds, photo.id] } : r
     ));
-    savePhoto(photo).catch(() => {});
+    // if the write fails the full image stays in memory so it can still be
+    // exported before the app closes; once written, only the thumbnail stays
+    savePhoto(photo)
+      .then(() => setPhotoCache((c) => (c[photo.id] ? { ...c, [photo.id]: lighten(c[photo.id]) } : c)))
+      .catch(() => {});
     // low space long before it runs out, while there is still time to export
     storageEstimate().then((e) => {
       if (e && e.freeMB !== null && e.freeMB < 150) {
@@ -455,33 +485,37 @@ export default function SiteSnap() {
     });
   }
 
+  // The stored copy is only removed once the undo window has lapsed, so undo
+  // never has to write the image back (it may no longer be in memory).
+  function finalizeDelete(photoId) {
+    removePhoto(photoId);
+    setPhotoCache((c) => { const { [photoId]: _gone, ...rest } = c; return rest; });
+    delete originals.current[photoId];
+  }
+
   function deletePhoto(roomId, photoId) {
     const photo = photoCache[photoId];
     setRooms((prev) => prev.map((r) =>
       r.id === roomId ? { ...r, photoIds: r.photoIds.filter((id) => id !== photoId) } : r
     ));
-    removePhoto(photoId);
     delete pendingPhotos.current[photoId];
-    // keep it around for undo, then let the memory go
     if (undoTimer.current) clearTimeout(undoTimer.current);
+    if (undoItem) finalizeDelete(undoItem.photo.id); // a second delete settles the first
     setUndoItem({ photo, roomId });
     undoTimer.current = setTimeout(() => {
       setUndoItem(null);
-      setPhotoCache((c) => { const { [photoId]: _gone, ...rest } = c; return rest; });
-      delete originals.current[photoId];
+      finalizeDelete(photoId);
     }, 5000);
   }
 
   function undoDelete() {
     if (!undoItem) return;
     const { photo, roomId } = undoItem;
-    setPhotoCache((c) => ({ ...c, [photo.id]: photo }));
+    if (undoTimer.current) clearTimeout(undoTimer.current);
     setRooms((prev) => prev.map((r) =>
       r.id === roomId ? { ...r, photoIds: [...r.photoIds, photo.id] } : r
     ));
-    savePhoto(photo).catch(() => {});
     setUndoItem(null);
-    if (undoTimer.current) clearTimeout(undoTimer.current);
   }
 
   function reorderRooms(next) {
@@ -517,16 +551,17 @@ export default function SiteSnap() {
     setPhotoCache((c) => {
       const p = c[photoId];
       if (!p) return c;
-      const next = { ...p, caption };
-      pendingPhotos.current[photoId] = next;
-      return { ...c, [photoId]: next };
+      pendingPhotos.current[photoId] = caption;
+      return { ...c, [photoId]: { ...p, caption } };
     });
     if (photoTimers.current[photoId]) clearTimeout(photoTimers.current[photoId]);
     photoTimers.current[photoId] = setTimeout(() => {
       delete photoTimers.current[photoId];
-      const p = pendingPhotos.current[photoId];
-      delete pendingPhotos.current[photoId];
-      if (p) savePhoto(p).catch(() => {});
+      if (photoId in pendingPhotos.current) {
+        const caption = pendingPhotos.current[photoId];
+        delete pendingPhotos.current[photoId];
+        updatePhoto(photoId, { caption }).catch(() => {});
+      }
     }, 400);
   }
 
@@ -590,19 +625,26 @@ export default function SiteSnap() {
 
   // compressedOnly: webhook/Graph uploads have 4-5MB request limits, so the
   // cloud path always sends the compressed copy; exports keep full quality.
-  function filesFor(room, compressedOnly = false) {
-    return room.photoIds
-      .map((id, i) => {
-        const p = photoCache[id];
-        const orig = compressedOnly ? null : originals.current[id];
-        if (orig) {
-          const ext = (orig.type && orig.type.split("/")[1]) || "jpg";
-          return new File([orig], photoFilename(p, room, i, ext), { type: orig.type || "image/jpeg" });
-        }
-        if (p) return dataUrlToFile(p.dataUrl, photoFilename(p, room, i, "jpg"));
-        return null;
-      })
-      .filter(Boolean);
+  async function filesFor(room, compressedOnly = false) {
+    const out = [];
+    for (let i = 0; i < room.photoIds.length; i++) {
+      const id = room.photoIds[i];
+      const light = photoCache[id];
+      const orig = compressedOnly ? null : originals.current[id];
+      if (orig) {
+        const ext = (orig.type && orig.type.split("/")[1]) || "jpg";
+        out.push(new File([orig], photoFilename(light, room, i, ext), { type: orig.type || "image/jpeg" }));
+        continue;
+      }
+      const p = await fullPhoto(id);
+      if (p && p.dataUrl) out.push(dataUrlToFile(p.dataUrl, photoFilename(p, room, i, "jpg")));
+    }
+    return out;
+  }
+  async function filesForAll(compressedOnly = false) {
+    const lists = [];
+    for (const r of rooms) lists.push(await filesFor(r, compressedOnly));
+    return lists.flat();
   }
 
   const totalPhotos = rooms.reduce((s, r) => s + r.photoIds.length, 0);
@@ -681,9 +723,10 @@ export default function SiteSnap() {
               onDelete={(pid) => deletePhoto(room.id, pid)}
               onMeta={(patch) => setRoomMeta(room.id, patch)}
               onCaption={setPhotoCaption}
+              onFull={fullPhoto}
               onAddMemo={(blob, secs) => addMemo(room.id, blob, secs)}
               onDeleteMemo={(mid) => deleteMemo(room.id, mid)}
-              onSaveToPhotos={() => shareFiles(filesFor(room), `${room.name} photos`)}
+              onSaveToPhotos={async () => shareFiles(await filesFor(room), `${room.name} photos`)}
             />
           );
         })()}
@@ -696,11 +739,12 @@ export default function SiteSnap() {
             totalPhotos={totalPhotos}
             filesForRoom={(room) => filesFor(room)}
             filesForUpload={(room) => filesFor(room, true)}
+            fullPhoto={fullPhoto}
             audioCache={audioCache}
             onUploadResult={(r) => setInspectionMeta({ lastUpload: r })}
             onExportResult={(r) => setInspectionMeta({ lastExport: r })}
             onBack={() => setScreen("board")}
-            onSaveAll={() => shareFiles(rooms.flatMap((r) => filesFor(r)), "Inspection photos")}
+            onSaveAll={async () => shareFiles(await filesForAll(), "Inspection photos")}
             onDone={finishAndReset}
           />
         )}
@@ -1446,9 +1490,19 @@ function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDeleteLast
 
 /* ---------------- room review ---------------- */
 
-function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, onCaption, onAddMemo, onDeleteMemo, onSaveToPhotos, onError }) {
+function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, onCaption, onFull, onAddMemo, onDeleteMemo, onSaveToPhotos, onError }) {
   const inputRef = useRef(null);
   const [viewPhoto, setViewPhoto] = useState(null);
+
+  // the grid shows thumbnails; the lightbox swaps in the stored copy once read
+  function openPhoto(p) {
+    setViewPhoto(p);
+    if (!p.dataUrl && onFull) {
+      onFull(p.id).then((full) => {
+        if (full && full.dataUrl) setViewPhoto((v) => (v && v.id === p.id ? { ...v, dataUrl: full.dataUrl } : v));
+      });
+    }
+  }
   const [note, setNote] = useState(null);
   const [cameraOpen, setCameraOpen] = useState(false);
 
@@ -1526,7 +1580,7 @@ function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, onCapti
           <div className="ss-shots">
             {[...photos].reverse().map((p) => (
               <div key={p.id} className="ss-shot">
-                <button className="ss-cell" onClick={() => setViewPhoto(p)}>
+                <button className="ss-cell" onClick={() => openPhoto(p)}>
                   <img src={p.thumb || p.dataUrl} alt="Inspection" loading="lazy" decoding="async" />
                   {p.no ? <span className="ss-cell-no">{p.no}</span> : null}
                 </button>
@@ -1555,7 +1609,7 @@ function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, onCapti
           <div className="ss-lightbox-top">
             <button onClick={() => setViewPhoto(null)}><X size={18} /></button>
           </div>
-          <img src={viewPhoto.dataUrl} alt="Full view" />
+          <img src={viewPhoto.dataUrl || viewPhoto.thumb} alt="Full view" />
           <div className="ss-lightbox-bottom">
             {viewPhoto.no ? <div className="ss-lb-no">Photo {viewPhoto.no}</div> : null}
             {viewPhoto.takenAt && (
@@ -1588,8 +1642,29 @@ function describeHttp(status) {
 
 /* ---------------- finish / export ---------------- */
 
-function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom, filesForUpload, audioCache, onUploadResult, onExportResult, onBack, onSaveAll, onDone }) {
+function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom, filesForUpload, fullPhoto, audioCache, onUploadResult, onExportResult, onBack, onSaveAll, onDone }) {
   const [note, setNote] = useState(null);
+  const [reportCache, setReportCache] = useState(null); // full-size copies, only while the report is open
+  const [reportBusy, setReportBusy] = useState(false);
+
+  async function openReport() {
+    if (reportBusy) return;
+    setReportBusy(true);
+    try {
+      const ids = rooms.flatMap((r) => r.photoIds);
+      const entries = await Promise.all(ids.map(async (id) => [id, await fullPhoto(id)]));
+      const cache = {};
+      entries.forEach(([id, p]) => { if (p) cache[id] = p; });
+      setReportCache(cache);
+      setReportOpen(true);
+    } finally {
+      setReportBusy(false);
+    }
+  }
+  function closeReport() {
+    setReportOpen(false);
+    setReportCache(null);
+  }
   const [zipBusy, setZipBusy] = useState(false);
   const [hookUrl, setHookUrl] = useState("");
   const [hookKey, setHookKey] = useState("");
@@ -1629,11 +1704,11 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
       const zip = new JSZip();
       const rootName = safeName(`${inspection.address}${inspection.postcode ? " " + inspection.postcode : ""}`) || "Inspection";
       const root = zip.folder(rootName);
-      rooms.forEach((room, i) => {
-        if (!room.photoIds.length) return;
+      for (const [i, room] of rooms.entries()) {
+        if (!room.photoIds.length) continue;
         const folder = root.folder(`${pad(i + 1)}. ${safeName(room.name)}`);
-        filesForRoom(room).forEach((f) => folder.file(f.name, f));
-      });
+        (await filesForRoom(room)).forEach((f) => folder.file(f.name, f));
+      }
       const blob = await zip.generateAsync({ type: "blob" });
       const fileName = `${rootName}.zip`;
       const zipFile = new File([blob], fileName, { type: "application/zip" });
@@ -1744,7 +1819,7 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
       const idx = rooms.indexOf(room);
       setUpload((s) => s && ({ ...s, statuses: { ...s.statuses, [room.id]: "uploading" } }));
       let ok = true;
-      const files = filesForUpload(room);
+      const files = await filesForUpload(room);
       for (const f of files) {
         const fd = baseFields(new FormData());
         fd.append("kind", "photo");
@@ -1893,7 +1968,7 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
           <Download size={19} />
           {zipBusy ? "Building ZIP…" : "Export ZIP (numbered folders)"}
         </button>
-        <button className="ss-btn ss-btn-ghost ss-btn-big" style={{ marginTop: 8 }} onClick={() => setReportOpen(true)} disabled={totalPhotos === 0}>
+        <button className="ss-btn ss-btn-ghost ss-btn-big" style={{ marginTop: 8 }} onClick={openReport} disabled={totalPhotos === 0 || reportBusy}>
           <FileText size={19} /> Report (print / save PDF)
         </button>
         <button className="ss-btn ss-btn-ghost ss-btn-big" style={{ marginTop: 8 }} onClick={uploadViaWebhook} disabled={(upload && upload.running) || totalPhotos === 0}>
@@ -2022,7 +2097,7 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
       )}
 
       {reportOpen && (
-        <ReportView inspection={inspection} rooms={rooms} photoCache={photoCache} onClose={() => setReportOpen(false)} />
+        <ReportView inspection={inspection} rooms={rooms} photoCache={reportCache || photoCache} onClose={closeReport} />
       )}
     </div>
   );

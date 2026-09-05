@@ -28,7 +28,20 @@ self.addEventListener("fetch", (event) => {
           // a 502 from a mid-deploy host must not become the offline shell
           if (res.ok) {
             const copy = res.clone();
-            caches.open(CACHE).then((c) => c.put("/", copy));
+            const forPrune = res.clone();
+            caches.open(CACHE).then(async (c) => {
+              await c.put("/", copy);
+              // every deploy ships a new hashed bundle; drop the ones this
+              // shell no longer references so the cache doesn't grow forever
+              try {
+                const html = await forPrune.text();
+                const wanted = new Set((html.match(/\/assets\/[^"' )]+/g) || []).map((p) => new URL(p, location.origin).href));
+                const cached = await c.keys();
+                await Promise.all(cached
+                  .filter((req) => new URL(req.url).pathname.startsWith("/assets/") && !wanted.has(req.url))
+                  .map((req) => c.delete(req)));
+              } catch { /* pruning is best-effort */ }
+            });
           }
           return res;
         })

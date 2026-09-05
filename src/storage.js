@@ -172,6 +172,15 @@ export async function loadPhoto(id) {
 export async function savePhoto(photo) {
   try { await set(`sitesnap:photo:${photo.id}`, photo); } catch (e) { writeFailed("Saving a photo", e); throw e; }
 }
+// Patches fields on a stored photo without the caller having to hold the
+// full-size image in memory (captions are edited from a lightweight copy).
+export async function updatePhoto(id, patch) {
+  try {
+    const cur = await get(`sitesnap:photo:${id}`);
+    if (!cur) return;
+    await set(`sitesnap:photo:${id}`, { ...cur, ...patch });
+  } catch (e) { writeFailed("Saving a photo", e); throw e; }
+}
 export async function removePhoto(id) {
   try { await del(`sitesnap:photo:${id}`); } catch {}
 }
