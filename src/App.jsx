@@ -1394,9 +1394,9 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
         const res = await fetch(url, { method: "POST", body: fd, headers });
         if (res.ok) {
           let body = "";
-          try { body = (await res.text()).trim().toLowerCase(); } catch { /* opaque body */ }
-          const queuedOnly = body === "" || body === "accepted";
-          return { ok: true, confirmed: !queuedOnly };
+          try { body = (await res.text()).trim(); } catch { /* opaque body */ }
+          const queuedOnly = body === "" || body.toLowerCase() === "accepted";
+          return { ok: true, confirmed: !queuedOnly, body };
         }
         reason = describeHttp(res.status);
         // don't retry a rejection the server will just repeat
@@ -1410,6 +1410,15 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
       }
     }
     return { ok: false, confirmed: false, reason };
+  }
+
+  // A workflow that transcribes audio can hand the words straight back in its
+  // response instead of them living only as a stray file in OneDrive. Treat
+  // anything that isn't one of the two known status replies as a transcript.
+  function looksLikeTranscript(body) {
+    if (!body) return false;
+    const s = body.trim().toLowerCase();
+    return s !== "" && s !== "accepted" && s !== "filed";
   }
 
   function baseFields(fd) {
@@ -1469,7 +1478,11 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
       setUpload((s) => s && ({ ...s, statuses: { ...s.statuses, [room.id]: ok ? "done" : "failed" } }));
     }
 
-    // voice notes — each one goes up for transcription
+    // voice notes — each one goes up for transcription. If the workflow
+    // hands the transcript straight back in its response, fold it into that
+    // room's note now, before the notes payload below is built — otherwise
+    // the AI drafting step never sees anything the surveyor only said aloud.
+    const transcriptsByRoom = {};
     for (const room of rooms) {
       const idx = rooms.indexOf(room);
       for (const m of room.memos || []) {
@@ -1485,7 +1498,13 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
         fd.append("file", blob, `${name}.${extFor(m.type)}`);
         const r = await postToHook(url, key, fd);
         if (!r.ok) { anyFailed = true; failReason = failReason || r.reason; }
-        else { if (!r.confirmed) allConfirmed = false; setUpload((s) => s && ({ ...s, sent: s.sent + 1 })); }
+        else {
+          if (!r.confirmed) allConfirmed = false;
+          if (looksLikeTranscript(r.body)) {
+            transcriptsByRoom[room.id] = [transcriptsByRoom[room.id], r.body.trim()].filter(Boolean).join(" ");
+          }
+          setUpload((s) => s && ({ ...s, sent: s.sent + 1 }));
+        }
       }
     }
 
@@ -1506,7 +1525,7 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
         folder: `${pad(i + 1)}. ${r.name}`,
         room: r.name,
         condition: r.condition || "",
-        note: (r.note || "").trim(),
+        note: [r.note && r.note.trim(), transcriptsByRoom[r.id]].filter(Boolean).join(" "),
         photos: r.photoIds.length,
         voiceNotes: (r.memos || []).length,
         // photo numbers so findings can cite them without matching by hand

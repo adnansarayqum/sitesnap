@@ -65,6 +65,16 @@ needed.
 3. **OneDrive → Make an API Call** — `PUT`
    `/v1.0/me/drive/root:/Inspections/{{address}}/{{folder}}/{{filename}}.txt:/content`
    with the transcript as the body, so the raw words are filed beside the photos.
+4. **Webhooks → Webhook response** — status `200`, body = `{{transcript}}`.
+
+That last step matters more than it looks. The app sends the `notes` payload
+(the one the drafting step reads) once, right at the end of upload — and it
+can only include what was *typed*. If the audio route replies with the plain
+transcript text instead of the generic `filed`/`Accepted`, the app treats that
+reply as proof the words exist and folds them straight into that room's note
+before building the final payload. Skip this step and anything the surveyor
+only said aloud never reaches the AI draft — he would have to type it as well,
+which defeats the point of recording it.
 
 ### Route 3 — `kind = notes` — the drafting step
 
