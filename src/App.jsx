@@ -828,14 +828,18 @@ function HomeScreen({ index, archive, durable, onNew, onOpen, onDiscard }) {
                     {" · "}{relativeDay(i.startedAt)}
                   </span>
                   {i.lastUpload && (
-                    <span className={`ss-job-up ${i.lastUpload.ok ? "ok" : "bad"}`}>
+                    <span className={`ss-job-up ${i.lastUpload.ok ? "ok" : "bad"}`} title={
+                      i.lastUpload.ok
+                        ? (i.lastUpload.confirmed ? "Confirmed as filed by your cloud workflow" : "Sent, but your workflow hasn't confirmed it's filed yet")
+                        : "The last upload attempt didn't finish — open this inspection to retry"
+                    }>
                       {i.lastUpload.ok ? <CircleCheck size={11} /> : <X size={11} />}
-                      {i.lastUpload.ok ? (i.lastUpload.confirmed ? "Filed" : "Sent") : "Upload incomplete"}
+                      {i.lastUpload.ok ? (i.lastUpload.confirmed ? "Filed" : "Sent, not confirmed") : "Upload incomplete"}
                     </span>
                   )}
                 </div>
               </button>
-              <button className="ss-job-x" onClick={() => setConfirmId(i.id)} aria-label={`Discard ${i.address}`}>
+              <button className="ss-job-x" onClick={() => setConfirmId(i.id)} aria-label={`Discard ${i.address}`} title="Discard this inspection">
                 <Trash2 size={16} />
               </button>
             </div>
@@ -867,7 +871,11 @@ function HomeScreen({ index, archive, durable, onNew, onOpen, onDiscard }) {
                         {a.ref ? a.ref + " · " : ""}{a.photos} photo{a.photos === 1 ? "" : "s"}
                         {" · closed "}{relativeDay(a.closedAt)}
                       </span>
-                      <span className={`ss-job-up ${a.lastUpload && a.lastUpload.confirmed ? "ok" : a.lastUpload ? "warn" : "bad"}`}>
+                      <span className={`ss-job-up ${a.lastUpload && a.lastUpload.confirmed ? "ok" : a.lastUpload ? "warn" : "bad"}`} title={
+                        a.lastUpload
+                          ? (a.lastUpload.confirmed ? "Your cloud workflow confirmed every file was filed" : "The upload was accepted but never confirmed as filed — worth checking OneDrive")
+                          : a.lastExport ? "Saved as a ZIP or to Photos, but never sent to the cloud" : "This inspection was closed without exporting or uploading it anywhere"
+                      }>
                         {a.lastUpload
                           ? (a.lastUpload.confirmed ? <><CircleCheck size={11} /> Filed in the cloud</> : <><CloudUpload size={11} /> Sent, not confirmed</>)
                           : a.lastExport ? <><Download size={11} /> Exported only</> : <><X size={11} /> Never uploaded</>}
@@ -1007,7 +1015,9 @@ function SetupScreen({ onBack, onStart }) {
           </div>
         )}
 
-        <div className="ss-section-label" style={{ marginTop: 20 }}>Rooms &amp; areas</div>
+        <div className="ss-section-label" style={{ marginTop: 20 }}>
+          Rooms &amp; areas <span className="ss-hint">— tap to add; use +/− for bedrooms, bathrooms &amp; extra claim items</span>
+        </div>
         <input
           className="ss-input ss-filter" placeholder="Filter areas…"
           value={filter} onChange={(e) => setFilter(e.target.value)}
@@ -1076,6 +1086,7 @@ function SetupScreen({ onBack, onStart }) {
       <div className="ss-footer ss-footer-split">
         <span className="ss-count-note">{items.length} area{items.length === 1 ? "" : "s"}</span>
         <button className="ss-btn ss-btn-primary" disabled={!canStart}
+          title={!address.trim() ? "Enter the property address first" : items.length === 0 ? "Pick at least one room or area" : undefined}
           onClick={() => onStart(address.trim(), postcode.trim(), named, {
             ref: ref.trim(), client: client.trim(),
             occupier: occupier.trim(), solicitor: solicitor.trim(),
@@ -1104,7 +1115,7 @@ function BoardScreen({ inspection, rooms, photoCache, totalPhotos, doneRooms, on
         eyebrow={inspection.postcode || "Inspection in progress"}
         onBack={onHome}
         right={
-          <button className="ss-link" onClick={() => {
+          <button className="ss-link" title="Edit the address or postcode" onClick={() => {
             setDraft({ address: inspection.address, postcode: inspection.postcode || "" });
             setRenaming(true);
           }}>
@@ -1126,6 +1137,7 @@ function BoardScreen({ inspection, rooms, photoCache, totalPhotos, doneRooms, on
               uploading, or move that folder in OneDrive afterwards.
             </p>
             <button className="ss-btn ss-btn-primary" disabled={!draft.address.trim()}
+              title={!draft.address.trim() ? "Address can't be empty" : undefined}
               onClick={() => { onRename({ address: draft.address.trim(), postcode: draft.postcode.trim() }); setRenaming(false); }}>
               Save
             </button>
@@ -1367,7 +1379,7 @@ function LiveCamera({ label, count, onCapture, onClose, onFallback }) {
         <div className="ss-livecam-bottom">
           {justTaken && <img className="ss-livecam-last" src={justTaken} alt="" />}
           <button className="ss-livecam-shutter" onClick={capture} aria-label="Take photo" />
-          <button className="ss-livecam-switch" onClick={() => { stopStream(); onFallback(); }} aria-label="Use phone's camera app instead">
+          <button className="ss-livecam-switch" onClick={() => { stopStream(); onFallback(); }} aria-label="Use phone's camera app instead" title="Use phone's camera app instead">
             <RefreshCw size={16} />
           </button>
         </div>
@@ -1440,6 +1452,7 @@ function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDeleteLast
           {CONDITIONS.map((c) => (
             <button key={c}
               className={`${c.toLowerCase()} ${room.condition === c ? "on" : ""}`}
+              title={`Rate this room ${c} — shown in the report and sent to the AI drafting step`}
               onClick={() => onMeta({ condition: room.condition === c ? null : c })}>
               {c}
             </button>
@@ -1553,10 +1566,11 @@ function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, onCapti
       <div className="ss-scroll">
         <div className="ss-meta">
           <div className="ss-cond-row">
-            <span className="ss-cond-label">Condition</span>
+            <span className="ss-cond-label" title="Rated rooms show a coloured badge in the report and board, and are what the AI drafting step reads">Condition</span>
             {CONDITIONS.map((c) => (
               <button key={c}
                 className={`ss-cond ${c.toLowerCase()} ${room.condition === c ? "on" : ""}`}
+                title={`Rate this room ${c} — shown in the report and sent to the AI drafting step`}
                 onClick={() => onMeta({ condition: room.condition === c ? null : c })}>
                 {c}
               </button>
@@ -1961,24 +1975,28 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
         )}
 
         <div className="ss-section-label" style={{ marginTop: 18 }}>Export</div>
-        <button className="ss-btn ss-btn-primary ss-btn-big" onClick={handleSaveAll}>
+        <button className="ss-btn ss-btn-primary ss-btn-big" onClick={handleSaveAll} disabled={totalPhotos === 0}
+          title={totalPhotos === 0 ? "Take at least one photo first" : undefined}>
           <ImagePlus size={19} /> Save all to Photos app
         </button>
-        <button className="ss-btn ss-btn-ghost ss-btn-big" style={{ marginTop: 8 }} onClick={exportZip} disabled={zipBusy || totalPhotos === 0}>
+        <button className="ss-btn ss-btn-ghost ss-btn-big" style={{ marginTop: 8 }} onClick={exportZip} disabled={zipBusy || totalPhotos === 0}
+          title={totalPhotos === 0 ? "Take at least one photo first" : undefined}>
           <Download size={19} />
           {zipBusy ? "Building ZIP…" : "Export ZIP (numbered folders)"}
         </button>
-        <button className="ss-btn ss-btn-ghost ss-btn-big" style={{ marginTop: 8 }} onClick={openReport} disabled={totalPhotos === 0 || reportBusy}>
+        <button className="ss-btn ss-btn-ghost ss-btn-big" style={{ marginTop: 8 }} onClick={openReport} disabled={totalPhotos === 0 || reportBusy}
+          title={totalPhotos === 0 ? "Take at least one photo first" : undefined}>
           <FileText size={19} /> Report (print / save PDF)
         </button>
-        <button className="ss-btn ss-btn-ghost ss-btn-big" style={{ marginTop: 8 }} onClick={uploadViaWebhook} disabled={(upload && upload.running) || totalPhotos === 0}>
+        <button className="ss-btn ss-btn-ghost ss-btn-big" style={{ marginTop: 8 }} onClick={uploadViaWebhook} disabled={(upload && upload.running) || totalPhotos === 0}
+          title={totalPhotos === 0 ? "Take at least one photo first" : undefined}>
           <CloudUpload size={19} />
           {upload
             ? upload.running
               ? `Uploading ${upload.sent} of ${upload.total}…`
               : upload.doneAll
                 ? (upload.confirmed ? "Filed ✓ — send again" : "Sent ✓ — send again")
-                : "Retry failed uploads"
+                : "Retry upload"
             : "Upload to cloud"}
         </button>
         {upload && upload.running && (
