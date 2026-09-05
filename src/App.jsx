@@ -4,6 +4,7 @@ import {
   CloudUpload, Check, X, Loader2, ImagePlus, ArrowRight, ArrowLeft,
   Undo2, FolderTree, CircleCheck, Image as ImageIcon, Download, Link2,
   StickyNote, FileText, Printer, AlertTriangle, Mic, MicOff, KeyRound, Briefcase, Smartphone, Pencil,
+  RefreshCw, Aperture,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -1080,19 +1081,157 @@ function BoardScreen({ inspection, rooms, photoCache, totalPhotos, doneRooms, on
 
 /* ---------------- walkthrough capture ---------------- */
 
+/* ---------------- in-page live camera ---------------- */
+// A native camera app hand-off is safe but slow: each shot leaves the page,
+// and the round trip is what made shooting feel like "snap, click Use Photo,
+// wait for the camera to reopen". This runs the camera feed inline instead —
+// tap the shutter, the frame is grabbed straight off the video element, the
+// feed never stops. Falls back to the native picker (via onFallback) if the
+// browser or device won't cooperate, so shooting never dead-ends.
+function LiveCamera({ label, count, onCapture, onClose, onFallback }) {
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const canvasRef = useRef(null);
+  const [state, setState] = useState("starting"); // starting|ready|denied|busy|unsupported
+  const [flash, setFlash] = useState(false);
+  const [justTaken, setJustTaken] = useState(null);
+  const capturing = useRef(false);
+
+  function stopStream() {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    async function start() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setState("unsupported");
+        return;
+      }
+      const constraints = [
+        { video: { facingMode: { ideal: "environment" }, width: { ideal: 2200 }, height: { ideal: 2200 } }, audio: false },
+        { video: true, audio: false }, // older devices reject exact/ideal facingMode
+      ];
+      for (const c of constraints) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia(c);
+          if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
+          streamRef.current = stream;
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            await videoRef.current.play().catch(() => {});
+          }
+          setState("ready");
+          return;
+        } catch (e) {
+          // permission or hardware problems won't be fixed by a looser
+          // constraint, so stop immediately rather than prompting again
+          if (e && e.name === "NotAllowedError") { if (!cancelled) setState("denied"); return; }
+          if (e && e.name === "NotReadableError") { if (!cancelled) setState("busy"); return; }
+          // otherwise (e.g. OverconstrainedError) try the next constraint
+        }
+      }
+      if (!cancelled) setState("unsupported");
+    }
+    start();
+    return () => { cancelled = true; stopStream(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    // a feed left running in a backgrounded tab drains the battery and keeps
+    // the camera indicator lit for no reason
+    function onVis() { if (document.hidden) stopStream(); }
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
+
+  function capture() {
+    const video = videoRef.current;
+    if (!video || state !== "ready" || capturing.current) return;
+    capturing.current = true;
+    setFlash(true);
+    setTimeout(() => setFlash(false), 130);
+    const canvas = canvasRef.current || (canvasRef.current = document.createElement("canvas"));
+    canvas.width = video.videoWidth || 1600;
+    canvas.height = video.videoHeight || 1600;
+    canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(async (blob) => {
+      capturing.current = false;
+      if (!blob) return;
+      const file = new File([blob], `shot_${Date.now()}.jpg`, { type: "image/jpeg" });
+      setJustTaken(URL.createObjectURL(blob));
+      const dataUrl = await compressImage(file);
+      onCapture(dataUrl, file);
+    }, "image/jpeg", 0.92);
+  }
+
+  function close() {
+    stopStream();
+    onClose();
+  }
+
+  const broken = state === "denied" || state === "busy" || state === "unsupported";
+
+  return (
+    <div className="ss-livecam">
+      <video ref={videoRef} className="ss-livecam-video" autoPlay muted playsInline />
+      {flash && <div className="ss-livecam-flash" />}
+
+      <div className="ss-livecam-top">
+        <button className="ss-livecam-close" onClick={close}><X size={20} /></button>
+        <span className="ss-livecam-label">{label}</span>
+        <span className="ss-livecam-count">{count}</span>
+      </div>
+
+      {state === "starting" && (
+        <div className="ss-livecam-msg"><Loader2 size={22} className="ss-spin" /><span>Opening camera…</span></div>
+      )}
+
+      {broken && (
+        <div className="ss-livecam-msg">
+          <Aperture size={22} />
+          <span>
+            {state === "denied" && "Camera access was blocked — allow it in your browser settings, or use the phone's own camera."}
+            {state === "busy" && "Another app is using the camera right now."}
+            {state === "unsupported" && "The live camera isn't available here."}
+          </span>
+          <button className="ss-livecam-fallback" onClick={() => { stopStream(); onFallback(); }}>
+            <Camera size={15} /> Use phone's camera instead
+          </button>
+        </div>
+      )}
+
+      {state === "ready" && (
+        <div className="ss-livecam-bottom">
+          {justTaken && <img className="ss-livecam-last" src={justTaken} alt="" />}
+          <button className="ss-livecam-shutter" onClick={capture} aria-label="Take photo" />
+          <button className="ss-livecam-switch" onClick={() => { stopStream(); onFallback(); }} aria-label="Use phone's camera app instead">
+            <RefreshCw size={16} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDeleteLast, onMeta, onAddMemo, onDeleteMemo, onExit }) {
   const inputRef = useRef(null);
   const [noteOpen, setNoteOpen] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const room = rooms[index];
   const count = room.photoIds.length;
   const lastId = room.photoIds[count - 1];
   const last = lastId ? photoCache[lastId] : null;
   const isLast = index === rooms.length - 1;
 
-  useEffect(() => { setNoteOpen(false); }, [index]);
+  useEffect(() => { setNoteOpen(false); setCameraOpen(false); }, [index]);
 
   function openCamera() {
-    inputRef.current && inputRef.current.click();
+    setCameraOpen(true);
   }
 
   async function handleFile(e) {
@@ -1110,6 +1249,16 @@ function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDeleteLast
     <div className="ss-col ss-live">
       <input ref={inputRef} type="file" accept="image/*" capture="environment" multiple
         className="ss-hidden" onChange={handleFile} />
+
+      {cameraOpen && (
+        <LiveCamera
+          label={room.name}
+          count={count}
+          onCapture={onCapture}
+          onClose={() => setCameraOpen(false)}
+          onFallback={() => { setCameraOpen(false); inputRef.current && inputRef.current.click(); }}
+        />
+      )}
 
       <div className="ss-live-top">
         <button className="ss-live-exit" onClick={onExit}><X size={18} /> Exit</button>
@@ -1159,7 +1308,7 @@ function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDeleteLast
       <div className="ss-live-controls">
         <button className="ss-shutter" onClick={openCamera}>
           <Camera size={26} strokeWidth={2.4} />
-          <span>Tap again after each shot — the count updates as you go</span>
+          <span>Stays open — keep tapping</span>
         </button>
         <div className="ss-live-nav">
           <button disabled={index === 0} onClick={() => onIndex(index - 1)}>
@@ -1180,6 +1329,7 @@ function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, onCapti
   const inputRef = useRef(null);
   const [viewPhoto, setViewPhoto] = useState(null);
   const [note, setNote] = useState(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
 
   async function handleFile(e) {
     const files = Array.from((e.target.files) || []);
@@ -1207,6 +1357,16 @@ function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, onCapti
 
       <input ref={inputRef} type="file" accept="image/*" capture="environment" multiple
         className="ss-hidden" onChange={handleFile} />
+
+      {cameraOpen && (
+        <LiveCamera
+          label={room.name}
+          count={photos.length}
+          onCapture={onCapture}
+          onClose={() => setCameraOpen(false)}
+          onFallback={() => { setCameraOpen(false); inputRef.current && inputRef.current.click(); }}
+        />
+      )}
 
       {note && <div className="ss-note">{note}</div>}
 
@@ -1259,7 +1419,7 @@ function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, onCapti
 
       <div className="ss-footer">
         <button className="ss-btn ss-btn-live ss-btn-big"
-          onClick={() => inputRef.current && inputRef.current.click()}>
+          onClick={() => setCameraOpen(true)}>
           <Camera size={20} strokeWidth={2.4} /> {photos.length ? "Take more photos" : "Take photos"}
         </button>
       </div>
@@ -2230,6 +2390,56 @@ function StyleBlock() {
       .ss-caption::placeholder { font-size: 12px; }
       .ss-modal-left { text-align: left; }
       .ss-modal-left .ss-modal-title { text-align: center; }
+
+      /* ---- in-page live camera ---- */
+      .ss-livecam {
+        position: fixed; inset: 0; z-index: 65; background: #000;
+        display: flex; flex-direction: column;
+        max-width: 430px; margin: 0 auto; overflow: hidden;
+      }
+      .ss-livecam-video { flex: 1; width: 100%; height: 100%; object-fit: cover; background: #000; }
+      .ss-livecam-flash { position: absolute; inset: 0; background: #fff; opacity: .85; animation: ss-flashfade .13s ease-out forwards; pointer-events: none; }
+      @keyframes ss-flashfade { from { opacity: .85; } to { opacity: 0; } }
+      .ss-livecam-top {
+        position: absolute; top: 0; left: 0; right: 0;
+        padding: 14px 14px calc(14px + env(safe-area-inset-top));
+        padding-top: calc(14px + env(safe-area-inset-top));
+        display: flex; align-items: center; gap: 10px;
+        background: linear-gradient(rgba(0,0,0,.55), transparent);
+      }
+      .ss-livecam-close { width: 36px; height: 36px; border-radius: 999px; background: rgba(0,0,0,.4); color: #fff; display: flex; align-items: center; justify-content: center; }
+      .ss-livecam-label { flex: 1; color: #fff; font-weight: 800; font-size: 15px; text-shadow: 0 1px 3px rgba(0,0,0,.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .ss-livecam-count { min-width: 28px; text-align: center; background: var(--hivis); color: var(--hivis-ink); font-weight: 900; font-size: 14px; border-radius: 999px; padding: 4px 10px; font-variant-numeric: tabular-nums; }
+      .ss-livecam-msg {
+        position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 14px; color: #fff; text-align: center; padding: 40px 32px; font-size: 14.5px; font-weight: 600;
+      }
+      .ss-livecam-fallback {
+        display: flex; align-items: center; gap: 8px; background: var(--hivis); color: var(--hivis-ink);
+        font-weight: 800; font-size: 14px; border-radius: 999px; padding: 11px 20px; margin-top: 6px;
+      }
+      .ss-livecam-bottom {
+        position: absolute; bottom: 0; left: 0; right: 0;
+        display: flex; align-items: center; justify-content: center; gap: 0;
+        padding: 20px 24px calc(28px + env(safe-area-inset-bottom));
+        background: linear-gradient(transparent, rgba(0,0,0,.55));
+      }
+      .ss-livecam-shutter {
+        width: 72px; height: 72px; border-radius: 999px; background: #fff;
+        border: 4px solid rgba(255,255,255,.5); flex-shrink: 0;
+        transition: transform .08s ease;
+      }
+      .ss-livecam-shutter:active { transform: scale(.9); }
+      .ss-livecam-last {
+        position: absolute; left: 24px; bottom: calc(28px + env(safe-area-inset-bottom));
+        width: 44px; height: 44px; border-radius: 10px; object-fit: cover;
+        border: 2px solid rgba(255,255,255,.7); box-shadow: 0 4px 12px rgba(0,0,0,.4);
+      }
+      .ss-livecam-switch {
+        position: absolute; right: 24px; bottom: calc(38px + env(safe-area-inset-bottom));
+        width: 40px; height: 40px; border-radius: 999px; background: rgba(0,0,0,.4); color: #fff;
+        display: flex; align-items: center; justify-content: center;
+      }
 
       /* ---- case details ---- */
       .ss-case-toggle { display: flex; align-items: center; gap: 6px; margin: 10px auto 0; font-size: 12.5px; font-weight: 700; color: var(--muted); padding: 6px; }
