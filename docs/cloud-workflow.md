@@ -1,8 +1,12 @@
 # Cloud workflow setup (Make.com → OneDrive + AI drafting)
 
-SiteSnap never talks to OneDrive or an AI provider directly — it POSTs to one
-webhook you control, and your workflow decides what happens. This document is
-the contract and a working Make.com recipe.
+This is the webhook route: SiteSnap POSTs to one URL you control, and your
+workflow decides what happens — including, uniquely to this route, running
+an AI drafting step over the notes. If you just want photos to land in your
+own OneDrive/Drive with no automation tool involved, see
+[`direct-cloud-link-setup.md`](direct-cloud-link-setup.md) instead — the two
+can also run side by side. This document is the webhook contract and a
+working Make.com recipe.
 
 ## What the app sends
 

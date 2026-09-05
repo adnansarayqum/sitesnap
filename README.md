@@ -2,9 +2,14 @@
 
 Pick the rooms, walk the property, shoot as you go. Photos are filed into
 numbered room folders automatically. Rate each room Good / Fair / Poor, add
-notes (damage, meter readings), then export four ways: to the phone's Photos
-app, as a ZIP with the folder structure and notes inside, as a printable PDF
-report, or straight to OneDrive / Google Drive via an automation webhook.
+notes (damage, meter readings) or a voice memo, mark up a photo on the spot
+(circle or arrow the defect), then export: to the phone's Photos app, as a
+ZIP with the folder structure and notes inside, as a printable PDF report,
+or straight to OneDrive / Google Drive — either through an automation
+webhook, or a direct sign-in with no webhook at all (see below).
+
+Search past jobs from the home screen, and switch on **Field mode** in
+Settings for a high-contrast dark theme when shooting in direct sunlight.
 
 The app works offline once loaded (service worker + IndexedDB) — shoot the
 whole property with no signal and export when you're back online.
@@ -39,11 +44,22 @@ Photos are compressed (max 2200px) and kept in the browser's IndexedDB, so an
 inspection survives closing Safari or losing signal mid-property. Nothing is
 deleted until "Close inspection" is tapped on the Finish screen.
 
-## Cloud upload without Microsoft/Google sign-in
+## Two ways to get photos into the cloud
 
-The app never talks to OneDrive or Google Drive directly — that would need an
-Azure/Google OAuth app registration. Instead it POSTs each photo to a webhook
-you control (n8n, Zapier, or Make), and the workflow files it into the drive.
+**Direct link (no automation tool needed).** In Settings, sign in with your
+own Microsoft or Google account and SiteSnap writes straight into your
+OneDrive or Drive. Requires a one-time, free app registration in Azure or
+Google Cloud — see
+[`docs/direct-cloud-link-setup.md`](docs/direct-cloud-link-setup.md).
+
+**Webhook (Make / n8n / Zapier), with AI drafting.** The app POSTs each
+photo to a webhook you control, and your workflow files it into the drive.
+This route can also run an AI drafting step (Whisper transcription, draft
+findings reviewed in-app) because the workflow can call an AI provider on
+the file after it lands — the direct link can't do that on its own.
+
+You can set up one, the other, or both — whichever's configured in Settings
+shows up as an upload option on the Finish screen.
 
 Each POST is `multipart/form-data` with fields:
 
@@ -69,7 +85,7 @@ access key is sent as an `x-make-apikey` header.
 ### n8n recipe (3 nodes)
 
 1. **Webhook** node — POST, binary data enabled. Copy its production URL into
-   SiteSnap via "Set cloud upload link" on the Finish screen.
+   SiteSnap via Settings → Cloud upload via Make / n8n / Zapier.
 2. **Microsoft OneDrive → Upload a file** node — path:
    `/Inspections/{{ $json.address }}/{{ $json.folder }}/{{ $json.filename }}`,
    binary property `file`. (Swap for the Google Drive node to use Drive.)

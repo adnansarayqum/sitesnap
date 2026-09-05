@@ -4,7 +4,8 @@ import {
   CloudUpload, Check, X, Loader2, ImagePlus, ArrowRight, ArrowLeft,
   Undo2, FolderTree, CircleCheck, Image as ImageIcon, Download, Link2,
   StickyNote, FileText, Printer, AlertTriangle, Mic, MicOff, KeyRound, Briefcase, Smartphone, Pencil,
-  RefreshCw, Aperture,
+  RefreshCw, Aperture, Settings as SettingsIcon, Search, SlidersHorizontal, Sun, Moon,
+  Circle, MoveUpRight, ShieldCheck, Clock, HardDrive, ChevronRight, Tag,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -166,7 +167,14 @@ import {
   loadWebhookKey, saveWebhookKey,
   loadArchive, archiveInspection, sweepOrphans,
   setStorageErrorHandler, requestDurableStorage, storageEstimate,
+  loadMsClientId, saveMsClientId, loadGoogleClientId, saveGoogleClientId,
+  loadFieldMode, saveFieldMode,
 } from "./storage.js";
+// Loaded on demand, not at startup: MSAL and Google's SDK are only weight
+// worth paying for a surveyor who actually connects a direct cloud link —
+// everyone else is here to shoot photos, and that path stays light.
+const loadMsGraph = () => import("./cloud/msGraph.js");
+const loadGoogleDrive = () => import("./cloud/googleDrive.js");
 
 /* ---------- voice memos ---------- */
 
@@ -280,7 +288,7 @@ function VoiceMemo({ memos, onAdd, onDelete, dark }) {
 /* ================================================================== */
 
 export default function SiteSnap() {
-  const [screen, setScreen] = useState("loading"); // loading|home|setup|board|walk|room|finish
+  const [screen, setScreen] = useState("loading"); // loading|home|setup|settings|board|walk|room|finish
   const [inspection, setInspection] = useState(null);
   const [index, setIndex] = useState([]);
   const [rooms, setRooms] = useState([]);
@@ -291,6 +299,8 @@ export default function SiteSnap() {
   const [storageAlert, setStorageAlert] = useState(null);
   const [durable, setDurable] = useState(true);
   const [archive, setArchive] = useState([]);
+  const [fieldMode, setFieldMode] = useState(false);
+  const [settingsReturn, setSettingsReturn] = useState("home"); // where Settings' back button goes
   const undoTimer = useRef(null);
   const originals = useRef({}); // id -> File/Blob (full quality, this session only)
   const audioCache = useRef({}); // memo id -> Blob
@@ -383,6 +393,7 @@ export default function SiteSnap() {
       requestDurableStorage().then((granted) => setDurable(granted));
       setIndex(await loadIndex());
       setArchive(await loadArchive());
+      loadFieldMode().then(setFieldMode);
       setScreen("home");
       // media left behind by an interrupted close/discard is unreachable
       // from any inspection and only wastes the phone's storage
@@ -650,8 +661,20 @@ export default function SiteSnap() {
   const totalPhotos = rooms.reduce((s, r) => s + r.photoIds.length, 0);
   const doneRooms = rooms.filter((r) => r.photoIds.length > 0).length;
 
+  function toggleFieldMode() {
+    setFieldMode((prev) => { const next = !prev; saveFieldMode(next); return next; });
+  }
+
+  // On-photo annotation flattens the marked-up copy straight onto the stored
+  // photo — the annotated version becomes the evidence that gets exported,
+  // same as marking up a print with a pen.
+  async function annotatePhoto(photoId, dataUrl, thumb) {
+    setPhotoCache((c) => (c[photoId] ? { ...c, [photoId]: { ...c[photoId], dataUrl, thumb } } : c));
+    await updatePhoto(photoId, { dataUrl, thumb }).catch(() => {});
+  }
+
   return (
-    <div className="ss-root">
+    <div className={`ss-root${fieldMode ? " ss-field" : ""}`}>
       <StyleBlock />
       <div className="ss-frame">
         {screen === "loading" && (
@@ -666,11 +689,20 @@ export default function SiteSnap() {
             onNew={() => setScreen("setup")}
             onOpen={openInspection}
             onDiscard={discardInspection}
+            onSettings={() => { setSettingsReturn("home"); setScreen("settings"); }}
           />
         )}
 
         {screen === "setup" && (
           <SetupScreen onBack={() => setScreen("home")} onStart={startInspection} />
+        )}
+
+        {screen === "settings" && (
+          <SettingsScreen
+            onBack={() => setScreen(settingsReturn)}
+            fieldMode={fieldMode}
+            onToggleFieldMode={toggleFieldMode}
+          />
         )}
 
         {screen === "board" && inspection && (
@@ -724,6 +756,7 @@ export default function SiteSnap() {
               onMeta={(patch) => setRoomMeta(room.id, patch)}
               onCaption={setPhotoCaption}
               onFull={fullPhoto}
+              onAnnotate={annotatePhoto}
               onAddMemo={(blob, secs) => addMemo(room.id, blob, secs)}
               onDeleteMemo={(mid) => deleteMemo(room.id, mid)}
               onSaveToPhotos={async () => shareFiles(await filesFor(room), `${room.name} photos`)}
@@ -743,9 +776,11 @@ export default function SiteSnap() {
             audioCache={audioCache}
             onUploadResult={(r) => setInspectionMeta({ lastUpload: r })}
             onExportResult={(r) => setInspectionMeta({ lastExport: r })}
+            onFindings={(f) => setInspectionMeta({ draftFindings: f })}
             onBack={() => setScreen("board")}
             onSaveAll={async () => shareFiles(await filesForAll(), "Inspection photos")}
             onDone={finishAndReset}
+            onSettings={() => { setSettingsReturn("finish"); setScreen("settings"); }}
           />
         )}
 
@@ -770,16 +805,25 @@ export default function SiteSnap() {
 
 /* ---------------- home ---------------- */
 
-function HomeScreen({ index, archive, durable, onNew, onOpen, onDiscard }) {
+function HomeScreen({ index, archive, durable, onNew, onOpen, onDiscard, onSettings }) {
   const [confirmId, setConfirmId] = useState(null);
+  const [q, setQ] = useState("");
   const open = [...index].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   const target = open.find((i) => i.id === confirmId);
 
   const done = archive || [];
+  const needle = q.trim().toLowerCase();
+  const matches = (i) => !needle || [i.address, i.ref, i.postcode].filter(Boolean).join(" ").toLowerCase().includes(needle);
+  const openShown = open.filter(matches);
+  const doneShown = done.filter(matches);
 
   if (open.length === 0 && done.length === 0) {
     return (
       <div className="ss-col">
+        <div className="ss-home-top">
+          <span />
+          <button className="ss-icon-btn" onClick={onSettings} aria-label="Settings" title="Settings"><SettingsIcon size={17} /></button>
+        </div>
         <div className="ss-home-hero">
           <div className="ss-mark"><Camera size={20} strokeWidth={2.4} /></div>
           <div className="ss-eyebrow">Property inspections</div>
@@ -813,11 +857,21 @@ function HomeScreen({ index, archive, durable, onNew, onOpen, onDiscard }) {
           <div className="ss-title">In progress</div>
         </div>
         <span className="ss-badge">{open.length}</span>
+        <button className="ss-icon-btn" onClick={onSettings} aria-label="Settings" title="Settings"><SettingsIcon size={16} /></button>
+      </div>
+
+      <div className="ss-search-row">
+        <Search size={15} className="ss-search-ic" />
+        <input className="ss-search-input" placeholder="Search address, ref, postcode…" value={q} onChange={(e) => setQ(e.target.value)} />
+        {q && <button className="ss-search-clear" onClick={() => setQ("")} aria-label="Clear search"><X size={13} /></button>}
       </div>
 
       <div className="ss-scroll">
+        {needle && openShown.length === 0 && doneShown.length === 0 && (
+          <p className="ss-empty-note">Nothing matches “{q.trim()}”.</p>
+        )}
         <div className="ss-list">
-          {open.map((i) => (
+          {openShown.map((i) => (
             <div key={i.id} className="ss-row">
               <button className="ss-row-tap" onClick={() => onOpen(i.id)}>
                 <div className="ss-row-main ss-job">
@@ -854,15 +908,15 @@ function HomeScreen({ index, archive, durable, onNew, onOpen, onDiscard }) {
             </span>
           </div>
         )}
-        {open.length === 0 && (
+        {open.length === 0 && !needle && (
           <p className="ss-empty-note">Nothing in progress. Start a new inspection below.</p>
         )}
 
-        {done.length > 0 && (
+        {doneShown.length > 0 && (
           <>
             <div className="ss-section-label" style={{ marginTop: 22 }}>Completed</div>
             <div className="ss-list">
-              {done.slice(0, 25).map((a) => (
+              {doneShown.slice(0, 25).map((a) => (
                 <div key={a.id} className="ss-row ss-row-done">
                   <div className="ss-row-tap">
                     <div className="ss-row-main ss-job">
@@ -933,6 +987,226 @@ function relativeDay(ts) {
   yesterday.setDate(today.getDate() - 1);
   if (d.toDateString() === yesterday.toDateString()) return "yesterday";
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+
+/* ---------------- settings ---------------- */
+
+function CloudProviderCard({ label, icon, connected, connecting, account, clientId, onClientId, onConnect, onDisconnect, error, portalHint }) {
+  return (
+    <div className="ss-cloud-card">
+      <div className="ss-cloud-head">
+        <span className="ss-cloud-ic">{icon}</span>
+        <span className="ss-cloud-label">{label}</span>
+        {connected && <span className="ss-cloud-connected"><CircleCheck size={12} /> Connected{account ? ` — ${account}` : ""}</span>}
+      </div>
+      {!connected && (
+        <>
+          <input
+            className="ss-input" placeholder="App (client) ID"
+            value={clientId} onChange={(e) => onClientId(e.target.value)}
+            autoCapitalize="none" autoComplete="off"
+          />
+          <p className="ss-fineprint" style={{ margin: "6px 2px 0" }}>{portalHint}</p>
+        </>
+      )}
+      {error && <p className="ss-fineprint" style={{ color: "var(--red)", margin: "6px 2px 0" }}>{error}</p>}
+      <button
+        className={`ss-btn ${connected ? "ss-btn-ghost" : "ss-btn-primary"}`}
+        style={{ marginTop: 10 }}
+        disabled={connecting || (!connected && !clientId.trim())}
+        onClick={connected ? onDisconnect : onConnect}
+      >
+        {connecting ? <Loader2 size={16} className="ss-spin" /> : connected ? "Disconnect" : `Connect ${label}`}
+      </button>
+    </div>
+  );
+}
+
+function SettingsScreen({ onBack, fieldMode, onToggleFieldMode }) {
+  const [hookUrl, setHookUrl] = useState("");
+  const [hookKey, setHookKey] = useState("");
+  const [savedNote, setSavedNote] = useState(null);
+
+  const [msClientId, setMsClientId] = useState("");
+  const [msAccountName, setMsAccountName] = useState(null);
+  const [msBusy, setMsBusy] = useState(false);
+  const [msError, setMsError] = useState(null);
+
+  const [googleClientId, setGoogleClientId] = useState("");
+  const [googleOn, setGoogleOn] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
+  const [googleError, setGoogleError] = useState(null);
+
+  const [storage, setStorage] = useState(null);
+  const [durable, setDurable] = useState(null);
+
+  useEffect(() => {
+    loadWebhook().then((u) => setHookUrl(u || ""));
+    loadWebhookKey().then((k) => setHookKey(k || ""));
+    loadMsClientId().then(async (id) => {
+      setMsClientId(id || "");
+      // MSAL's cache lives in localStorage, so a returning surveyor can
+      // already be signed in — only pull the library in if there's an ID
+      // to check against.
+      if (!id) return;
+      const { msAccount } = await loadMsGraph();
+      const acc = await msAccount(id);
+      if (acc) setMsAccountName(acc.username);
+    });
+    // Google's access token is memory-only (see cloud/googleDrive.js), so
+    // this only ever reflects a connection made earlier in this same
+    // session — the import resolves instantly from cache in that case.
+    loadGoogleClientId().then(async (id) => {
+      setGoogleClientId(id || "");
+      if (id) setGoogleOn((await loadGoogleDrive()).googleConnected());
+    });
+    storageEstimate().then(setStorage);
+    if (navigator.storage && navigator.storage.persisted) navigator.storage.persisted().then(setDurable);
+  }, []);
+
+  function flash(msg) { setSavedNote(msg); setTimeout(() => setSavedNote(null), 2500); }
+
+  async function saveHook() {
+    await saveWebhook(hookUrl.trim());
+    await saveWebhookKey(hookKey.trim());
+    flash("Cloud upload link saved");
+  }
+
+  async function connectMs() {
+    setMsBusy(true); setMsError(null);
+    try {
+      await saveMsClientId(msClientId.trim());
+      const { connectOneDrive } = await loadMsGraph();
+      const acc = await connectOneDrive(msClientId.trim());
+      setMsAccountName(acc.username);
+      flash("OneDrive connected");
+    } catch (e) {
+      setMsError(e && e.message ? e.message : "Couldn't connect to OneDrive.");
+    } finally { setMsBusy(false); }
+  }
+  async function disconnectMs() {
+    setMsBusy(true);
+    const { disconnectOneDrive } = await loadMsGraph();
+    await disconnectOneDrive(msClientId.trim());
+    setMsAccountName(null);
+    setMsBusy(false);
+  }
+
+  async function connectGoogle() {
+    setGoogleBusy(true); setGoogleError(null);
+    try {
+      await saveGoogleClientId(googleClientId.trim());
+      const { connectGoogleDrive } = await loadGoogleDrive();
+      await connectGoogleDrive(googleClientId.trim());
+      setGoogleOn(true);
+      flash("Google Drive connected");
+    } catch (e) {
+      setGoogleError(e && e.message ? e.message : "Couldn't connect to Google Drive.");
+    } finally { setGoogleBusy(false); }
+  }
+  async function disconnectGoogle() {
+    const { disconnectGoogleDrive } = await loadGoogleDrive();
+    disconnectGoogleDrive();
+    setGoogleOn(false);
+  }
+
+  return (
+    <div className="ss-col">
+      <TopBar title="Settings" eyebrow="SiteSnap" onBack={onBack} />
+      <div className="ss-scroll">
+        <div className="ss-section-label" style={{ marginTop: 4 }}>Direct cloud link</div>
+        <p className="ss-fineprint" style={{ margin: "0 2px 10px" }}>
+          Sign in with your own Microsoft or Google account and SiteSnap writes
+          straight into your OneDrive or Drive — no Make/n8n/Zapier scenario
+          needed. Requires a free app registration in Azure or Google Cloud;
+          see the setup guide in the repo's docs.
+        </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <CloudProviderCard
+            label="OneDrive" icon={<CloudUpload size={16} />}
+            connected={!!msAccountName} connecting={msBusy} account={msAccountName}
+            clientId={msClientId} onClientId={setMsClientId}
+            onConnect={connectMs} onDisconnect={disconnectMs} error={msError}
+            portalHint="From portal.azure.com → App registrations → New registration (SPA, redirect URI = this app's URL)."
+          />
+          <CloudProviderCard
+            label="Google Drive" icon={<CloudUpload size={16} />}
+            connected={googleOn} connecting={googleBusy} account={null}
+            clientId={googleClientId} onClientId={setGoogleClientId}
+            onConnect={connectGoogle} onDisconnect={disconnectGoogle} error={googleError}
+            portalHint="From console.cloud.google.com → APIs & Services → Credentials → OAuth client ID (Web application)."
+          />
+        </div>
+
+        <div className="ss-section-label" style={{ marginTop: 20 }}>Cloud upload via Make / n8n / Zapier</div>
+        <input
+          className="ss-input" placeholder="https://your-n8n.app/webhook/inspections"
+          value={hookUrl} onChange={(e) => setHookUrl(e.target.value)}
+          inputMode="url" autoCapitalize="none"
+        />
+        <div className="ss-key-row" style={{ marginTop: 8 }}>
+          <KeyRound size={14} />
+          <input
+            className="ss-input" placeholder="Access key (optional)"
+            value={hookKey} onChange={(e) => setHookKey(e.target.value)}
+            autoCapitalize="none" autoComplete="off"
+          />
+        </div>
+        <p className="ss-fineprint" style={{ margin: "8px 2px 0" }}>
+          Photos, voice notes and a site-notes file are POSTed with the address
+          and folder name, and your workflow files them into OneDrive or
+          Google Drive. Set an access key here and in your webhook so only
+          this phone can upload.
+        </p>
+        <button className="ss-btn ss-btn-primary" style={{ marginTop: 10 }} onClick={saveHook}>Save link</button>
+
+        <div className="ss-section-label" style={{ marginTop: 20 }}>Display</div>
+        <div className="ss-settings-row">
+          <span className="ss-settings-ic">{fieldMode ? <Moon size={17} /> : <Sun size={17} />}</span>
+          <div style={{ flex: 1 }}>
+            <div className="ss-settings-title">Field mode</div>
+            <div className="ss-settings-sub">High-contrast dark theme for bright daylight</div>
+          </div>
+          <button
+            className={`ss-toggle ${fieldMode ? "on" : ""}`}
+            role="switch" aria-checked={fieldMode} onClick={onToggleFieldMode}
+          ><span /></button>
+        </div>
+
+        <div className="ss-section-label" style={{ marginTop: 20 }}>Storage on this phone</div>
+        <div className="ss-storage-card">
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <HardDrive size={15} color={durable ? "var(--pine)" : "var(--amber)"} />
+            <span style={{ fontWeight: 700, fontSize: 13 }}>
+              {durable === null ? "Checking storage…" : durable ? "Durable storage granted" : "Durable storage not granted yet"}
+            </span>
+          </div>
+          {storage && storage.quota ? (
+            <>
+              <div className="ss-progress" style={{ marginTop: 10 }}>
+                <div style={{ width: `${Math.min(100, Math.round((storage.usage / storage.quota) * 100))}%` }} />
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>
+                <span>{Math.round(storage.usage / 1048576)} MB used</span>
+                <span>{storage.freeMB} MB free</span>
+              </div>
+            </>
+          ) : (
+            <p className="ss-fineprint" style={{ margin: "8px 2px 0" }}>This browser doesn't report storage usage.</p>
+          )}
+        </div>
+
+        <div className="ss-section-label" style={{ marginTop: 20 }}>About</div>
+        <div className="ss-storage-card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontWeight: 700, fontSize: 13 }}>SiteSnap</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>Version 2.1.0</span>
+        </div>
+
+        {savedNote && <div className="ss-note" style={{ marginTop: 10 }}>{savedNote}</div>}
+        <div style={{ height: 16 }} />
+      </div>
+    </div>
+  );
 }
 
 /* ---------------- setup (one screen) ---------------- */
@@ -1503,9 +1777,10 @@ function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDeleteLast
 
 /* ---------------- room review ---------------- */
 
-function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, onCaption, onFull, onAddMemo, onDeleteMemo, onSaveToPhotos, onError }) {
+function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, onCaption, onFull, onAnnotate, onAddMemo, onDeleteMemo, onSaveToPhotos, onError }) {
   const inputRef = useRef(null);
   const [viewPhoto, setViewPhoto] = useState(null);
+  const [annotating, setAnnotating] = useState(false);
 
   // the grid shows thumbnails; the lightbox swaps in the stored copy once read
   function openPhoto(p) {
@@ -1634,13 +1909,172 @@ function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, onCapti
                 })}
               </div>
             )}
-            <button className="ss-btn ss-btn-danger"
-              onClick={(e) => { e.stopPropagation(); onDelete(viewPhoto.id); setViewPhoto(null); }}>
-              <Trash2 size={16} /> Delete photo
-            </button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className="ss-btn ss-btn-ghost" disabled={!viewPhoto.dataUrl}
+                onClick={(e) => { e.stopPropagation(); if (viewPhoto.dataUrl) setAnnotating(true); }}>
+                <Tag size={16} /> Annotate
+              </button>
+              <button className="ss-btn ss-btn-danger"
+                onClick={(e) => { e.stopPropagation(); onDelete(viewPhoto.id); setViewPhoto(null); }}>
+                <Trash2 size={16} /> Delete photo
+              </button>
+            </div>
           </div>
         </div>
       )}
+
+      {annotating && viewPhoto && (
+        <PhotoAnnotator
+          photo={viewPhoto}
+          onClose={() => setAnnotating(false)}
+          onDone={(dataUrl, thumb) => {
+            onAnnotate(viewPhoto.id, dataUrl, thumb);
+            setViewPhoto((v) => (v ? { ...v, dataUrl, thumb } : v));
+            setAnnotating(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// Draws directly onto the evidence photo — a circle or an arrow at the
+// defect — then flattens it into the stored copy, the same way marking up a
+// printed photo with a pen would. There's no "undo after Done"; Undo removes
+// the last mark before it's baked in.
+function PhotoAnnotator({ photo, onClose, onDone }) {
+  const imgRef = useRef(null);
+  const canvasRef = useRef(null);
+  const draft = useRef(null);
+  const [tool, setTool] = useState("circle"); // circle|arrow
+  const [strokes, setStrokes] = useState([]);
+  const [, bump] = useState(0);
+  const [saving, setSaving] = useState(false);
+
+  function drawStroke(ctx, s) {
+    ctx.beginPath();
+    if (s.type === "circle") {
+      const cx = (s.x1 + s.x2) / 2, cy = (s.y1 + s.y2) / 2;
+      const rx = Math.max(Math.abs(s.x2 - s.x1) / 2, 10), ry = Math.max(Math.abs(s.y2 - s.y1) / 2, 10);
+      ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      return;
+    }
+    ctx.moveTo(s.x1, s.y1);
+    ctx.lineTo(s.x2, s.y2);
+    ctx.stroke();
+    const angle = Math.atan2(s.y2 - s.y1, s.x2 - s.x1);
+    const head = 14;
+    ctx.beginPath();
+    ctx.moveTo(s.x2, s.y2);
+    ctx.lineTo(s.x2 - head * Math.cos(angle - Math.PI / 6), s.y2 - head * Math.sin(angle - Math.PI / 6));
+    ctx.moveTo(s.x2, s.y2);
+    ctx.lineTo(s.x2 - head * Math.cos(angle + Math.PI / 6), s.y2 - head * Math.sin(angle + Math.PI / 6));
+    ctx.stroke();
+  }
+
+  function redraw() {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = "#E4573D";
+    ctx.lineWidth = 4;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    const all = draft.current ? [...strokes, draft.current] : strokes;
+    all.forEach((s) => drawStroke(ctx, s));
+  }
+  useEffect(redraw);
+
+  function resizeCanvas() {
+    const img = imgRef.current, canvas = canvasRef.current;
+    if (!img || !canvas) return;
+    canvas.width = img.clientWidth;
+    canvas.height = img.clientHeight;
+    redraw();
+  }
+  useEffect(() => {
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+    return () => window.removeEventListener("resize", resizeCanvas);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function pos(e) {
+    const rect = canvasRef.current.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+  function onPointerDown(e) {
+    e.preventDefault();
+    const p = pos(e);
+    draft.current = { type: tool, x1: p.x, y1: p.y, x2: p.x, y2: p.y };
+    canvasRef.current.setPointerCapture(e.pointerId);
+    bump((n) => n + 1);
+  }
+  function onPointerMove(e) {
+    if (!draft.current) return;
+    const p = pos(e);
+    draft.current = { ...draft.current, x2: p.x, y2: p.y };
+    redraw();
+  }
+  function onPointerUp() {
+    if (!draft.current) return;
+    const d = draft.current;
+    draft.current = null;
+    if (Math.hypot(d.x2 - d.x1, d.y2 - d.y1) > 6) setStrokes((s) => [...s, d]);
+    else bump((n) => n + 1);
+  }
+  function undo() { setStrokes((s) => s.slice(0, -1)); }
+
+  async function done() {
+    setSaving(true);
+    try {
+      const img = imgRef.current;
+      const scaleX = img.naturalWidth / img.clientWidth;
+      const scaleY = img.naturalHeight / img.clientHeight;
+      const out = document.createElement("canvas");
+      out.width = img.naturalWidth;
+      out.height = img.naturalHeight;
+      const ctx = out.getContext("2d");
+      ctx.drawImage(img, 0, 0, out.width, out.height);
+      ctx.strokeStyle = "#E4573D";
+      ctx.lineWidth = Math.max(3, 4 * Math.min(scaleX, scaleY));
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      strokes.forEach((s) => drawStroke(ctx, {
+        type: s.type, x1: s.x1 * scaleX, y1: s.y1 * scaleY, x2: s.x2 * scaleX, y2: s.y2 * scaleY,
+      }));
+      const dataUrl = out.toDataURL("image/jpeg", 0.9);
+      const thumb = drawScaled(out, out.width, out.height, THUMB_DIM, 0.72);
+      onDone(dataUrl, thumb);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="ss-annotate">
+      <div className="ss-annotate-top">
+        <button onClick={onClose} aria-label="Cancel annotating"><X size={19} /></button>
+        <span>Annotate</span>
+        <button onClick={undo} disabled={!strokes.length} aria-label="Undo last mark"><Undo2 size={19} /></button>
+      </div>
+      <div className="ss-annotate-stage">
+        <img ref={imgRef} src={photo.dataUrl} alt="" onLoad={resizeCanvas} draggable={false} />
+        <canvas
+          ref={canvasRef}
+          onPointerDown={onPointerDown} onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp} onPointerCancel={onPointerUp}
+        />
+      </div>
+      <div className="ss-annotate-tools">
+        <button className={`ss-annotate-tool ${tool === "circle" ? "on" : ""}`} onClick={() => setTool("circle")} aria-label="Circle tool"><Circle size={18} /></button>
+        <button className={`ss-annotate-tool ${tool === "arrow" ? "on" : ""}`} onClick={() => setTool("arrow")} aria-label="Arrow tool"><MoveUpRight size={18} /></button>
+        <button className="ss-btn ss-btn-primary" style={{ flex: 1 }} onClick={done} disabled={saving}>
+          {saving ? <Loader2 size={16} className="ss-spin" /> : <Check size={16} />} Done
+        </button>
+      </div>
     </div>
   );
 }
@@ -1654,10 +2088,40 @@ function describeHttp(status) {
   return `The upload link refused the request (${status}).`;
 }
 
+// The AI drafting step (docs/cloud-workflow.md) can reply to the notes POST
+// with its structured findings instead of a plain status string. Anything
+// that doesn't parse as that shape is left alone — most workflows still
+// just reply "Accepted" or "filed", and that's fine.
+function parseDraftFindings(body) {
+  if (!body) return null;
+  let json;
+  try { json = JSON.parse(body); } catch { return null; }
+  if (!json || !Array.isArray(json.rooms)) return null;
+  const ok = json.rooms.every((r) => r && typeof r.room_name === "string" && Array.isArray(r.findings));
+  return ok ? json : null;
+}
+
 /* ---------------- finish / export ---------------- */
 
-function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom, filesForUpload, fullPhoto, audioCache, onUploadResult, onExportResult, onBack, onSaveAll, onDone }) {
+function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom, filesForUpload, fullPhoto, audioCache, onUploadResult, onExportResult, onFindings, onBack, onSaveAll, onDone, onSettings }) {
   const [note, setNote] = useState(null);
+  const [direct, setDirect] = useState({ ms: null, google: false }); // account name / connected flags
+  const [directUpload, setDirectUpload] = useState(null); // { provider, statuses, running, sent, total }
+  const [directError, setDirectError] = useState(null);
+  const [findingsOpen, setFindingsOpen] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const msId = await loadMsClientId();
+      const acc = msId ? await (await loadMsGraph()).msAccount(msId) : null;
+      // Google's token is memory-only, so this only reflects a connection
+      // made earlier in this same session (the import resolves instantly
+      // from cache in that case) — never worth a fetch if never configured.
+      const googleId = await loadGoogleClientId();
+      const googleOn = googleId ? (await loadGoogleDrive()).googleConnected() : false;
+      setDirect({ ms: acc ? acc.username : null, google: googleOn });
+    })();
+  }, []);
   const [reportCache, setReportCache] = useState(null); // full-size copies, only while the report is open
   const [reportBusy, setReportBusy] = useState(false);
 
@@ -1682,7 +2146,6 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
   const [zipBusy, setZipBusy] = useState(false);
   const [hookUrl, setHookUrl] = useState("");
   const [hookKey, setHookKey] = useState("");
-  const [hookOpen, setHookOpen] = useState(false);
   const [upload, setUpload] = useState(null); // { statuses, running, doneAll, sent, total }
   const [reportOpen, setReportOpen] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
@@ -1816,7 +2279,7 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
 
   async function runUpload() {
     const url = hookUrl.trim();
-    if (!url) { setHookOpen(true); return; }
+    if (!url) { flash("Set a cloud upload link in Settings first"); return; }
     if (upload && upload.running) return;
     saveWebhook(url);
     const key = hookKey.trim();
@@ -1917,13 +2380,93 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
     nfd.append("file", new File([JSON.stringify(payload, null, 2)], "inspection.json", { type: "application/json" }), "inspection.json");
     const nres = await postToHook(url, key, nfd);
     if (!nres.ok) { anyFailed = true; failReason = failReason || nres.reason; }
-    else { if (!nres.confirmed) allConfirmed = false; setUpload((s) => s && ({ ...s, sent: s.sent + 1 })); }
+    else {
+      if (!nres.confirmed) allConfirmed = false;
+      setUpload((s) => s && ({ ...s, sent: s.sent + 1 }));
+      // if the AI drafting step is wired up on the cloud side, it can hand
+      // its findings straight back in this response instead of only living
+      // as a file in the drive — same trick the audio route uses for
+      // transcripts. Nothing changes here if that step doesn't exist yet.
+      const drafted = parseDraftFindings(nres.body);
+      if (drafted && onFindings) onFindings(drafted);
+    }
 
     setUpload((s) => s && ({ ...s, running: false, doneAll: !anyFailed }));
     setUpload((s) => s && ({ ...s, confirmed: !anyFailed && allConfirmed }));
     if (onUploadResult) onUploadResult({ at: Date.now(), ok: !anyFailed, confirmed: !anyFailed && allConfirmed, total });
     if (anyFailed) setUploadError(failReason || "The upload didn't go through.");
     else flash(allConfirmed ? "Everything filed in the cloud" : "Everything sent — your workflow will file it");
+  }
+
+  // Writes straight into the surveyor's own OneDrive or Drive with the same
+  // /Inspections/<address>/<folder>/<file> layout Make produces, so a job
+  // filed this way sits next to ones filed through a webhook without anyone
+  // having to know which route each one took.
+  async function uploadDirect(provider) {
+    if (directUpload && directUpload.running) return;
+    setDirectError(null);
+    const statuses = {};
+    populated.forEach((r) => { statuses[r.id] = "queued"; });
+    const memoCount = rooms.reduce((s, r) => s + (r.memos || []).length, 0);
+    const total = populated.reduce((s, r) => s + r.photoIds.length, 0) + memoCount + 1;
+    setDirectUpload({ provider, statuses, running: true, sent: 0, total });
+
+    const put = provider === "ms"
+      ? async (segments, filename, file) => {
+          const { uploadToOneDrive } = await loadMsGraph();
+          return uploadToOneDrive(await loadMsClientId(), segments, file.name ? file : new File([file], filename, { type: file.type }));
+        }
+      : async (segments, filename, file) => {
+          const { uploadToGoogleDrive } = await loadGoogleDrive();
+          return uploadToGoogleDrive(await loadGoogleClientId(), segments, filename, file);
+        };
+
+    let failed = false, failReason = null;
+    try {
+      for (const room of populated) {
+        const idx = rooms.indexOf(room);
+        setDirectUpload((s) => s && ({ ...s, statuses: { ...s.statuses, [room.id]: "uploading" } }));
+        const folder = `${pad(idx + 1)}. ${room.name}`;
+        const files = await filesForUpload(room);
+        for (const f of files) {
+          await put(["Inspections", inspection.address, folder], f.name, f);
+          setDirectUpload((s) => s && ({ ...s, sent: s.sent + 1 }));
+        }
+        setDirectUpload((s) => s && ({ ...s, statuses: { ...s.statuses, [room.id]: "done" } }));
+      }
+      for (const room of rooms) {
+        const idx = rooms.indexOf(room);
+        const folder = `${pad(idx + 1)}. ${room.name}`;
+        for (const m of room.memos || []) {
+          const blob = audioCache.current[m.id];
+          if (!blob) continue;
+          const name = `${safeName(room.name).replace(/\s+/g, "_")}_note.${extFor(m.type)}`;
+          await put(["Inspections", inspection.address, folder], name, blob);
+          setDirectUpload((s) => s && ({ ...s, sent: s.sent + 1 }));
+        }
+      }
+      const payload = {
+        inspectionId: inspection.id, address: inspection.address, postcode: inspection.postcode || "",
+        reference: inspection.ref || "", client: inspection.client || "", occupier: inspection.occupier || "",
+        solicitor: inspection.solicitor || "", inspectedAt: new Date(inspection.startedAt).toISOString(), totalPhotos,
+        rooms: rooms.map((r, i) => ({
+          order: i + 1, folder: `${pad(i + 1)}. ${r.name}`, room: r.name, condition: r.condition || "",
+          note: (r.note || "").trim(), photos: r.photoIds.length, voiceNotes: (r.memos || []).length,
+          photoNumbers: r.photoIds.map((id) => photoCache[id] && photoCache[id].no).filter(Boolean),
+        })),
+      };
+      const notesFile = new File([JSON.stringify(payload, null, 2)], "inspection.json", { type: "application/json" });
+      await put(["Inspections", inspection.address, "_Inspection"], "inspection.json", notesFile);
+      setDirectUpload((s) => s && ({ ...s, sent: s.sent + 1, running: false }));
+      if (onUploadResult) onUploadResult({ at: Date.now(), ok: true, confirmed: true, total, direct: provider });
+      flash(`Filed directly to ${provider === "ms" ? "OneDrive" : "Google Drive"}`);
+    } catch (e) {
+      failed = true;
+      failReason = (e && e.message) || "The upload didn't go through.";
+      setDirectUpload((s) => s && ({ ...s, running: false }));
+      setDirectError(failReason);
+    }
+    if (failed) setUploadError(`Direct upload to ${provider === "ms" ? "OneDrive" : "Google Drive"} stopped partway: ${failReason} Nothing has been lost — your photos are still on this phone.`);
   }
 
   return (
@@ -1943,18 +2486,21 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
         <div className="ss-tree">
           <div className="ss-tree-root"><FolderTree size={14} /> {inspection.address}</div>
           {rooms.map((room, i) => {
-            const st = upload ? upload.statuses[room.id] : null;
+            const st = (upload && upload.statuses[room.id]) || (directUpload && directUpload.statuses[room.id]) || null;
             return (
               <div key={room.id} className={`ss-tree-row ${room.photoIds.length === 0 ? "dim" : ""}`}>
-                <span>
+                <span className={`ss-tree-dot ${st || ""}`}>
+                  {st === "uploading" && <Loader2 size={11} className="ss-spin" />}
+                  {st === "done" && <CircleCheck size={12} />}
+                  {st === "failed" && <X size={12} />}
+                  {st === "queued" && <Clock size={11} />}
+                </span>
+                <span className="ss-tree-name">
                   {pad(i + 1)}. {room.name}
                   {room.condition && <span className={`ss-cbadge ${room.condition.toLowerCase()}`}>{room.condition}</span>}
                   {room.note && room.note.trim() ? <StickyNote size={11} className="ss-note-flag" /> : null}
                 </span>
                 <span className="ss-tree-right">
-                  {st === "uploading" && <Loader2 size={13} className="ss-spin" />}
-                  {st === "done" && <CircleCheck size={14} className="ss-ok" />}
-                  {st === "failed" && <X size={14} className="ss-fail" />}
                   {st === "queued" && <span className="ss-queued">queued</span>}
                   {room.photoIds.length} photo{room.photoIds.length === 1 ? "" : "s"}
                 </span>
@@ -1988,54 +2534,68 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
           title={totalPhotos === 0 ? "Take at least one photo first" : undefined}>
           <FileText size={19} /> Report (print / save PDF)
         </button>
-        <button className="ss-btn ss-btn-ghost ss-btn-big" style={{ marginTop: 8 }} onClick={uploadViaWebhook} disabled={(upload && upload.running) || totalPhotos === 0}
-          title={totalPhotos === 0 ? "Take at least one photo first" : undefined}>
-          <CloudUpload size={19} />
-          {upload
-            ? upload.running
-              ? `Uploading ${upload.sent} of ${upload.total}…`
-              : upload.doneAll
-                ? (upload.confirmed ? "Filed ✓ — send again" : "Sent ✓ — send again")
-                : "Retry upload"
-            : "Upload to cloud"}
-        </button>
-        {upload && upload.running && (
-          <div className="ss-upbar"><div style={{ width: `${upload.total ? Math.round((upload.sent / upload.total) * 100) : 0}%` }} /></div>
-        )}
-
-        <button className="ss-hook-toggle" onClick={() => setHookOpen((o) => !o)}>
-          <Link2 size={13} /> {hookUrl ? "Cloud upload link set — change" : "Set cloud upload link"}
-        </button>
-        {hookOpen && (
-          <div className="ss-hook">
-            <input
-              className="ss-input"
-              placeholder="https://your-n8n.app/webhook/inspections"
-              value={hookUrl}
-              onChange={(e) => setHookUrl(e.target.value)}
-              inputMode="url"
-              autoCapitalize="none"
-            />
-            <div className="ss-key-row">
-              <KeyRound size={14} />
-              <input
-                className="ss-input" placeholder="Access key (optional)"
-                value={hookKey} onChange={(e) => setHookKey(e.target.value)}
-                autoCapitalize="none" autoComplete="off"
-              />
-            </div>
-            <p className="ss-fineprint" style={{ marginTop: 8 }}>
-              Paste a webhook URL (Make, n8n or Zapier). Photos, voice notes and a
-              single site-notes file are POSTed with the address and folder name,
-              and your workflow files them into OneDrive or Google Drive — no
-              Microsoft or Google sign-in needed in this app. Set an access key
-              here and in your webhook so only your phone can upload.
-            </p>
-            <button className="ss-btn ss-btn-primary" style={{ width: "100%" }}
-              onClick={() => { saveWebhook(hookUrl.trim()); saveWebhookKey(hookKey.trim()); setHookOpen(false); flash("Upload link saved"); }}>
-              Save link
+        {hookUrl ? (
+          <>
+            <button className="ss-btn ss-btn-ghost ss-btn-big" style={{ marginTop: 8 }} onClick={uploadViaWebhook} disabled={(upload && upload.running) || totalPhotos === 0}
+              title={totalPhotos === 0 ? "Take at least one photo first" : undefined}>
+              <CloudUpload size={19} />
+              {upload
+                ? upload.running
+                  ? `Uploading ${upload.sent} of ${upload.total}…`
+                  : upload.doneAll
+                    ? (upload.confirmed ? "Filed ✓ — send again" : "Sent ✓ — send again")
+                    : "Retry upload"
+                : "Upload to cloud (Make/n8n/Zapier)"}
             </button>
-          </div>
+            {upload && upload.running && (
+              <div className="ss-upbar"><div style={{ width: `${upload.total ? Math.round((upload.sent / upload.total) * 100) : 0}%` }} /></div>
+            )}
+          </>
+        ) : null}
+
+        {direct.ms && (
+          <>
+            <button className="ss-btn ss-btn-ghost ss-btn-big" style={{ marginTop: 8 }}
+              onClick={() => uploadDirect("ms")} disabled={(directUpload && directUpload.running) || totalPhotos === 0}
+              title={totalPhotos === 0 ? "Take at least one photo first" : undefined}>
+              <CloudUpload size={19} />
+              {directUpload && directUpload.provider === "ms" && directUpload.running
+                ? `Filing to OneDrive ${directUpload.sent} of ${directUpload.total}…`
+                : "Upload directly to OneDrive"}
+            </button>
+            {directUpload && directUpload.provider === "ms" && directUpload.running && (
+              <div className="ss-upbar"><div style={{ width: `${directUpload.total ? Math.round((directUpload.sent / directUpload.total) * 100) : 0}%` }} /></div>
+            )}
+          </>
+        )}
+        {direct.google && (
+          <>
+            <button className="ss-btn ss-btn-ghost ss-btn-big" style={{ marginTop: 8 }}
+              onClick={() => uploadDirect("google")} disabled={(directUpload && directUpload.running) || totalPhotos === 0}
+              title={totalPhotos === 0 ? "Take at least one photo first" : undefined}>
+              <CloudUpload size={19} />
+              {directUpload && directUpload.provider === "google" && directUpload.running
+                ? `Filing to Google Drive ${directUpload.sent} of ${directUpload.total}…`
+                : "Upload directly to Google Drive"}
+            </button>
+            {directUpload && directUpload.provider === "google" && directUpload.running && (
+              <div className="ss-upbar"><div style={{ width: `${directUpload.total ? Math.round((directUpload.sent / directUpload.total) * 100) : 0}%` }} /></div>
+            )}
+          </>
+        )}
+        {directError && <p className="ss-fineprint" style={{ color: "var(--red)" }}>{directError}</p>}
+
+        {!hookUrl && !direct.ms && !direct.google && (
+          <p className="ss-fineprint" style={{ textAlign: "center" }}>No cloud link set up yet.</p>
+        )}
+        <button className="ss-hook-toggle" onClick={onSettings}>
+          <Link2 size={13} /> Cloud upload settings
+        </button>
+
+        {inspection.draftFindings && (
+          <button className="ss-btn ss-btn-primary ss-btn-big" style={{ marginTop: 14 }} onClick={() => setFindingsOpen(true)}>
+            <ShieldCheck size={19} /> Draft findings ready — review
+          </button>
         )}
 
         {note && <div className="ss-note" style={{ marginTop: 10 }}>{note}</div>}
@@ -2117,6 +2677,75 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
       {reportOpen && (
         <ReportView inspection={inspection} rooms={rooms} photoCache={reportCache || photoCache} onClose={closeReport} />
       )}
+
+      {findingsOpen && (
+        <FindingsView
+          draft={inspection.draftFindings}
+          onClose={() => setFindingsOpen(false)}
+          onChange={(next) => onFindings && onFindings(next)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ---------------- draft findings review ---------------- */
+
+// Mirrors the schema in docs/cloud-workflow.md — the AI drafts, the surveyor
+// reviews and approves each finding here before any of it reaches the
+// report. Nothing here sends or files anything; "Approve" only remembers
+// that a human looked at it.
+function FindingsView({ draft, onClose, onChange }) {
+  if (!draft || !Array.isArray(draft.rooms)) return null;
+
+  function toggleApprove(roomIdx, findingIdx) {
+    const rooms = draft.rooms.map((r, ri) => {
+      if (ri !== roomIdx) return r;
+      const findings = r.findings.map((f, fi) => (fi === findingIdx ? { ...f, approved: !f.approved } : f));
+      return { ...r, findings };
+    });
+    onChange({ ...draft, rooms });
+  }
+
+  const total = draft.rooms.reduce((n, r) => n + r.findings.length, 0);
+  const approved = draft.rooms.reduce((n, r) => n + r.findings.filter((f) => f.approved).length, 0);
+
+  return (
+    <div className="ss-report">
+      <div className="ss-report-bar ss-noprint">
+        <button className="close" onClick={onClose}><X size={16} /> Close</button>
+        <span className="ss-findings-count">{approved} of {total} reviewed</span>
+      </div>
+      <div className="ss-report-page ss-findings-page">
+        <div className="ss-findings-banner">
+          <ShieldCheck size={16} />
+          <span>Draft only. Nothing here is added to the report or sent anywhere — edit anything that doesn't read right in your workbook, this is just a first pass.</span>
+        </div>
+        {draft.rooms.map((room, ri) => (room.findings || []).map((f, fi) => (
+          <div key={`${ri}-${fi}`} className="ss-finding-card">
+            <div className="ss-finding-head">
+              <span className="ss-finding-room">{room.room_name}</span>
+              <span className={`ss-pill-conf ${f.confidence === "high" ? "ok" : "warn"}`}>
+                {f.confidence === "high" ? "High confidence" : "Low confidence"}
+              </span>
+            </div>
+            <div className="ss-finding-label">Defect</div>
+            <p className="ss-finding-text">{f.defect}</p>
+            <div className="ss-finding-label">Legislation</div>
+            {f.legislation_breached ? (
+              <span className="ss-finding-leg"><ShieldCheck size={13} /> {f.legislation_breached}</span>
+            ) : (
+              <span className="ss-finding-leg-empty">Not clear from the note — left blank</span>
+            )}
+            <div className="ss-finding-label">Remedial action</div>
+            <p className="ss-finding-text">{f.remedial_action}</p>
+            <button className={`ss-btn ${f.approved ? "ss-btn-primary" : "ss-btn-ghost"}`} style={{ marginTop: 10 }}
+              onClick={() => toggleApprove(ri, fi)}>
+              <Check size={15} /> {f.approved ? "Approved" : "Approve"}
+            </button>
+          </div>
+        )))}
+      </div>
     </div>
   );
 }
@@ -2290,20 +2919,47 @@ function ReorderableList({ items, onReorder, renderRow, onRowTap }) {
 function StyleBlock() {
   return (
     <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Source+Serif+4:ital,wght@0,600;0,700;1,400&display=swap');
 
       :root {
         --paper: #F3F5F0;
+        --paper-deep: #EAEEE5;
         --card: #FFFFFF;
         --ink: #16241D;
         --muted: #64716A;
+        --muted2: #93A099;
         --line: #DFE5DD;
+        --line-soft: #EAEEE6;
         --pine: #0E5C3F;
         --pine-press: #0A4530;
+        --pine-tint: #E7F2EC;
         --hivis: #D9F44F;
         --hivis-deep: #1C2A08;
         --red: #C43C2B;
+        --red-tint: #FBEAE7;
         --amber: #A66A00;
+        --amber-tint: #FAF1DE;
+        --topbar-bg: rgba(243,245,240,.94);
+      }
+      /* Field mode: a high-contrast dark theme for shooting in direct
+         sunlight, where the default paper/ink pairing washes out. Every
+         screen already reads off these variables, so this is the only
+         place the swap happens. */
+      .ss-root.ss-field {
+        --paper: #0F1811;
+        --paper-deep: #182419;
+        --card: #17221A;
+        --ink: #EFF3EC;
+        --muted: #A9B7AB;
+        --muted2: #6E7E70;
+        --line: #283427;
+        --line-soft: #202C22;
+        --pine: #3FAE7C;
+        --pine-press: #57C293;
+        --pine-tint: #17301F;
+        --red-tint: #3A1E19;
+        --amber-tint: #362A10;
+        --topbar-bg: rgba(15,24,17,.92);
       }
       * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
       html, body { background: var(--paper); margin: 0; }
@@ -2315,7 +2971,9 @@ function StyleBlock() {
         display: flex; justify-content: center;
         font-family: 'Archivo', system-ui, sans-serif;
         font-size: 15px; line-height: 1.4;
+        transition: background .2s ease, color .2s ease;
       }
+      .ss-serif { font-family: 'Source Serif 4', Georgia, serif; }
       .ss-frame { width: 100%; max-width: 430px; min-height: 100vh; display: flex; flex-direction: column; position: relative; }
       .ss-col { flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
       .ss-center { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
@@ -2327,12 +2985,12 @@ function StyleBlock() {
       /* ---- top bar ---- */
       .ss-topbar {
         position: sticky; top: 0; z-index: 20;
-        background: rgba(243,245,240,.94); backdrop-filter: blur(8px);
+        background: var(--topbar-bg); backdrop-filter: blur(8px);
         border-bottom: 1px solid var(--line);
         padding: 12px 16px; display: flex; align-items: center; gap: 10px;
       }
       .ss-back { width: 34px; height: 34px; margin-left: -6px; display: flex; align-items: center; justify-content: center; border-radius: 10px; }
-      .ss-back:active { background: #E7EBE4; }
+      .ss-back:active { background: var(--line-soft); }
       .ss-tick { width: 6px; height: 26px; background: var(--pine); border-radius: 3px; }
       .ss-topbar-text { flex: 1; min-width: 0; }
       .ss-eyebrow-sm { font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -2369,7 +3027,7 @@ function StyleBlock() {
       .ss-home-hero { flex: 1; padding: 56px 26px 20px; display: flex; flex-direction: column; }
       .ss-mark { width: 44px; height: 44px; border-radius: 13px; background: var(--pine); color: var(--hivis); display: flex; align-items: center; justify-content: center; margin-bottom: 22px; }
       .ss-eyebrow { font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--pine); margin-bottom: 10px; }
-      .ss-h1 { font-size: 38px; line-height: 1.04; font-weight: 900; letter-spacing: -0.01em; margin: 0 0 14px; }
+      .ss-h1 { font-family: 'Source Serif 4', Georgia, serif; font-style: italic; font-size: 38px; line-height: 1.04; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 14px; }
       .ss-lede { color: var(--muted); font-size: 15px; margin: 0 0 26px; max-width: 34ch; }
       .ss-home-steps { display: flex; flex-direction: column; gap: 10px; font-weight: 600; font-size: 14px; }
       .ss-home-steps > div { display: flex; align-items: center; gap: 10px; }
@@ -2385,7 +3043,7 @@ function StyleBlock() {
       .ss-inline-add { display: flex; gap: 8px; margin-top: 10px; }
       .ss-dashed {
         width: 100%; margin-top: 10px; padding: 12px;
-        border: 1.5px dashed #C4CDC2; border-radius: 12px;
+        border: 1.5px dashed var(--muted2); border-radius: 12px;
         color: var(--muted); font-weight: 700; font-size: 13px;
         display: flex; align-items: center; justify-content: center; gap: 6px;
       }
@@ -2397,7 +3055,7 @@ function StyleBlock() {
         background: var(--card); border: 1px solid var(--line); border-radius: 12px;
         padding: 4px 8px 4px 0; min-height: 46px;
       }
-      .ss-chip.on { border-color: var(--pine); background: #EAF3EC; }
+      .ss-chip.on { border-color: var(--pine); background: var(--pine-tint); }
       .ss-chip-main { flex: 1; text-align: left; padding: 10px 12px; font-weight: 700; font-size: 14px; }
       .ss-chip-check { color: var(--pine); margin-right: 4px; }
       .ss-stepper { display: flex; gap: 4px; }
@@ -2415,20 +3073,20 @@ function StyleBlock() {
         padding: 6px 12px 6px 4px; position: relative; z-index: 1;
       }
       .ss-row.dragging { border-color: var(--pine); box-shadow: 0 8px 24px rgba(16,36,29,.16); z-index: 10; }
-      .ss-grip { width: 36px; height: 40px; display: flex; align-items: center; justify-content: center; color: #A9B3A9; touch-action: none; cursor: grab; }
+      .ss-grip { width: 36px; height: 40px; display: flex; align-items: center; justify-content: center; color: var(--muted2); touch-action: none; cursor: grab; }
       .ss-row-tap { flex: 1; display: flex; align-items: center; justify-content: space-between; min-width: 0; text-align: left; padding: 6px 0; }
       .ss-row-main { display: flex; align-items: center; gap: 10px; min-width: 0; }
       .ss-index { font-size: 11px; font-weight: 800; color: var(--pine); letter-spacing: .05em; width: 20px; flex-shrink: 0; }
       .ss-row-name { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .ss-row-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: 8px; }
       .ss-thumb { width: 34px; height: 34px; border-radius: 8px; object-fit: cover; border: 1px solid var(--line); }
-      .ss-thumb-empty { display: flex; align-items: center; justify-content: center; color: #B9C2B8; background: #F0F3EE; }
-      .ss-pill { min-width: 30px; text-align: center; font-size: 12px; font-weight: 800; padding: 4px 8px; border-radius: 999px; background: #EEF1EC; color: var(--muted); }
+      .ss-thumb-empty { display: flex; align-items: center; justify-content: center; color: var(--muted2); background: var(--line-soft); }
+      .ss-pill { min-width: 30px; text-align: center; font-size: 12px; font-weight: 800; padding: 4px 8px; border-radius: 999px; background: var(--line-soft); color: var(--muted); }
       .ss-pill.done { background: var(--pine); color: #fff; }
 
       /* ---- progress ---- */
       .ss-progress-wrap { padding: 12px 16px 0; display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 700; color: var(--muted); }
-      .ss-progress { flex: 1; height: 6px; border-radius: 999px; background: #E2E7E0; overflow: hidden; }
+      .ss-progress { flex: 1; height: 6px; border-radius: 999px; background: var(--line-soft); overflow: hidden; }
       .ss-progress > div { height: 100%; background: var(--pine); border-radius: 999px; transition: width .3s ease; }
 
       /* ---- walkthrough (LIVE) ---- */
@@ -2482,15 +3140,28 @@ function StyleBlock() {
       /* ---- finish ---- */
       .ss-summary { display: flex; gap: 10px; align-items: flex-start; background: var(--card); border: 1px solid var(--line); border-radius: 13px; padding: 14px; margin-bottom: 16px; }
       .ss-summary svg { margin-top: 2px; color: var(--pine); flex-shrink: 0; }
-      .ss-summary-title { font-weight: 800; font-size: 15px; }
+      .ss-summary-title { font-family: 'Source Serif 4', Georgia, serif; font-weight: 700; font-size: 16px; }
       .ss-summary-sub { font-size: 13px; color: var(--muted); font-weight: 600; margin-top: 2px; }
       .ss-tree { background: var(--card); border: 1px solid var(--line); border-radius: 13px; overflow: hidden; margin-bottom: 4px; }
-      .ss-tree-root { display: flex; align-items: center; gap: 8px; padding: 12px 14px; font-weight: 800; font-size: 14px; border-bottom: 1px solid var(--line); background: #F7F9F5; }
+      .ss-tree-root { display: flex; align-items: center; gap: 8px; padding: 12px 14px; font-weight: 800; font-size: 14px; border-bottom: 1px solid var(--line); background: var(--paper-deep); }
       .ss-tree-root svg { color: var(--pine); }
-      .ss-tree-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px 10px 30px; font-size: 14px; font-weight: 600; border-bottom: 1px solid var(--line); }
+      .ss-tree-row { position: relative; display: flex; align-items: center; gap: 10px; padding: 10px 14px; font-size: 14px; font-weight: 600; border-bottom: 1px solid var(--line); }
       .ss-tree-row:last-child { border-bottom: none; }
       .ss-tree-row.dim { opacity: .4; }
-      .ss-tree-right { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); font-weight: 700; }
+      .ss-tree-name { flex: 1; min-width: 0; }
+      .ss-tree-dot {
+        position: relative; z-index: 1; flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%;
+        background: var(--card); border: 1.5px solid var(--line); display: flex; align-items: center; justify-content: center; color: var(--muted2);
+      }
+      .ss-tree-dot.done { border-color: var(--pine); color: var(--pine); background: var(--pine-tint); }
+      .ss-tree-dot.uploading { border-color: var(--amber); color: var(--amber); }
+      .ss-tree-dot.failed { border-color: var(--red); color: var(--red); background: var(--red-tint); }
+      .ss-tree-dot.queued { color: var(--muted2); }
+      .ss-tree-row:not(:last-child) .ss-tree-dot::after {
+        content: ""; position: absolute; top: 20px; left: 50%; width: 1.5px; height: 18px;
+        background: var(--line); transform: translateX(-50%);
+      }
+      .ss-tree-right { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); font-weight: 700; flex-shrink: 0; }
       .ss-ok { color: var(--pine); }
       .ss-queued { font-size: 11px; }
       .ss-fineprint { font-size: 12.5px; color: var(--muted); line-height: 1.5; margin: 12px 2px 4px; }
@@ -2518,18 +3189,18 @@ function StyleBlock() {
       .ss-cdot.poor { background: var(--red); }
       .ss-note-flag { color: var(--muted); flex-shrink: 0; }
       .ss-cbadge { font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; margin-left: 7px; vertical-align: 1px; }
-      .ss-cbadge.good { background: #EAF3EC; color: var(--pine); }
-      .ss-cbadge.fair { background: #F6EFDD; color: var(--amber); }
-      .ss-cbadge.poor { background: #F8E7E3; color: var(--red); }
+      .ss-cbadge.good { background: var(--pine-tint); color: var(--pine); }
+      .ss-cbadge.fair { background: var(--amber-tint); color: var(--amber); }
+      .ss-cbadge.poor { background: var(--red-tint); color: var(--red); }
       .ss-tree-row .ss-note-flag { margin-left: 6px; vertical-align: -1px; }
 
       .ss-meta { background: var(--card); border: 1px solid var(--line); border-radius: 13px; padding: 12px; margin-bottom: 14px; }
       .ss-cond-row { display: flex; align-items: center; gap: 6px; }
       .ss-cond-label { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-right: auto; }
       .ss-cond { padding: 8px 14px; border-radius: 999px; font-weight: 800; font-size: 13px; border: 1.5px solid var(--line); color: var(--muted); background: var(--paper); }
-      .ss-cond.good.on { background: #EAF3EC; border-color: var(--pine); color: var(--pine); }
-      .ss-cond.fair.on { background: #F6EFDD; border-color: var(--amber); color: var(--amber); }
-      .ss-cond.poor.on { background: #F8E7E3; border-color: var(--red); color: var(--red); }
+      .ss-cond.good.on { background: var(--pine-tint); border-color: var(--pine); color: var(--pine); }
+      .ss-cond.fair.on { background: var(--amber-tint); border-color: var(--amber); color: var(--amber); }
+      .ss-cond.poor.on { background: var(--red-tint); border-color: var(--red); color: var(--red); }
       .ss-note-input {
         width: 100%; margin-top: 10px; background: var(--paper); border: 1px solid var(--line);
         border-radius: 10px; padding: 10px 12px; font-size: 15px; font-family: inherit;
@@ -2563,12 +3234,12 @@ function StyleBlock() {
       .ss-rep-grid figcaption { font-size: 10.5px; font-weight: 700; color: var(--muted); margin-top: 3px; }
 
       .ss-lastup { display: flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 700; border-radius: 10px; padding: 9px 12px; margin-top: 14px; }
-      .ss-lastup.ok { background: #EAF3EC; color: var(--pine); }
-      .ss-lastup.bad { background: #F8E7E3; color: var(--red); }
+      .ss-lastup.ok { background: var(--pine-tint); color: var(--pine); }
+      .ss-lastup.bad { background: var(--red-tint); color: var(--red); }
 
       .ss-job-up { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 800; border-radius: 999px; padding: 2px 8px; margin-top: 4px; }
-      .ss-job-up.ok { background: #EAF3EC; color: var(--pine); }
-      .ss-job-up.bad { background: #F8E7E3; color: var(--red); }
+      .ss-job-up.ok { background: var(--pine-tint); color: var(--pine); }
+      .ss-job-up.bad { background: var(--red-tint); color: var(--red); }
 
       .ss-alert {
         position: fixed; top: 0; left: 50%; transform: translateX(-50%); z-index: 60;
@@ -2582,7 +3253,7 @@ function StyleBlock() {
       .ss-alert span { flex: 1; }
       .ss-alert button { color: rgba(255,255,255,.85); flex-shrink: 0; }
 
-      .ss-tip { display: flex; gap: 9px; align-items: flex-start; background: #F6EFDC; color: #7A4F00; border-radius: 12px; padding: 11px 13px; margin-top: 14px; font-size: 12.5px; font-weight: 600; line-height: 1.45; }
+      .ss-tip { display: flex; gap: 9px; align-items: flex-start; background: var(--amber-tint); color: var(--amber); border-radius: 12px; padding: 11px 13px; margin-top: 14px; font-size: 12.5px; font-weight: 600; line-height: 1.45; }
       .ss-tip svg { flex-shrink: 0; margin-top: 1px; }
 
       .ss-filter { margin-bottom: 12px; font-size: 15px; padding: 11px 13px; }
@@ -2594,7 +3265,7 @@ function StyleBlock() {
 
       .ss-row-done { opacity: .82; }
       .ss-row-done .ss-row-tap { cursor: default; }
-      .ss-job-up.warn { background: #F6EFDC; color: var(--amber); }
+      .ss-job-up.warn { background: var(--amber-tint); color: var(--amber); }
       .ss-empty-note { font-size: 13.5px; color: var(--muted); text-align: center; padding: 22px 10px 4px; margin: 0; }
 
       .ss-shots { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
@@ -2667,7 +3338,7 @@ function StyleBlock() {
       /* ---- inspection list ---- */
       .ss-job { flex-direction: column; align-items: flex-start; gap: 2px; }
       .ss-job-sub { font-size: 12.5px; font-weight: 600; color: var(--muted); }
-      .ss-job-x { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; color: #B9C2B8; flex-shrink: 0; border-radius: 10px; }
+      .ss-job-x { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; color: var(--muted2); flex-shrink: 0; border-radius: 10px; }
       .ss-job-x:active { background: #F1F4EF; color: var(--red); }
       .ss-row .ss-row-tap { padding: 10px 0 10px 12px; }
 
@@ -2682,7 +3353,7 @@ function StyleBlock() {
       .ss-vm-pulse { width: 9px; height: 9px; border-radius: 999px; background: #fff; animation: ss-pulse 1.2s ease-in-out infinite; }
       .ss-vm-item {
         display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700;
-        background: var(--pine-soft, #EAF3EC); color: var(--pine); border-radius: 999px; padding: 6px 6px 6px 11px;
+        background: var(--pine-tint); color: var(--pine); border-radius: 999px; padding: 6px 6px 6px 11px;
       }
       .ss-vm-item button { display: inline-flex; color: var(--muted); padding: 2px; }
       .ss-vm-msg { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--muted); }
@@ -2698,13 +3369,13 @@ function StyleBlock() {
       .ss-key-row .ss-input { flex: 1; }
 
       /* ---- upload progress ---- */
-      .ss-upbar { height: 6px; border-radius: 999px; background: #E2E7E0; overflow: hidden; margin-top: 10px; }
+      .ss-upbar { height: 6px; border-radius: 999px; background: var(--line-soft); overflow: hidden; margin-top: 10px; }
       .ss-upbar > div { height: 100%; background: var(--pine); border-radius: 999px; transition: width .25s ease; }
 
       /* ---- modal ---- */
       .ss-modal-back { position: fixed; inset: 0; z-index: 60; background: rgba(10,14,11,.55); display: flex; align-items: center; justify-content: center; padding: 24px; }
       .ss-modal { width: 100%; max-width: 340px; background: var(--card); border-radius: 18px; padding: 22px; text-align: center; box-shadow: 0 20px 60px rgba(16,36,29,.35); }
-      .ss-modal-icon { width: 44px; height: 44px; margin: 0 auto 12px; border-radius: 13px; background: #F8E7E3; color: var(--red); display: flex; align-items: center; justify-content: center; }
+      .ss-modal-icon { width: 44px; height: 44px; margin: 0 auto 12px; border-radius: 13px; background: var(--red-tint); color: var(--red); display: flex; align-items: center; justify-content: center; }
       .ss-modal-title { font-size: 18px; font-weight: 800; margin-bottom: 6px; }
       .ss-modal p { font-size: 13.5px; color: var(--muted); line-height: 1.5; margin: 0 0 16px; }
 
@@ -2724,7 +3395,7 @@ function StyleBlock() {
       .ss-report-page { max-width: 720px; margin: 0 auto; padding: 28px 22px 48px; color: var(--ink); }
       .ss-rep-head { border-bottom: 3px solid var(--pine); padding-bottom: 18px; margin-bottom: 22px; }
       .ss-rep-brand { display: flex; align-items: center; gap: 6px; font-weight: 900; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--pine); margin-bottom: 10px; }
-      .ss-rep-head h1 { font-size: 26px; font-weight: 900; margin: 0 0 8px; line-height: 1.15; }
+      .ss-rep-head h1 { font-family: 'Source Serif 4', Georgia, serif; font-size: 26px; font-weight: 700; margin: 0 0 8px; line-height: 1.15; }
       .ss-rep-meta { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; font-weight: 600; color: var(--muted); }
       .ss-rep-room { margin-bottom: 24px; break-inside: avoid-page; }
       .ss-rep-room-head { display: flex; align-items: center; gap: 4px; margin-bottom: 8px; }
@@ -2742,6 +3413,92 @@ function StyleBlock() {
         .ss-report-page { max-width: none; padding: 0; }
         .ss-rep-grid img { border: none; }
       }
+
+      /* ---- settings / home header ---- */
+      .ss-home-top { display: flex; align-items: center; justify-content: space-between; padding: 16px 16px 0; }
+      .ss-icon-btn {
+        width: 34px; height: 34px; border-radius: 10px; background: var(--card); border: 1px solid var(--line);
+        display: flex; align-items: center; justify-content: center; color: var(--muted); flex-shrink: 0;
+      }
+      .ss-icon-btn:active { background: var(--line-soft); }
+      .ss-topbar .ss-icon-btn { margin-left: 4px; }
+
+      .ss-search-row {
+        display: flex; align-items: center; gap: 8px; margin: 12px 16px 0; padding: 10px 12px;
+        background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+      }
+      .ss-search-ic { color: var(--muted); flex-shrink: 0; }
+      .ss-search-input { flex: 1; border: none; background: none; font-size: 14.5px; font-family: inherit; color: var(--ink); outline: none; }
+      .ss-search-input::placeholder { color: var(--muted2); }
+      .ss-search-clear { color: var(--muted); flex-shrink: 0; display: flex; }
+
+      .ss-cloud-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+      .ss-cloud-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+      .ss-cloud-ic { color: var(--pine); display: flex; }
+      .ss-cloud-label { font-weight: 800; font-size: 14px; flex: 1; }
+      .ss-cloud-connected {
+        display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 800;
+        color: var(--pine-press); background: var(--pine-tint); padding: 3px 9px; border-radius: 999px;
+        max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+
+      .ss-settings-row { display: flex; align-items: center; gap: 12px; padding: 13px 0; }
+      .ss-settings-ic {
+        width: 36px; height: 36px; border-radius: 10px; background: var(--pine-tint); color: var(--pine-press);
+        display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      }
+      .ss-settings-title { font-weight: 800; font-size: 14px; }
+      .ss-settings-sub { font-size: 12px; font-weight: 600; color: var(--muted); margin-top: 1px; }
+      .ss-toggle {
+        width: 44px; height: 26px; border-radius: 999px; background: var(--line); position: relative; flex-shrink: 0;
+        transition: background .15s ease;
+      }
+      .ss-toggle.on { background: var(--pine); }
+      .ss-toggle span {
+        position: absolute; top: 2px; left: 2px; width: 22px; height: 22px; border-radius: 50%;
+        background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .15s ease;
+      }
+      .ss-toggle.on span { transform: translateX(18px); }
+
+      .ss-storage-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+
+      /* ---- draft findings ---- */
+      .ss-findings-count { font-size: 12.5px; font-weight: 700; color: var(--muted); }
+      .ss-findings-page { max-width: 560px; }
+      .ss-findings-banner {
+        display: flex; gap: 9px; align-items: flex-start; background: var(--amber-tint); color: var(--amber);
+        border-radius: 12px; padding: 12px 14px; font-size: 12.5px; font-weight: 600; line-height: 1.45; margin-bottom: 16px;
+      }
+      .ss-findings-banner svg { flex-shrink: 0; margin-top: 1px; }
+      .ss-finding-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+      .ss-finding-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+      .ss-finding-room { font-weight: 800; font-size: 13.5px; }
+      .ss-pill-conf { font-size: 11px; font-weight: 800; padding: 4px 9px; border-radius: 999px; white-space: nowrap; }
+      .ss-pill-conf.ok { background: var(--pine-tint); color: var(--pine-press); }
+      .ss-pill-conf.warn { background: var(--amber-tint); color: var(--amber); }
+      .ss-finding-label { font-size: 10.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--muted2); margin: 10px 0 3px; }
+      .ss-finding-label:first-of-type { margin-top: 0; }
+      .ss-finding-text { font-family: 'Source Serif 4', Georgia, serif; font-size: 15px; line-height: 1.5; margin: 0; }
+      .ss-finding-leg { display: inline-flex; align-items: center; gap: 6px; background: var(--pine-tint); color: var(--pine-press); padding: 5px 10px; border-radius: 8px; font-size: 12px; font-weight: 700; }
+      .ss-finding-leg-empty { font-size: 12px; font-weight: 600; color: var(--muted2); font-style: italic; }
+
+      /* ---- on-photo annotation ---- */
+      .ss-annotate {
+        position: fixed; inset: 0; z-index: 68; background: #0B0F0A;
+        display: flex; flex-direction: column; color: #fff;
+      }
+      .ss-annotate-top {
+        display: flex; align-items: center; justify-content: space-between; padding: 16px 18px;
+        font-size: 13px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: rgba(255,255,255,.7);
+      }
+      .ss-annotate-top button { width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,.12); display: flex; align-items: center; justify-content: center; color: #fff; }
+      .ss-annotate-top button:disabled { opacity: .35; }
+      .ss-annotate-stage { position: relative; flex: 1; min-height: 0; margin: 0 14px 12px; border-radius: 16px; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #000; }
+      .ss-annotate-stage img { max-width: 100%; max-height: 100%; width: 100%; height: 100%; object-fit: contain; display: block; user-select: none; }
+      .ss-annotate-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+      .ss-annotate-tools { display: flex; align-items: center; gap: 10px; padding: 14px 18px calc(14px + env(safe-area-inset-bottom)); }
+      .ss-annotate-tool { width: 44px; height: 44px; border-radius: 12px; background: rgba(255,255,255,.10); display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0; }
+      .ss-annotate-tool.on { background: var(--hivis); color: var(--hivis-deep); }
     `}</style>
   );
 }

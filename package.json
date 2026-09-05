@@ -1,7 +1,7 @@
 {
   "name": "sitesnap",
   "private": true,
-  "version": "2.0.1",
+  "version": "2.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,6 +10,7 @@
     "start": "serve -s dist -l tcp://0.0.0.0:${PORT:-3000}"
   },
   "dependencies": {
+    "@azure/msal-browser": "^5.21.0",
     "idb-keyval": "^6.2.1",
     "jszip": "^3.10.1",
     "lucide-react": "^0.383.0",
