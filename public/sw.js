@@ -1,7 +1,7 @@
 // SiteSnap service worker — keeps the app shell available offline so an
 // inspection can carry on mid-property with no signal. Photos live in
 // IndexedDB, so only the shell (HTML + hashed assets) is cached here.
-const CACHE = "sitesnap-shell-v1";
+const CACHE = "sitesnap-shell-v2";
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -25,8 +25,11 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(event.request)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put("/", copy));
+          // a 502 from a mid-deploy host must not become the offline shell
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put("/", copy));
+          }
           return res;
         })
         .catch(() => caches.match("/"))
@@ -41,8 +44,11 @@ self.addEventListener("fetch", (event) => {
         (hit) =>
           hit ||
           fetch(event.request).then((res) => {
-            const copy = res.clone();
-            caches.open(CACHE).then((c) => c.put(event.request, copy));
+            // never pin a 404 or an error page under an asset URL
+            if (res.ok) {
+              const copy = res.clone();
+              caches.open(CACHE).then((c) => c.put(event.request, copy));
+            }
             return res;
           })
       )

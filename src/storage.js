@@ -1,6 +1,6 @@
 // IndexedDB persistence via idb-keyval — survives closing the browser,
 // holds far more than localStorage (photos are big).
-import { get, set, del } from "idb-keyval";
+import { get, set, del, keys, delMany } from "idb-keyval";
 
 // A failed write means a photo exists only in memory and dies on reload —
 // the surveyor has left the property by then and cannot reshoot it. Callers
@@ -53,37 +53,85 @@ async function writeIndex(list) {
   try { await set(INDEX_KEY, list); } catch (e) { writeFailed("Saving the inspection list", e); }
 }
 
+// Every index update is read-modify-write. Two saves in flight at once (a
+// note keystroke landing while a photo is still being written) would each
+// read the same list and the second would silently undo the first, so they
+// queue behind one another.
+let indexQueue = Promise.resolve();
+function withIndex(fn) {
+  const run = indexQueue.then(fn, fn);
+  indexQueue = run.catch(() => {});
+  return run;
+}
+
 export async function loadInspection(id) {
   try { return (await get(recordKey(id))) || null; } catch { return null; }
 }
 
-export async function saveState(inspection, rooms) {
-  if (!inspection) return;
-  try {
-    await set(recordKey(inspection.id), { inspection, rooms });
-    const list = await loadIndex();
-    const summary = {
-      id: inspection.id,
-      address: inspection.address,
-      postcode: inspection.postcode || "",
-      startedAt: inspection.startedAt,
-      photos: rooms.reduce((n, r) => n + r.photoIds.length, 0),
-      rooms: rooms.length,
-      ref: inspection.ref || "",
-      lastUpload: inspection.lastUpload || null,
-      updatedAt: Date.now(),
-    };
-    const i = list.findIndex((x) => x.id === inspection.id);
-    if (i === -1) list.push(summary); else list[i] = summary;
-    await writeIndex(list);
-  } catch (e) { writeFailed("Saving the inspection", e); }
+export function saveState(inspection, rooms) {
+  if (!inspection) return Promise.resolve();
+  return withIndex(async () => {
+    try {
+      await set(recordKey(inspection.id), { inspection, rooms });
+      const list = await loadIndex();
+      const summary = {
+        id: inspection.id,
+        address: inspection.address,
+        postcode: inspection.postcode || "",
+        startedAt: inspection.startedAt,
+        photos: rooms.reduce((n, r) => n + r.photoIds.length, 0),
+        rooms: rooms.length,
+        ref: inspection.ref || "",
+        lastUpload: inspection.lastUpload || null,
+        updatedAt: Date.now(),
+      };
+      const i = list.findIndex((x) => x.id === inspection.id);
+      if (i === -1) list.push(summary); else list[i] = summary;
+      await writeIndex(list);
+    } catch (e) { writeFailed("Saving the inspection", e); }
+  });
 }
 
-export async function clearState(id) {
+export function clearState(id) {
+  return withIndex(async () => {
+    try {
+      await del(recordKey(id));
+      await writeIndex((await loadIndex()).filter((x) => x.id !== id));
+    } catch {}
+  });
+}
+
+// Closing or discarding an inspection deletes its media one key at a time
+// after the record is gone. If the tab is killed halfway, or a write failed
+// months ago, the leftover blobs are unreachable and quietly eat the phone's
+// storage. This removes any photo or voice note that no open inspection
+// refers to. Only entries created before `olderThan` are touched, so a photo
+// being saved right now (whose record may not have landed yet) is never
+// mistaken for an orphan.
+function uidTime(id) {
+  const part = String(id).split("_")[1];
+  const t = part ? parseInt(part, 36) : NaN;
+  return Number.isFinite(t) ? t : 0;
+}
+
+export async function sweepOrphans(olderThan) {
   try {
-    await del(recordKey(id));
-    await writeIndex((await loadIndex()).filter((x) => x.id !== id));
-  } catch {}
+    const all = await keys();
+    const media = all.filter((k) => typeof k === "string" && (k.startsWith("sitesnap:photo:") || k.startsWith("sitesnap:audio:")));
+    if (!media.length) return 0;
+    const index = await loadIndex();
+    const live = new Set();
+    for (const entry of index) {
+      const rec = await loadInspection(entry.id);
+      for (const r of (rec && rec.rooms) || []) {
+        (r.photoIds || []).forEach((pid) => live.add(`sitesnap:photo:${pid}`));
+        (r.memos || []).forEach((m) => live.add(`sitesnap:audio:${m.id}`));
+      }
+    }
+    const stale = media.filter((k) => !live.has(k) && uidTime(k.split(":")[2]) < olderThan);
+    if (stale.length) await delMany(stale);
+    return stale.length;
+  } catch (e) { console.error("orphan sweep failed", e); return 0; }
 }
 
 // A closed inspection leaves its photos behind (they live in the cloud now)

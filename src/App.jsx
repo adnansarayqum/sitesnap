@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Camera, Trash2, GripVertical, ChevronLeft, Plus, Minus, MapPin,
   CloudUpload, Check, X, Loader2, ImagePlus, ArrowRight, ArrowLeft,
@@ -81,34 +81,50 @@ function safeFileName(s) {
 
 /* ---------- image helpers ---------- */
 
-function compressImage(file, maxDim = 2200, quality = 0.87) {
+const PHOTO_DIM = 2200;   // stored copy: fine for a printed report, under Graph's 4 MB upload cap
+const THUMB_DIM = 480;    // grid/list copy: a 2200px JPEG decodes to ~19 MB of bitmap per cell
+
+function fitWithin(width, height, maxDim) {
+  if (width <= maxDim && height <= maxDim) return [width, height];
+  return width > height
+    ? [maxDim, Math.round((height * maxDim) / width)]
+    : [Math.round((width * maxDim) / height), maxDim];
+}
+
+// `source` is anything drawImage accepts (an <img>, a <video>, a canvas).
+function drawScaled(source, srcW, srcH, maxDim, quality) {
+  const [w, h] = fitWithin(srcW, srcH, maxDim);
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  c.getContext("2d").drawImage(source, 0, 0, w, h);
+  return c.toDataURL("image/jpeg", quality);
+}
+
+function loadImage(src) {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      img.onload = () => {
-        let { width, height } = img;
-        if (width > maxDim || height > maxDim) {
-          if (width > height) {
-            height = Math.round((height * maxDim) / width);
-            width = maxDim;
-          } else {
-            width = Math.round((width * maxDim) / height);
-            height = maxDim;
-          }
-        }
-        const c = document.createElement("canvas");
-        c.width = width;
-        c.height = height;
-        c.getContext("2d").drawImage(img, 0, 0, width, height);
-        resolve(c.toDataURL("image/jpeg", quality));
-      };
-      img.onerror = reject;
-      img.src = e.target.result;
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("The image couldn't be decoded"));
+    img.src = src;
   });
+}
+
+// Decodes the picked/shot file once and produces both the stored copy and a
+// small thumbnail for lists. Decoding via an object URL avoids first turning
+// a 10 MB original into a 13 MB base64 string just to read it back.
+async function processCapture(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await loadImage(url);
+    const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+    return {
+      dataUrl: drawScaled(img, w, h, PHOTO_DIM, 0.87),
+      thumb: drawScaled(img, w, h, THUMB_DIM, 0.72),
+    };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 function dataUrlToFile(dataUrl, name) {
@@ -148,7 +164,7 @@ import {
   loadAudio, saveAudio, removeAudio,
   loadWebhook, saveWebhook,
   loadWebhookKey, saveWebhookKey,
-  loadArchive, archiveInspection,
+  loadArchive, archiveInspection, sweepOrphans,
   setStorageErrorHandler, requestDurableStorage, storageEstimate,
 } from "./storage.js";
 
@@ -195,8 +211,14 @@ function VoiceMemo({ memos, onAdd, onDelete, dark }) {
 
   async function start() {
     if (!canRecord()) { setState("unsupported"); return; }
+    let stream;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      setState("denied");
+      return;
+    }
+    try {
       const mime = pickAudioType();
       const mr = new MediaRecorder(stream, mime ? { mimeType: mime, audioBitsPerSecond: 32000 } : undefined);
       chunks.current = [];
@@ -221,7 +243,10 @@ function VoiceMemo({ memos, onAdd, onDelete, dark }) {
         if (secsRef.current >= 300) stop(); // 5 min cap keeps uploads sane
       }, 1000);
     } catch {
-      setState("denied");
+      // the recorder itself refused (codec/device) — release the microphone
+      // rather than leaving its indicator lit with nothing recording
+      stream.getTracks().forEach((t) => t.stop());
+      setState("unsupported");
     }
   }
 
@@ -269,6 +294,65 @@ export default function SiteSnap() {
   const undoTimer = useRef(null);
   const originals = useRef({}); // id -> File/Blob (full quality, this session only)
   const audioCache = useRef({}); // memo id -> Blob
+  const photoSeq = useRef(0);
+
+  // --- persistence -----------------------------------------------------
+  // Whatever React has committed is what gets written, a beat later. Writing
+  // from inside state updaters (the old approach) meant each write saw a
+  // stale copy of the *other* half of the state — a note typed right after an
+  // upload could save with the pre-upload inspection, or vice versa.
+  const saveTimer = useRef(null);
+  const pendingSave = useRef(null);
+  const suppressSaveId = useRef(null); // set while an inspection is being deleted
+  const photoTimers = useRef({});
+  const pendingPhotos = useRef({});
+  const saveNow = useRef(false); // a photo or voice note should not wait out the keystroke debounce
+
+  function flushSave() {
+    if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
+    const p = pendingSave.current;
+    pendingSave.current = null;
+    return p ? saveState(p.inspection, p.rooms) : Promise.resolve();
+  }
+  function flushPhotoSaves() {
+    Object.values(photoTimers.current).forEach(clearTimeout);
+    photoTimers.current = {};
+    const batch = Object.values(pendingPhotos.current);
+    pendingPhotos.current = {};
+    return Promise.all(batch.map((p) => savePhoto(p).catch(() => {})));
+  }
+  function flushAll() { return Promise.all([flushSave(), flushPhotoSaves()]); }
+
+  useEffect(() => {
+    if (!inspection || inspection.id === suppressSaveId.current) return;
+    pendingSave.current = { inspection, rooms };
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(flushSave, saveNow.current ? 0 : 250);
+    saveNow.current = false;
+  }, [inspection, rooms]);
+
+  useEffect(() => {
+    // The app can be swiped away mid-debounce. pagehide/visibilitychange are
+    // the last chance, but a browser may abort a write started that late, so
+    // leaving a text field also flushes — the moment the typing has stopped.
+    function onHide() { if (document.visibilityState === "hidden") flushAll(); }
+    function onFocusOut(e) {
+      const t = e.target;
+      if (t && (t.tagName === "TEXTAREA" || t.tagName === "INPUT")) flushAll();
+    }
+    window.addEventListener("pagehide", flushAll);
+    document.addEventListener("visibilitychange", onHide);
+    document.addEventListener("focusout", onFocusOut);
+    return () => {
+      window.removeEventListener("pagehide", flushAll);
+      document.removeEventListener("visibilitychange", onHide);
+      document.removeEventListener("focusout", onFocusOut);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // moving between screens is a natural checkpoint
+  useEffect(() => { flushAll(); /* eslint-disable-line react-hooks/exhaustive-deps */ }, [screen]);
 
   useEffect(() => {
     // A dropped write means photos that cannot be reshot, so it has to be
@@ -286,6 +370,9 @@ export default function SiteSnap() {
       setIndex(await loadIndex());
       setArchive(await loadArchive());
       setScreen("home");
+      // media left behind by an interrupted close/discard is unreachable
+      // from any inspection and only wastes the phone's storage
+      sweepOrphans(Date.now() - 60 * 1000).then((n) => { if (n) console.info(`removed ${n} orphaned media item(s)`); });
     })();
   }, []);
 
@@ -298,6 +385,7 @@ export default function SiteSnap() {
   async function openInspection(id) {
     const data = await loadInspection(id);
     if (!data || !data.inspection) { await refreshIndex(); return; }
+    suppressSaveId.current = null;
     setInspection(data.inspection);
     setRooms(data.rooms || []);
     const ids = (data.rooms || []).flatMap((r) => r.photoIds);
@@ -320,6 +408,7 @@ export default function SiteSnap() {
   // Leaves the property loaded on disk — the surveyor is moving to the next
   // job, not finishing this one.
   async function backToHome() {
+    await flushAll();
     setInspection(null);
     setRooms([]);
     setPhotoCache({});
@@ -330,24 +419,19 @@ export default function SiteSnap() {
     setScreen("home");
   }
 
-  const persist = useCallback((insp, rms) => { saveState(insp, rms); }, []);
-
   function startInspection(address, postcode, roomList, caseDetails) {
     const insp = { id: uid("insp"), address, postcode, startedAt: Date.now(), ...(caseDetails || {}) };
     const rms = roomList.map((r) => ({ id: r.id, name: r.name, photoIds: [] }));
+    suppressSaveId.current = null;
     setInspection(insp);
     setRooms(rms);
     setPhotoCache({});
     originals.current = {};
     photoSeq.current = 0;
     setScreen("board");
-    persist(insp, rms);
-    setTimeout(refreshIndex, 0);
   }
 
-  const photoSeq = useRef(0);
-
-  async function addPhoto(roomId, dataUrl, originalFile) {
+  async function addPhoto(roomId, dataUrl, originalFile, thumb) {
     // a running number across the property; a counter rather than a recount so
     // a fast burst of shots can't hand two photos the same number
     photoSeq.current = Math.max(
@@ -355,16 +439,13 @@ export default function SiteSnap() {
       rooms.reduce((n, r) => n + r.photoIds.length, 0)
     ) + 1;
     const no = photoSeq.current;
-    const photo = { id: uid("ph"), roomId, no, caption: "", dataUrl, takenAt: Date.now() };
+    const photo = { id: uid("ph"), roomId, no, caption: "", dataUrl, thumb: thumb || null, takenAt: Date.now() };
     if (originalFile) originals.current[photo.id] = originalFile;
+    saveNow.current = true;
     setPhotoCache((c) => ({ ...c, [photo.id]: photo }));
-    setRooms((prev) => {
-      const next = prev.map((r) =>
-        r.id === roomId ? { ...r, photoIds: [...r.photoIds, photo.id] } : r
-      );
-      persist(inspection, next);
-      return next;
-    });
+    setRooms((prev) => prev.map((r) =>
+      r.id === roomId ? { ...r, photoIds: [...r.photoIds, photo.id] } : r
+    ));
     savePhoto(photo).catch(() => {});
     // low space long before it runs out, while there is still time to export
     storageEstimate().then((e) => {
@@ -376,103 +457,96 @@ export default function SiteSnap() {
 
   function deletePhoto(roomId, photoId) {
     const photo = photoCache[photoId];
-    setRooms((prev) => {
-      const next = prev.map((r) =>
-        r.id === roomId ? { ...r, photoIds: r.photoIds.filter((id) => id !== photoId) } : r
-      );
-      persist(inspection, next);
-      return next;
-    });
+    setRooms((prev) => prev.map((r) =>
+      r.id === roomId ? { ...r, photoIds: r.photoIds.filter((id) => id !== photoId) } : r
+    ));
     removePhoto(photoId);
-    // keep it around for undo
+    delete pendingPhotos.current[photoId];
+    // keep it around for undo, then let the memory go
     if (undoTimer.current) clearTimeout(undoTimer.current);
     setUndoItem({ photo, roomId });
-    undoTimer.current = setTimeout(() => setUndoItem(null), 5000);
+    undoTimer.current = setTimeout(() => {
+      setUndoItem(null);
+      setPhotoCache((c) => { const { [photoId]: _gone, ...rest } = c; return rest; });
+      delete originals.current[photoId];
+    }, 5000);
   }
 
   function undoDelete() {
     if (!undoItem) return;
     const { photo, roomId } = undoItem;
     setPhotoCache((c) => ({ ...c, [photo.id]: photo }));
-    setRooms((prev) => {
-      const next = prev.map((r) =>
-        r.id === roomId ? { ...r, photoIds: [...r.photoIds, photo.id] } : r
-      );
-      persist(inspection, next);
-      return next;
-    });
-    savePhoto(photo);
+    setRooms((prev) => prev.map((r) =>
+      r.id === roomId ? { ...r, photoIds: [...r.photoIds, photo.id] } : r
+    ));
+    savePhoto(photo).catch(() => {});
     setUndoItem(null);
     if (undoTimer.current) clearTimeout(undoTimer.current);
   }
 
   function reorderRooms(next) {
     setRooms(next);
-    persist(inspection, next);
   }
 
   async function addMemo(roomId, blob, secs) {
     const id = uid("aud");
-    await saveAudio(id, blob);
+    try { await saveAudio(id, blob); } catch { return; } // the storage handler has already told the user
     audioCache.current[id] = blob;
-    setRooms((prev) => {
-      const next = prev.map((r) =>
-        r.id === roomId ? { ...r, memos: [...(r.memos || []), { id, secs, type: blob.type }] } : r
-      );
-      persist(inspection, next);
-      return next;
-    });
+    saveNow.current = true;
+    setRooms((prev) => prev.map((r) =>
+      r.id === roomId ? { ...r, memos: [...(r.memos || []), { id, secs, type: blob.type }] } : r
+    ));
   }
 
   function deleteMemo(roomId, memoId) {
-    setRooms((prev) => {
-      const next = prev.map((r) =>
-        r.id === roomId ? { ...r, memos: (r.memos || []).filter((m) => m.id !== memoId) } : r
-      );
-      persist(inspection, next);
-      return next;
-    });
+    setRooms((prev) => prev.map((r) =>
+      r.id === roomId ? { ...r, memos: (r.memos || []).filter((m) => m.id !== memoId) } : r
+    ));
     removeAudio(memoId);
     delete audioCache.current[memoId];
   }
 
   function setInspectionMeta(patch) {
-    setInspection((prev) => {
-      if (!prev) return prev;
-      const next = { ...prev, ...patch };
-      persist(next, rooms);
-      setTimeout(refreshIndex, 0);
-      return next;
-    });
+    setInspection((prev) => (prev ? { ...prev, ...patch } : prev));
   }
 
+  // A caption is typed one character at a time, and each photo record carries
+  // its full-size image — so the write is debounced per photo rather than
+  // rewriting a megabyte on every keystroke.
   function setPhotoCaption(photoId, caption) {
     setPhotoCache((c) => {
       const p = c[photoId];
       if (!p) return c;
       const next = { ...p, caption };
-      savePhoto(next).catch(() => {});
+      pendingPhotos.current[photoId] = next;
       return { ...c, [photoId]: next };
     });
+    if (photoTimers.current[photoId]) clearTimeout(photoTimers.current[photoId]);
+    photoTimers.current[photoId] = setTimeout(() => {
+      delete photoTimers.current[photoId];
+      const p = pendingPhotos.current[photoId];
+      delete pendingPhotos.current[photoId];
+      if (p) savePhoto(p).catch(() => {});
+    }, 400);
   }
 
   function setRoomMeta(roomId, patch) {
-    setRooms((prev) => {
-      const next = prev.map((r) => (r.id === roomId ? { ...r, ...patch } : r));
-      persist(inspection, next);
-      return next;
-    });
+    setRooms((prev) => prev.map((r) => (r.id === roomId ? { ...r, ...patch } : r)));
   }
 
   function addRoom(name) {
-    setRooms((prev) => {
-      const next = [...prev, { id: uid("room"), name, photoIds: [] }];
-      persist(inspection, next);
-      return next;
-    });
+    setRooms((prev) => [...prev, { id: uid("room"), name, photoIds: [] }]);
   }
 
   async function finishAndReset() {
+    // nothing pending may be written back after the record is deleted, or the
+    // inspection would reappear on the home screen as a zombie
+    suppressSaveId.current = inspection.id;
+    if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
+    pendingSave.current = null;
+    Object.values(photoTimers.current).forEach(clearTimeout);
+    photoTimers.current = {};
+    pendingPhotos.current = {};
     const ids = rooms.flatMap((r) => r.photoIds);
     const memoIds = rooms.flatMap((r) => (r.memos || []).map((m) => m.id));
     await archiveInspection({
@@ -580,7 +654,8 @@ export default function SiteSnap() {
             index={walkIndex}
             photoCache={photoCache}
             onIndex={setWalkIndex}
-            onCapture={(dataUrl, file) => addPhoto(rooms[walkIndex].id, dataUrl, file)}
+            onCapture={(dataUrl, file, thumb) => addPhoto(rooms[walkIndex].id, dataUrl, file, thumb)}
+            onError={setStorageAlert}
             onDeleteLast={() => {
               const r = rooms[walkIndex];
               const last = r.photoIds[r.photoIds.length - 1];
@@ -601,7 +676,8 @@ export default function SiteSnap() {
               room={room}
               photos={room.photoIds.map((id) => photoCache[id]).filter(Boolean)}
               onBack={() => setScreen("board")}
-              onCapture={(dataUrl, file) => addPhoto(room.id, dataUrl, file)}
+              onCapture={(dataUrl, file, thumb) => addPhoto(room.id, dataUrl, file, thumb)}
+              onError={setStorageAlert}
               onDelete={(pid) => deletePhoto(room.id, pid)}
               onMeta={(patch) => setRoomMeta(room.id, patch)}
               onCaption={setPhotoCaption}
@@ -1037,7 +1113,7 @@ function BoardScreen({ inspection, rooms, photoCache, totalPhotos, doneRooms, on
                 </div>
                 <span className="ss-row-right">
                   {thumb ? (
-                    <img src={thumb.dataUrl} alt="" className="ss-thumb" />
+                    <img src={thumb.thumb || thumb.dataUrl} alt="" className="ss-thumb" />
                   ) : (
                     <span className="ss-thumb ss-thumb-empty"><ImageIcon size={13} /></span>
                   )}
@@ -1094,31 +1170,39 @@ function LiveCamera({ label, count, onCapture, onClose, onFallback }) {
   const canvasRef = useRef(null);
   const [state, setState] = useState("starting"); // starting|ready|denied|busy|unsupported
   const [flash, setFlash] = useState(false);
-  const [justTaken, setJustTaken] = useState(null);
+  const [justTaken, setJustTaken] = useState(null); // small data URL of the last frame
   const capturing = useRef(false);
+  const alive = useRef(true);
+  const opening = useRef(false);
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   function stopStream() {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     }
+    if (videoRef.current) videoRef.current.srcObject = null;
   }
 
-  useEffect(() => {
-    let cancelled = false;
-    async function start() {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        setState("unsupported");
-        return;
-      }
-      const constraints = [
-        { video: { facingMode: { ideal: "environment" }, width: { ideal: 2200 }, height: { ideal: 2200 } }, audio: false },
-        { video: true, audio: false }, // older devices reject exact/ideal facingMode
-      ];
+  async function startStream() {
+    if (opening.current) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setState("unsupported");
+      return;
+    }
+    opening.current = true;
+    setState("starting");
+    const constraints = [
+      { video: { facingMode: { ideal: "environment" }, width: { ideal: PHOTO_DIM }, height: { ideal: PHOTO_DIM } }, audio: false },
+      { video: true, audio: false }, // older devices reject exact/ideal facingMode
+    ];
+    try {
       for (const c of constraints) {
         try {
           const stream = await navigator.mediaDevices.getUserMedia(c);
-          if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
+          // closed, or backgrounded, while the permission prompt was up
+          if (!alive.current || document.hidden) { stream.getTracks().forEach((t) => t.stop()); return; }
           streamRef.current = stream;
           if (videoRef.current) {
             videoRef.current.srcObject = stream;
@@ -1129,43 +1213,73 @@ function LiveCamera({ label, count, onCapture, onClose, onFallback }) {
         } catch (e) {
           // permission or hardware problems won't be fixed by a looser
           // constraint, so stop immediately rather than prompting again
-          if (e && e.name === "NotAllowedError") { if (!cancelled) setState("denied"); return; }
-          if (e && e.name === "NotReadableError") { if (!cancelled) setState("busy"); return; }
+          if (e && e.name === "NotAllowedError") { if (alive.current) setState("denied"); return; }
+          if (e && e.name === "NotReadableError") { if (alive.current) setState("busy"); return; }
           // otherwise (e.g. OverconstrainedError) try the next constraint
         }
       }
-      if (!cancelled) setState("unsupported");
+      if (alive.current) setState("unsupported");
+    } finally {
+      opening.current = false;
     }
-    start();
-    return () => { cancelled = true; stopStream(); };
+  }
+
+  useEffect(() => {
+    alive.current = true;
+    startStream();
+    return () => { alive.current = false; stopStream(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    // a feed left running in a backgrounded tab drains the battery and keeps
-    // the camera indicator lit for no reason
-    function onVis() { if (document.hidden) stopStream(); }
+    // A feed left running in a backgrounded tab drains the battery and keeps
+    // the camera indicator lit. Stopping it also freezes the last frame in
+    // the <video>, so the shutter must be taken away until the feed is
+    // running again — otherwise a tap "captures" a frame from ten minutes ago.
+    function onVis() {
+      if (document.hidden) {
+        stopStream();
+        if (stateRef.current === "ready") setState("starting");
+      } else if (!streamRef.current && stateRef.current === "starting") {
+        startStream();
+      }
+    }
     document.addEventListener("visibilitychange", onVis);
     return () => document.removeEventListener("visibilitychange", onVis);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function capture() {
     const video = videoRef.current;
     if (!video || state !== "ready" || capturing.current) return;
+    // no decoded frame yet (the first few ms after the feed starts)
+    if (!video.videoWidth || !video.videoHeight) return;
     capturing.current = true;
     setFlash(true);
     setTimeout(() => setFlash(false), 130);
+    const w = video.videoWidth, h = video.videoHeight;
     const canvas = canvasRef.current || (canvasRef.current = document.createElement("canvas"));
-    canvas.width = video.videoWidth || 1600;
-    canvas.height = video.videoHeight || 1600;
-    canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
-    canvas.toBlob(async (blob) => {
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext("2d").drawImage(video, 0, 0, w, h);
+    // the stored copy and the thumbnail come straight off this canvas — no
+    // encode → decode → re-encode round trip per shot
+    let dataUrl, thumb;
+    try {
+      dataUrl = drawScaled(canvas, w, h, PHOTO_DIM, 0.87);
+      thumb = drawScaled(canvas, w, h, THUMB_DIM, 0.72);
+    } catch (e) {
       capturing.current = false;
-      if (!blob) return;
-      const file = new File([blob], `shot_${Date.now()}.jpg`, { type: "image/jpeg" });
-      setJustTaken(URL.createObjectURL(blob));
-      const dataUrl = await compressImage(file);
-      onCapture(dataUrl, file);
+      console.error(e);
+      return;
+    }
+    setJustTaken(thumb);
+    canvas.toBlob((blob) => {
+      capturing.current = false;
+      // the full-resolution frame is kept as the session "original" for
+      // full-quality exports; if the encoder fails the stored copy still lands
+      const file = blob ? new File([blob], `shot_${Date.now()}.jpg`, { type: "image/jpeg" }) : null;
+      onCapture(dataUrl, file, thumb);
     }, "image/jpeg", 0.92);
   }
 
@@ -1218,7 +1332,9 @@ function LiveCamera({ label, count, onCapture, onClose, onFallback }) {
   );
 }
 
-function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDeleteLast, onMeta, onAddMemo, onDeleteMemo, onExit }) {
+const BAD_IMAGE_MSG = "That image couldn't be read, so it wasn't added — try the shot again.";
+
+function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDeleteLast, onMeta, onAddMemo, onDeleteMemo, onExit, onError }) {
   const inputRef = useRef(null);
   const [noteOpen, setNoteOpen] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -1240,8 +1356,13 @@ function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDeleteLast
     const files = Array.from((e.target.files) || []);
     e.target.value = "";
     for (const file of files) {
-      const dataUrl = await compressImage(file);
-      onCapture(dataUrl, file);
+      try {
+        const { dataUrl, thumb } = await processCapture(file);
+        onCapture(dataUrl, file, thumb);
+      } catch (err) {
+        console.error(err);
+        onError && onError(BAD_IMAGE_MSG);
+      }
     }
   }
 
@@ -1299,7 +1420,7 @@ function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDeleteLast
 
         {last && (
           <div className="ss-last">
-            <img src={last.dataUrl} alt="Last photo" />
+            <img src={last.thumb || last.dataUrl} alt="Last photo" />
             <button onClick={onDeleteLast}><Trash2 size={14} /> Delete last</button>
           </div>
         )}
@@ -1325,7 +1446,7 @@ function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDeleteLast
 
 /* ---------------- room review ---------------- */
 
-function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, onCaption, onAddMemo, onDeleteMemo, onSaveToPhotos }) {
+function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, onCaption, onAddMemo, onDeleteMemo, onSaveToPhotos, onError }) {
   const inputRef = useRef(null);
   const [viewPhoto, setViewPhoto] = useState(null);
   const [note, setNote] = useState(null);
@@ -1335,8 +1456,13 @@ function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, onCapti
     const files = Array.from((e.target.files) || []);
     e.target.value = "";
     for (const file of files) {
-      const d = await compressImage(file);
-      onCapture(d, file);
+      try {
+        const { dataUrl, thumb } = await processCapture(file);
+        onCapture(dataUrl, file, thumb);
+      } catch (err) {
+        console.error(err);
+        onError && onError(BAD_IMAGE_MSG);
+      }
     }
   }
 
@@ -1401,7 +1527,7 @@ function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, onCapti
             {[...photos].reverse().map((p) => (
               <div key={p.id} className="ss-shot">
                 <button className="ss-cell" onClick={() => setViewPhoto(p)}>
-                  <img src={p.dataUrl} alt="Inspection" />
+                  <img src={p.thumb || p.dataUrl} alt="Inspection" loading="lazy" decoding="async" />
                   {p.no ? <span className="ss-cell-no">{p.no}</span> : null}
                 </button>
                 <input
