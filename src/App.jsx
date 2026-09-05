@@ -3,7 +3,7 @@ import {
   Camera, Trash2, GripVertical, ChevronLeft, Plus, Minus, MapPin,
   CloudUpload, Check, X, Loader2, ImagePlus, ArrowRight, ArrowLeft,
   Undo2, FolderTree, CircleCheck, Image as ImageIcon, Download, Link2,
-  StickyNote, FileText, Printer, AlertTriangle, Mic, MicOff, KeyRound, Briefcase, Smartphone,
+  StickyNote, FileText, Printer, AlertTriangle, Mic, MicOff, KeyRound, Briefcase, Smartphone, Pencil,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -66,6 +66,16 @@ function uid(p) {
 }
 function pad(n) {
   return String(n).padStart(2, "0");
+}
+
+// Windows, OneDrive and Excel all choke on different characters; strip the
+// union of them so a caption can be typed naturally on site.
+function safeFileName(s) {
+  return String(s)
+    .replace(/[\\/:*?"<>|#%{}~]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
 }
 
 /* ---------- image helpers ---------- */
@@ -301,6 +311,8 @@ export default function SiteSnap() {
       if (b) audioCache.current[mid] = b;
     }));
     originals.current = {};
+    photoSeq.current = (data.rooms || []).flatMap((r) => r.photoIds)
+      .reduce((m, pid) => Math.max(m, (cache[pid] && cache[pid].no) || 0), 0);
     setScreen("board");
   }
 
@@ -312,6 +324,7 @@ export default function SiteSnap() {
     setPhotoCache({});
     originals.current = {};
     audioCache.current = {};
+    photoSeq.current = 0;
     await refreshIndex();
     setScreen("home");
   }
@@ -325,15 +338,23 @@ export default function SiteSnap() {
     setRooms(rms);
     setPhotoCache({});
     originals.current = {};
+    photoSeq.current = 0;
     setScreen("board");
     persist(insp, rms);
     setTimeout(refreshIndex, 0);
   }
 
+  const photoSeq = useRef(0);
+
   async function addPhoto(roomId, dataUrl, originalFile) {
-    // a running number across the property, so findings can cite "Photo 12"
-    const no = rooms.reduce((n, r) => n + r.photoIds.length, 0) + 1;
-    const photo = { id: uid("ph"), roomId, no, dataUrl, takenAt: Date.now() };
+    // a running number across the property; a counter rather than a recount so
+    // a fast burst of shots can't hand two photos the same number
+    photoSeq.current = Math.max(
+      photoSeq.current,
+      rooms.reduce((n, r) => n + r.photoIds.length, 0)
+    ) + 1;
+    const no = photoSeq.current;
+    const photo = { id: uid("ph"), roomId, no, caption: "", dataUrl, takenAt: Date.now() };
     if (originalFile) originals.current[photo.id] = originalFile;
     setPhotoCache((c) => ({ ...c, [photo.id]: photo }));
     setRooms((prev) => {
@@ -424,6 +445,16 @@ export default function SiteSnap() {
     });
   }
 
+  function setPhotoCaption(photoId, caption) {
+    setPhotoCache((c) => {
+      const p = c[photoId];
+      if (!p) return c;
+      const next = { ...p, caption };
+      savePhoto(next).catch(() => {});
+      return { ...c, [photoId]: next };
+    });
+  }
+
   function setRoomMeta(roomId, patch) {
     setRooms((prev) => {
       const next = prev.map((r) => (r.id === roomId ? { ...r, ...patch } : r));
@@ -473,18 +504,27 @@ export default function SiteSnap() {
     await refreshIndex();
   }
 
+  // Filenames read like the report: "03 Kitchen - damp and mould to ceiling.jpg",
+  // so a spreadsheet can pick up the defect without anyone renaming anything.
+  function photoFilename(photo, room, i, ext) {
+    const n = photo && photo.no ? pad(photo.no) : pad(i + 1);
+    const caption = (photo && photo.caption ? photo.caption : "").trim();
+    const base = caption ? `${n} ${room.name} - ${caption}` : `${n} ${room.name}`;
+    return `${safeFileName(base)}.${ext}`;
+  }
+
   // compressedOnly: webhook/Graph uploads have 4-5MB request limits, so the
   // cloud path always sends the compressed copy; exports keep full quality.
-  function filesFor(photoIds, label, compressedOnly = false) {
-    return photoIds
+  function filesFor(room, compressedOnly = false) {
+    return room.photoIds
       .map((id, i) => {
+        const p = photoCache[id];
         const orig = compressedOnly ? null : originals.current[id];
         if (orig) {
           const ext = (orig.type && orig.type.split("/")[1]) || "jpg";
-          return new File([orig], `${label}_${i + 1}.${ext}`, { type: orig.type || "image/jpeg" });
+          return new File([orig], photoFilename(p, room, i, ext), { type: orig.type || "image/jpeg" });
         }
-        const p = photoCache[id];
-        if (p) return dataUrlToFile(p.dataUrl, `${label}_${i + 1}.jpg`);
+        if (p) return dataUrlToFile(p.dataUrl, photoFilename(p, room, i, "jpg"));
         return null;
       })
       .filter(Boolean);
@@ -526,6 +566,7 @@ export default function SiteSnap() {
             onReorder={reorderRooms}
             onAddRoom={addRoom}
             onHome={backToHome}
+            onRename={(patch) => setInspectionMeta(patch)}
             onOpenRoom={(id) => { setActiveRoomId(id); setScreen("room"); }}
             onWalk={(startIdx) => { setWalkIndex(startIdx); setScreen("walk"); }}
             onFinish={() => setScreen("finish")}
@@ -562,9 +603,10 @@ export default function SiteSnap() {
               onCapture={(dataUrl, file) => addPhoto(room.id, dataUrl, file)}
               onDelete={(pid) => deletePhoto(room.id, pid)}
               onMeta={(patch) => setRoomMeta(room.id, patch)}
+              onCaption={setPhotoCaption}
               onAddMemo={(blob, secs) => addMemo(room.id, blob, secs)}
               onDeleteMemo={(mid) => deleteMemo(room.id, mid)}
-              onSaveToPhotos={() => shareFiles(filesFor(room.photoIds, room.name.replace(/\s+/g, "_")), `${room.name} photos`)}
+              onSaveToPhotos={() => shareFiles(filesFor(room), `${room.name} photos`)}
             />
           );
         })()}
@@ -575,13 +617,13 @@ export default function SiteSnap() {
             rooms={rooms}
             photoCache={photoCache}
             totalPhotos={totalPhotos}
-            filesForRoom={(room) => filesFor(room.photoIds, room.name.replace(/\s+/g, "_"))}
-            filesForUpload={(room) => filesFor(room.photoIds, room.name.replace(/\s+/g, "_"), true)}
+            filesForRoom={(room) => filesFor(room)}
+            filesForUpload={(room) => filesFor(room, true)}
             audioCache={audioCache}
             onUploadResult={(r) => setInspectionMeta({ lastUpload: r })}
             onExportResult={(r) => setInspectionMeta({ lastExport: r })}
             onBack={() => setScreen("board")}
-            onSaveAll={() => shareFiles(filesFor(rooms.flatMap((r) => r.photoIds), "inspection"), "Inspection photos")}
+            onSaveAll={() => shareFiles(rooms.flatMap((r) => filesFor(r)), "Inspection photos")}
             onDone={finishAndReset}
           />
         )}
@@ -849,38 +891,31 @@ function SetupScreen({ onBack, onStart }) {
           className="ss-input ss-filter" placeholder="Filter areas…"
           value={filter} onChange={(e) => setFilter(e.target.value)}
         />
-        {PRESET_GROUPS.map((g) => {
-          const shown = g.items.filter((p) =>
-            p.base.toLowerCase().includes(filter.trim().toLowerCase()));
-          if (!shown.length) return null;
-          return (
-            <div key={g.group}>
-              <div className="ss-group-label">{g.group}</div>
-              <div className="ss-chip-grid">
-                {shown.map((p) => {
-                  const c = countOf(p.base);
-                  return (
-                    <div key={p.base} className={`ss-chip ${c ? "on" : ""}`}>
-                      <button className="ss-chip-main" onClick={() => (p.steppable ? (c ? null : inc(p.base)) : toggle(p.base))}>
-                        {p.base}{c > 1 ? ` ×${c}` : ""}
-                      </button>
-                      {p.steppable ? (
-                        c > 0 ? (
-                          <span className="ss-stepper">
-                            <button onClick={() => dec(p.base)} aria-label={`Remove ${p.base}`}><Minus size={14} /></button>
-                            <button onClick={() => inc(p.base)} aria-label={`Add ${p.base}`}><Plus size={14} /></button>
-                          </span>
-                        ) : null
-                      ) : c > 0 ? (
-                        <Check size={15} className="ss-chip-check" />
-                      ) : null}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
+        <div className="ss-chip-grid">
+          {PRESETS
+            .filter((p) => p.base.toLowerCase().includes(filter.trim().toLowerCase()))
+            .sort((a, b) => a.base.localeCompare(b.base))
+            .map((p) => {
+              const c = countOf(p.base);
+              return (
+                <div key={p.base} className={`ss-chip ${c ? "on" : ""}`}>
+                  <button className="ss-chip-main" onClick={() => (p.steppable ? (c ? null : inc(p.base)) : toggle(p.base))}>
+                    {p.base}{c > 1 ? ` ×${c}` : ""}
+                  </button>
+                  {p.steppable ? (
+                    c > 0 ? (
+                      <span className="ss-stepper">
+                        <button onClick={() => dec(p.base)} aria-label={`Remove ${p.base}`}><Minus size={14} /></button>
+                        <button onClick={() => inc(p.base)} aria-label={`Add ${p.base}`}><Plus size={14} /></button>
+                      </span>
+                    ) : null
+                  ) : c > 0 ? (
+                    <Check size={15} className="ss-chip-check" />
+                  ) : null}
+                </div>
+              );
+            })}
+        </div>
 
         {addingCustom ? (
           <div className="ss-inline-add">
@@ -933,8 +968,10 @@ function SetupScreen({ onBack, onStart }) {
 
 /* ---------------- board (overview) ---------------- */
 
-function BoardScreen({ inspection, rooms, photoCache, totalPhotos, doneRooms, onReorder, onAddRoom, onHome, onOpenRoom, onWalk, onFinish }) {
+function BoardScreen({ inspection, rooms, photoCache, totalPhotos, doneRooms, onReorder, onAddRoom, onRename, onHome, onOpenRoom, onWalk, onFinish }) {
   const [adding, setAdding] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [draft, setDraft] = useState({ address: "", postcode: "" });
   const [name, setName] = useState("");
   const firstEmpty = Math.max(0, rooms.findIndex((r) => r.photoIds.length === 0));
   const pct = rooms.length ? Math.round((doneRooms / rooms.length) * 100) : 0;
@@ -945,8 +982,36 @@ function BoardScreen({ inspection, rooms, photoCache, totalPhotos, doneRooms, on
         title={inspection.address}
         eyebrow={inspection.postcode || "Inspection in progress"}
         onBack={onHome}
-        right={<span className="ss-badge">{totalPhotos} photo{totalPhotos === 1 ? "" : "s"}</span>}
+        right={
+          <button className="ss-link" onClick={() => {
+            setDraft({ address: inspection.address, postcode: inspection.postcode || "" });
+            setRenaming(true);
+          }}>
+            <Pencil size={13} /> Edit
+          </button>
+        }
       />
+
+      {renaming && (
+        <div className="ss-modal-back" onClick={() => setRenaming(false)}>
+          <div className="ss-modal ss-modal-left" onClick={(e) => e.stopPropagation()}>
+            <div className="ss-modal-title">Property details</div>
+            <input className="ss-input" autoFocus placeholder="Address"
+              value={draft.address} onChange={(e) => setDraft({ ...draft, address: e.target.value })} />
+            <input className="ss-input" style={{ marginTop: 8 }} placeholder="Postcode"
+              value={draft.postcode} onChange={(e) => setDraft({ ...draft, postcode: e.target.value.toUpperCase() })} />
+            <p className="ss-fineprint" style={{ margin: "10px 2px 14px" }}>
+              Photos already uploaded keep the old folder name — rename before
+              uploading, or move that folder in OneDrive afterwards.
+            </p>
+            <button className="ss-btn ss-btn-primary" disabled={!draft.address.trim()}
+              onClick={() => { onRename({ address: draft.address.trim(), postcode: draft.postcode.trim() }); setRenaming(false); }}>
+              Save
+            </button>
+            <button className="ss-btn ss-btn-ghost" style={{ marginTop: 8 }} onClick={() => setRenaming(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
 
       <div className="ss-progress-wrap">
         <div className="ss-progress"><div style={{ width: `${pct}%` }} /></div>
@@ -1017,7 +1082,6 @@ function BoardScreen({ inspection, rooms, photoCache, totalPhotos, doneRooms, on
 
 function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDeleteLast, onMeta, onAddMemo, onDeleteMemo, onExit }) {
   const inputRef = useRef(null);
-  const continuous = useRef(false);
   const [noteOpen, setNoteOpen] = useState(false);
   const room = rooms[index];
   const count = room.photoIds.length;
@@ -1028,22 +1092,23 @@ function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDeleteLast
   useEffect(() => { setNoteOpen(false); }, [index]);
 
   function openCamera() {
-    continuous.current = true;
     inputRef.current && inputRef.current.click();
   }
 
   async function handleFile(e) {
-    const file = e.target.files && e.target.files[0];
+    // Some cameras and the gallery hand back several files at once; take them
+    // all, in the order chosen.
+    const files = Array.from((e.target.files) || []);
     e.target.value = "";
-    if (!file) { continuous.current = false; return; }
-    compressImage(file).then((dataUrl) => onCapture(dataUrl, file));
-    // reopen straight away — keep shooting until the user cancels the camera
-    if (continuous.current) inputRef.current && inputRef.current.click();
+    for (const file of files) {
+      const dataUrl = await compressImage(file);
+      onCapture(dataUrl, file);
+    }
   }
 
   return (
     <div className="ss-col ss-live">
-      <input ref={inputRef} type="file" accept="image/*" capture="environment"
+      <input ref={inputRef} type="file" accept="image/*" capture="environment" multiple
         className="ss-hidden" onChange={handleFile} />
 
       <div className="ss-live-top">
@@ -1094,7 +1159,7 @@ function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDeleteLast
       <div className="ss-live-controls">
         <button className="ss-shutter" onClick={openCamera}>
           <Camera size={26} strokeWidth={2.4} />
-          <span>Open camera — shoot until you cancel</span>
+          <span>Tap again after each shot — the count updates as you go</span>
         </button>
         <div className="ss-live-nav">
           <button disabled={index === 0} onClick={() => onIndex(index - 1)}>
@@ -1111,18 +1176,18 @@ function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDeleteLast
 
 /* ---------------- room review ---------------- */
 
-function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, onAddMemo, onDeleteMemo, onSaveToPhotos }) {
+function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, onCaption, onAddMemo, onDeleteMemo, onSaveToPhotos }) {
   const inputRef = useRef(null);
-  const continuous = useRef(false);
   const [viewPhoto, setViewPhoto] = useState(null);
   const [note, setNote] = useState(null);
 
   async function handleFile(e) {
-    const file = e.target.files && e.target.files[0];
+    const files = Array.from((e.target.files) || []);
     e.target.value = "";
-    if (!file) { continuous.current = false; return; }
-    compressImage(file).then((d) => onCapture(d, file));
-    if (continuous.current) inputRef.current && inputRef.current.click();
+    for (const file of files) {
+      const d = await compressImage(file);
+      onCapture(d, file);
+    }
   }
 
   async function handleSave() {
@@ -1140,7 +1205,7 @@ function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, onAddMe
           <button className="ss-link" onClick={handleSave}><ImagePlus size={14} /> Save to Photos</button>
         )} />
 
-      <input ref={inputRef} type="file" accept="image/*" capture="environment"
+      <input ref={inputRef} type="file" accept="image/*" capture="environment" multiple
         className="ss-hidden" onChange={handleFile} />
 
       {note && <div className="ss-note">{note}</div>}
@@ -1172,12 +1237,20 @@ function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, onAddMe
             <p>No photos in {room.name} yet.<br />Open the camera below to start.</p>
           </div>
         ) : (
-          <div className="ss-grid">
+          <div className="ss-shots">
             {[...photos].reverse().map((p) => (
-              <button key={p.id} className="ss-cell" onClick={() => setViewPhoto(p)}>
-                <img src={p.dataUrl} alt="Inspection" />
-                {p.no ? <span className="ss-cell-no">{p.no}</span> : null}
-              </button>
+              <div key={p.id} className="ss-shot">
+                <button className="ss-cell" onClick={() => setViewPhoto(p)}>
+                  <img src={p.dataUrl} alt="Inspection" />
+                  {p.no ? <span className="ss-cell-no">{p.no}</span> : null}
+                </button>
+                <input
+                  className="ss-caption"
+                  placeholder="What is it? e.g. damp and mould to ceiling"
+                  value={p.caption || ""}
+                  onChange={(e) => onCaption(p.id, e.target.value)}
+                />
+              </div>
             ))}
           </div>
         )}
@@ -1186,7 +1259,7 @@ function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, onAddMe
 
       <div className="ss-footer">
         <button className="ss-btn ss-btn-live ss-btn-big"
-          onClick={() => { continuous.current = true; inputRef.current && inputRef.current.click(); }}>
+          onClick={() => inputRef.current && inputRef.current.click()}>
           <Camera size={20} strokeWidth={2.4} /> {photos.length ? "Take more photos" : "Take photos"}
         </button>
       </div>
@@ -1218,6 +1291,15 @@ function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, onAddMe
   );
 }
 
+function describeHttp(status) {
+  if (status === 401 || status === 403) return "The upload link rejected the access key.";
+  if (status === 404 || status === 410) return "The upload link no longer exists, or its scenario is switched off.";
+  if (status === 413) return "A photo was too large for the upload link to accept.";
+  if (status === 429) return "The upload service is rate-limiting — it may be out of monthly operations.";
+  if (status >= 500) return `The upload service returned an error (${status}).`;
+  return `The upload link refused the request (${status}).`;
+}
+
 /* ---------------- finish / export ---------------- */
 
 function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom, filesForUpload, audioCache, onUploadResult, onExportResult, onBack, onSaveAll, onDone }) {
@@ -1230,6 +1312,7 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
   const [reportOpen, setReportOpen] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
   const [acceptLoss, setAcceptLoss] = useState(false);
+  const [uploadError, setUploadError] = useState(null);
   const populated = rooms.filter((r) => r.photoIds.length > 0);
 
   useEffect(() => {
@@ -1305,6 +1388,7 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
   // returns something else, and that is the only response we treat as proof.
   async function postToHook(url, key, fd) {
     const headers = key ? { "x-make-apikey": key } : undefined;
+    let reason = "The upload didn't go through.";
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const res = await fetch(url, { method: "POST", body: fd, headers });
@@ -1314,13 +1398,18 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
           const queuedOnly = body === "" || body === "accepted";
           return { ok: true, confirmed: !queuedOnly };
         }
+        reason = describeHttp(res.status);
         // don't retry a rejection the server will just repeat
         if (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429) {
-          return { ok: false, confirmed: false };
+          return { ok: false, confirmed: false, reason };
         }
-      } catch { /* network error — loop retries once */ }
+      } catch (e) {
+        reason = navigator.onLine === false
+          ? "No internet connection."
+          : "Couldn't reach the upload link — the connection dropped or the address is wrong.";
+      }
     }
-    return { ok: false, confirmed: false };
+    return { ok: false, confirmed: false, reason };
   }
 
   function baseFields(fd) {
@@ -1331,6 +1420,17 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
   }
 
   async function uploadViaWebhook() {
+    try {
+      await runUpload();
+    } catch (e) {
+      // never let an unexpected fault take the screen down mid-inspection
+      console.error(e);
+      setUpload((s) => s && ({ ...s, running: false }));
+      setUploadError("Something went wrong during the upload. Nothing has been deleted — your photos are still on this phone.");
+    }
+  }
+
+  async function runUpload() {
     const url = hookUrl.trim();
     if (!url) { setHookOpen(true); return; }
     if (upload && upload.running) return;
@@ -1344,6 +1444,7 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
     setUpload({ statuses, running: true, doneAll: false, sent: 0, total });
     let anyFailed = false;
     let allConfirmed = true;
+    let failReason = null;
     for (const room of populated) {
       const idx = rooms.indexOf(room);
       setUpload((s) => s && ({ ...s, statuses: { ...s.statuses, [room.id]: "uploading" } }));
@@ -1360,7 +1461,7 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
         fd.append("note", room.note || "");
         fd.append("file", f, f.name);
         const r = await postToHook(url, key, fd);
-        if (!r.ok) { ok = false; break; }
+        if (!r.ok) { ok = false; failReason = failReason || r.reason; break; }
         if (!r.confirmed) allConfirmed = false;
         setUpload((s) => s && ({ ...s, sent: s.sent + 1 }));
       }
@@ -1383,7 +1484,7 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
         fd.append("seconds", String(m.secs || 0));
         fd.append("file", blob, `${name}.${extFor(m.type)}`);
         const r = await postToHook(url, key, fd);
-        if (!r.ok) anyFailed = true;
+        if (!r.ok) { anyFailed = true; failReason = failReason || r.reason; }
         else { if (!r.confirmed) allConfirmed = false; setUpload((s) => s && ({ ...s, sent: s.sent + 1 })); }
       }
     }
@@ -1421,17 +1522,14 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
     nfd.append("notes", JSON.stringify(payload));
     nfd.append("file", new File([JSON.stringify(payload, null, 2)], "inspection.json", { type: "application/json" }), "inspection.json");
     const nres = await postToHook(url, key, nfd);
-    if (!nres.ok) anyFailed = true;
+    if (!nres.ok) { anyFailed = true; failReason = failReason || nres.reason; }
     else { if (!nres.confirmed) allConfirmed = false; setUpload((s) => s && ({ ...s, sent: s.sent + 1 })); }
 
     setUpload((s) => s && ({ ...s, running: false, doneAll: !anyFailed }));
     setUpload((s) => s && ({ ...s, confirmed: !anyFailed && allConfirmed }));
     if (onUploadResult) onUploadResult({ at: Date.now(), ok: !anyFailed, confirmed: !anyFailed && allConfirmed, total });
-    flash(anyFailed
-      ? "Something didn't send — check the link and tap upload to retry"
-      : allConfirmed
-        ? "Everything filed in the cloud"
-        : "Everything sent — your workflow will file it");
+    if (anyFailed) setUploadError(failReason || "The upload didn't go through.");
+    else flash(allConfirmed ? "Everything filed in the cloud" : "Everything sent — your workflow will file it");
   }
 
   return (
@@ -1596,6 +1694,27 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
           </div>
         );
       })()}
+
+      {uploadError && (
+        <div className="ss-modal-back" onClick={() => setUploadError(null)}>
+          <div className="ss-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="ss-modal-icon"><CloudUpload size={22} /></div>
+            <div className="ss-modal-title">Upload didn't finish</div>
+            <p>{uploadError}</p>
+            <p style={{ marginBottom: 16 }}>
+              <strong>Nothing has been lost.</strong> Every photo and note is still on
+              this phone. Fix the connection or the link and tap upload again, or
+              export a ZIP in the meantime.
+            </p>
+            <button className="ss-btn ss-btn-primary" onClick={() => { setUploadError(null); uploadViaWebhook(); }}>
+              Try again
+            </button>
+            <button className="ss-btn ss-btn-ghost" style={{ marginTop: 8 }} onClick={() => setUploadError(null)}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
 
       {reportOpen && (
         <ReportView inspection={inspection} rooms={rooms} photoCache={photoCache} onClose={() => setReportOpen(false)} />
@@ -2079,6 +2198,19 @@ function StyleBlock() {
       .ss-row-done .ss-row-tap { cursor: default; }
       .ss-job-up.warn { background: #F6EFDC; color: var(--amber); }
       .ss-empty-note { font-size: 13.5px; color: var(--muted); text-align: center; padding: 22px 10px 4px; margin: 0; }
+
+      .ss-shots { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+      .ss-shot { display: flex; flex-direction: column; gap: 6px; }
+      .ss-shot .ss-cell { width: 100%; }
+      .ss-caption {
+        width: 100%; background: var(--card); border: 1px solid var(--line);
+        border-radius: 9px; padding: 8px 10px; font-size: 13px; font-family: inherit;
+        color: var(--ink); outline: none;
+      }
+      .ss-caption:focus { border-color: var(--pine); }
+      .ss-caption::placeholder { font-size: 12px; }
+      .ss-modal-left { text-align: left; }
+      .ss-modal-left .ss-modal-title { text-align: center; }
 
       /* ---- case details ---- */
       .ss-case-toggle { display: flex; align-items: center; gap: 6px; margin: 10px auto 0; font-size: 12.5px; font-weight: 700; color: var(--muted); padding: 6px; }
