@@ -168,6 +168,7 @@ import {
   loadArchive, archiveInspection, sweepOrphans,
   setStorageErrorHandler, requestDurableStorage, storageEstimate,
   loadMsClientId, saveMsClientId, loadGoogleClientId, saveGoogleClientId,
+  hasBuiltInMsClientId, hasBuiltInGoogleClientId,
   loadFieldMode, saveFieldMode,
 } from "./storage.js";
 // Loaded on demand, not at startup: MSAL and Google's SDK are only weight
@@ -991,7 +992,7 @@ function relativeDay(ts) {
 
 /* ---------------- settings ---------------- */
 
-function CloudProviderCard({ label, icon, connected, connecting, account, clientId, onClientId, onConnect, onDisconnect, error, portalHint }) {
+function CloudProviderCard({ label, icon, connected, connecting, account, clientId, onClientId, onConnect, onDisconnect, error, portalHint, builtIn }) {
   return (
     <div className="ss-cloud-card">
       <div className="ss-cloud-head">
@@ -999,7 +1000,11 @@ function CloudProviderCard({ label, icon, connected, connecting, account, client
         <span className="ss-cloud-label">{label}</span>
         {connected && <span className="ss-cloud-connected"><CircleCheck size={12} /> Connected{account ? ` — ${account}` : ""}</span>}
       </div>
-      {!connected && (
+      {/* builtIn: whoever runs this deployment already registered an app and
+          baked its client ID in — every surveyor using it just signs in,
+          with no ID to find or paste. Falls back to manual entry when
+          nobody's done that (e.g. someone running their own copy). */}
+      {!connected && !builtIn && (
         <>
           <input
             className="ss-input" placeholder="App (client) ID"
@@ -1053,12 +1058,15 @@ function SettingsScreen({ onBack, fieldMode, onToggleFieldMode }) {
       const acc = await msAccount(id);
       if (acc) setMsAccountName(acc.username);
     });
-    // Google's access token is memory-only (see cloud/googleDrive.js), so
-    // this only ever reflects a connection made earlier in this same
-    // session — the import resolves instantly from cache in that case.
+    // Google's access token is memory-only (see cloud/googleDrive.js) and
+    // doesn't survive a reload on its own — but if the browser still has a
+    // live Google session, a silent (no-popup) request usually gets a new
+    // one without asking the surveyor to sign in again every time.
     loadGoogleClientId().then(async (id) => {
       setGoogleClientId(id || "");
-      if (id) setGoogleOn((await loadGoogleDrive()).googleConnected());
+      if (!id) return;
+      const { trySilentGoogleReconnect } = await loadGoogleDrive();
+      setGoogleOn(await trySilentGoogleReconnect(id));
     });
     storageEstimate().then(setStorage);
     if (navigator.storage && navigator.storage.persisted) navigator.storage.persisted().then(setDurable);
@@ -1127,6 +1135,7 @@ function SettingsScreen({ onBack, fieldMode, onToggleFieldMode }) {
             connected={!!msAccountName} connecting={msBusy} account={msAccountName}
             clientId={msClientId} onClientId={setMsClientId}
             onConnect={connectMs} onDisconnect={disconnectMs} error={msError}
+            builtIn={hasBuiltInMsClientId()}
             portalHint="From portal.azure.com → App registrations → New registration (SPA, redirect URI = this app's URL)."
           />
           <CloudProviderCard
@@ -1134,6 +1143,7 @@ function SettingsScreen({ onBack, fieldMode, onToggleFieldMode }) {
             connected={googleOn} connecting={googleBusy} account={null}
             clientId={googleClientId} onClientId={setGoogleClientId}
             onConnect={connectGoogle} onDisconnect={disconnectGoogle} error={googleError}
+            builtIn={hasBuiltInGoogleClientId()}
             portalHint="From console.cloud.google.com → APIs & Services → Credentials → OAuth client ID (Web application)."
           />
         </div>
@@ -2114,11 +2124,11 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
     (async () => {
       const msId = await loadMsClientId();
       const acc = msId ? await (await loadMsGraph()).msAccount(msId) : null;
-      // Google's token is memory-only, so this only reflects a connection
-      // made earlier in this same session (the import resolves instantly
-      // from cache in that case) — never worth a fetch if never configured.
+      // A silent (no-popup) request picks the Google connection back up if
+      // the browser still has a live session — never worth attempting if
+      // Google was never configured for this device at all.
       const googleId = await loadGoogleClientId();
-      const googleOn = googleId ? (await loadGoogleDrive()).googleConnected() : false;
+      const googleOn = googleId ? await (await loadGoogleDrive()).trySilentGoogleReconnect(googleId) : false;
       setDirect({ ms: acc ? acc.username : null, google: googleOn });
     })();
   }, []);

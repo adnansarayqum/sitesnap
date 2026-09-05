@@ -19,6 +19,30 @@ minute setup in Azure or Google's own developer portal. SiteSnap never sees
 or stores your Microsoft/Google password; you sign in through Microsoft's
 or Google's own page, and only a token comes back to the app.
 
+## Do this once, as the deployment owner — not per surveyor
+
+The client ID you get from that registration identifies the *app*
+(SiteSnap), not any particular person's account — every surveyor who uses
+this deployment still signs into their own separate OneDrive/Drive. So
+there's no reason to make each of them register an app and paste an ID into
+Settings. Do it once yourself, then bake the ID in as a build-time
+environment variable:
+
+- `VITE_MS_CLIENT_ID` — the OneDrive client ID
+- `VITE_GOOGLE_CLIENT_ID` — the Google Drive client ID
+
+On Railway: the service → **Variables** → add either or both → the next
+deploy picks them up (Vite reads them at build time). Once set, the
+"App (client) ID" field disappears from Settings entirely for everyone on
+that deployment — they just tap **Connect OneDrive** / **Connect Google
+Drive** and sign in. Nothing else about the flow changes; a device can
+still override the built-in ID by typing its own in Settings, which only
+matters if you're testing a second app registration.
+
+Set neither and the manual entry field shown below is what everyone gets
+instead — fine for one person's own copy of the app, more friction for
+several surveyors sharing one deployment.
+
 ## OneDrive (Microsoft)
 
 1. Go to **portal.azure.com** and sign in with the Microsoft account whose
@@ -65,10 +89,14 @@ that account's own OneDrive, the same folder layout Make produces.
    Drive card → **Connect Google Drive** → sign in.
 
 **One quirk to know:** Google's access token isn't kept anywhere after you
-close the tab (by design — this app has no backend to keep it safe in). If
-you reload the app or come back the next day, you'll be asked to sign in
-again before the Google Drive button appears. OneDrive doesn't have this
-problem — Microsoft's library keeps you signed in across sessions.
+close the tab (by design — this app has no backend to keep it safe in). On
+reload, SiteSnap quietly tries to get a new one with no popup — if your
+phone still has a live Google session it usually just works and you won't
+notice — but that can fail (a signed-out browser, a cleared cookie jar, an
+iOS PWA being stricter about this than desktop Chrome), in which case
+you're asked to tap **Connect Google Drive** again. OneDrive doesn't have
+this problem at all — Microsoft's library keeps you signed in across
+sessions on its own.
 
 ## Where this lives in the code
 

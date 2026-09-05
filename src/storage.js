@@ -209,22 +209,31 @@ export async function saveWebhookKey(key) {
   try { await set(KEY_KEY, key); } catch {}
 }
 
-// Direct-to-cloud config: each provider's app (client) ID, entered once in
-// Settings after the surveyor registers a free app in Azure/Google's portal.
-// No token lives here — MSAL keeps its own cache, Google's token is
-// in-memory only — this is just enough to reconnect without retyping the ID.
+// Direct-to-cloud config: each provider's app (client) ID. Whoever runs the
+// deployment can bake one in as a build-time env var (VITE_MS_CLIENT_ID /
+// VITE_GOOGLE_CLIENT_ID — see docs/direct-cloud-link-setup.md) so every
+// surveyor using that deployment just taps Connect; a per-device override
+// entered in Settings always wins over the built-in one, for anyone running
+// their own fork without the env var set. No token lives here — MSAL keeps
+// its own cache, Google's token is in-memory only — this is just enough to
+// reconnect without retyping the ID.
 const MS_CLIENT_KEY = "sitesnap:msClientId";
 const GOOGLE_CLIENT_KEY = "sitesnap:googleClientId";
 const FIELD_MODE_KEY = "sitesnap:fieldMode";
 
+const BUILT_IN_MS_CLIENT_ID = import.meta.env.VITE_MS_CLIENT_ID || "";
+const BUILT_IN_GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+export function hasBuiltInMsClientId() { return !!BUILT_IN_MS_CLIENT_ID; }
+export function hasBuiltInGoogleClientId() { return !!BUILT_IN_GOOGLE_CLIENT_ID; }
+
 export async function loadMsClientId() {
-  try { return (await get(MS_CLIENT_KEY)) || ""; } catch { return ""; }
+  try { return (await get(MS_CLIENT_KEY)) || BUILT_IN_MS_CLIENT_ID; } catch { return BUILT_IN_MS_CLIENT_ID; }
 }
 export async function saveMsClientId(id) {
   try { await set(MS_CLIENT_KEY, id); } catch {}
 }
 export async function loadGoogleClientId() {
-  try { return (await get(GOOGLE_CLIENT_KEY)) || ""; } catch { return ""; }
+  try { return (await get(GOOGLE_CLIENT_KEY)) || BUILT_IN_GOOGLE_CLIENT_ID; } catch { return BUILT_IN_GOOGLE_CLIENT_ID; }
 }
 export async function saveGoogleClientId(id) {
   try { await set(GOOGLE_CLIENT_KEY, id); } catch {}

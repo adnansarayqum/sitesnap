@@ -26,16 +26,11 @@ function loadGis() {
   return gisLoaded;
 }
 
-function getTokenClient(clientId) {
-  if (tokenClient && tokenClient.__clientId === clientId) return tokenClient;
-  return null; // rebuilt lazily inside connect(), since it needs a callback closure
-}
-
 export function googleConnected() {
   return !!(currentToken && currentToken.expires_at > Date.now() + 30000);
 }
 
-export async function connectGoogleDrive(clientId) {
+async function requestToken(clientId, prompt) {
   const google = await loadGis();
   return new Promise((resolve, reject) => {
     const client = google.accounts.oauth2.initTokenClient({
@@ -48,10 +43,24 @@ export async function connectGoogleDrive(clientId) {
       },
       error_callback: (err) => reject(new Error(err?.message || "Google sign-in was cancelled")),
     });
-    client.__clientId = clientId;
     tokenClient = client;
-    client.requestAccessToken({ prompt: currentToken ? "" : "consent" });
+    client.requestAccessToken({ prompt });
   });
+}
+
+export async function connectGoogleDrive(clientId) {
+  return requestToken(clientId, googleConnected() ? "" : "consent");
+}
+
+// Opportunistic, silent reconnect — tried on load so a surveyor who signed
+// in earlier isn't asked to sign in again on every single reload. Google
+// answers instantly with no popup if a live session already grants this
+// app the scope; otherwise it fails just as instantly, quietly, with
+// nothing shown to the user (this is not a user-initiated attempt, so a
+// visible error here would be more confusing than helpful).
+export async function trySilentGoogleReconnect(clientId) {
+  if (googleConnected()) return true;
+  try { return await requestToken(clientId, ""); } catch { return false; }
 }
 
 export function disconnectGoogleDrive() {
