@@ -6,7 +6,6 @@
 const SCOPE = "https://www.googleapis.com/auth/drive.file";
 
 let gisLoaded = null;
-let tokenClient = null;
 let currentToken = null; // { access_token, expires_at }
 
 function loadGis() {
@@ -43,7 +42,6 @@ async function requestToken(clientId, prompt) {
       },
       error_callback: (err) => reject(new Error(err?.message || "Google sign-in was cancelled")),
     });
-    tokenClient = client;
     client.requestAccessToken({ prompt });
   });
 }
@@ -68,7 +66,6 @@ export function disconnectGoogleDrive() {
     try { window.google.accounts.oauth2.revoke(currentToken.access_token); } catch { /* best effort */ }
   }
   currentToken = null;
-  tokenClient = null;
 }
 
 async function getToken(clientId) {

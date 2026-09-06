@@ -38,6 +38,28 @@ share sheet only work on secure origins.
 On iPhone: open the URL in Safari → Share → **Add to Home Screen**. It then
 launches full-screen like a native app.
 
+## Project layout
+
+```
+src/
+  main.jsx              boot + service worker registration
+  App.jsx               root: open inspection, rooms, photo cache, routing
+  storage.js            IndexedDB — every read/write goes through here
+  styles.jsx            all CSS, as design tokens + one <style> block
+  screens/
+    Home.jsx            tab bar, Home dashboard, Cases ledger
+    CaseFile.jsx        an open case: Overview / Rooms tabs
+    Walk.jsx            walkthrough capture + the in-page live camera
+    Room.jsx            a room's photos, captions, on-photo annotation
+    Finish.jsx          Export tab: cloud upload, ZIP, draft findings review
+    Report.jsx          printable report
+    Setup.jsx           new inspection (address, rooms)
+    Settings.jsx        cloud links, field mode, camera check, storage
+  components/           VoiceMemo, TopBar, ReorderableList
+  lib/                  image pipeline, room presets, small helpers
+  cloud/                OneDrive (MSAL) and Google Drive clients, loaded on demand
+```
+
 ## How photos are stored
 
 Photos are compressed (max 2200px) and kept in the browser's IndexedDB, so an
