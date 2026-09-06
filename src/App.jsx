@@ -4,7 +4,7 @@ import {
   CloudUpload, Check, X, Loader2, ImagePlus, ArrowRight, ArrowLeft,
   Undo2, FolderTree, CircleCheck, Image as ImageIcon, Download, Link2,
   StickyNote, FileText, Printer, AlertTriangle, Mic, MicOff, KeyRound, Briefcase, Smartphone, Pencil,
-  RefreshCw, Aperture, Settings as SettingsIcon, Search, SlidersHorizontal, Sun, Moon, SwitchCamera,
+  RefreshCw, Aperture, Settings as SettingsIcon, Search, SlidersHorizontal, Sun, Moon, SwitchCamera, Expand,
   Circle, MoveUpRight, ShieldCheck, Clock, HardDrive, ChevronRight, Tag, Home as HomeIcon,
 } from "lucide-react";
 
@@ -1366,6 +1366,9 @@ function SettingsScreen({ fieldMode, onToggleFieldMode, onTab }) {
           ><span /></button>
         </div>
 
+        <div className="ss-section-label" style={{ marginTop: 20 }}>Camera</div>
+        <CameraCheck />
+
         <div className="ss-section-label" style={{ marginTop: 20 }}>Storage on this phone</div>
         <div className="ss-storage-card">
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1399,6 +1402,79 @@ function SettingsScreen({ fieldMode, onToggleFieldMode, onTab }) {
         <div style={{ height: 16 }} />
       </div>
       <TabBar active="settings" onChange={onTab} />
+    </div>
+  );
+}
+
+/* ---------------- camera diagnostics ---------------- */
+// What the browser on *this* phone actually exposes: which lens it opens,
+// whether a zoom range is offered and how far it goes, and every camera
+// it can see. Which of those is missing decides whether a wide shot can
+// ever come from the in-page feed or has to borrow the phone's camera app.
+function CameraCheck() {
+  const [report, setReport] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  async function run() {
+    setBusy(true);
+    const lines = [];
+    let stream = null;
+    try {
+      const md = navigator.mediaDevices;
+      if (!md || !md.getUserMedia) {
+        lines.push("Live camera API not available in this browser.");
+      } else {
+        stream = await md.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+        const track = stream.getVideoTracks()[0];
+        lines.push(`Camera in use: ${track.label || "(no label)"}`);
+        const s = track.getSettings ? track.getSettings() : {};
+        lines.push(`Feed: ${s.width || "?"}×${s.height || "?"}, facing ${s.facingMode || "?"}${typeof s.zoom === "number" ? `, zoom ${s.zoom}×` : ""}`);
+        const c = track.getCapabilities ? track.getCapabilities() : null;
+        if (c && c.zoom && typeof c.zoom.min === "number") lines.push(`Zoom range offered: ${c.zoom.min}× – ${c.zoom.max}× (step ${c.zoom.step})`);
+        else lines.push("Zoom range offered: none");
+        const cams = (await md.enumerateDevices()).filter((d) => d.kind === "videoinput");
+        lines.push(`Cameras the browser can see (${cams.length}):`);
+        cams.forEach((d, i) => lines.push(`  ${i + 1}. ${d.label || "(unnamed)"}`));
+      }
+    } catch (e) {
+      lines.push(`Couldn't open the camera: ${(e && e.name) || e}`);
+    } finally {
+      if (stream) stream.getTracks().forEach((t) => t.stop());
+      lines.push(`Browser: ${navigator.userAgent}`);
+      setReport(lines.join("\n"));
+      setBusy(false);
+    }
+  }
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(report);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* clipboard blocked — the text is still on screen to screenshot */ }
+  }
+
+  return (
+    <div className="ss-storage-card">
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <Aperture size={15} color="var(--pine)" />
+        <span style={{ fontWeight: 700, fontSize: 13 }}>Camera check</span>
+      </div>
+      <p className="ss-fineprint" style={{ margin: "6px 2px 0" }}>
+        Shows which lens and zoom range this phone's browser lets the live camera use — handy if wide shots look tighter than in the phone's own camera app.
+      </p>
+      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+        <button className="ss-btn ss-btn-primary" style={{ flex: 1 }} onClick={run} disabled={busy}>
+          {busy ? <Loader2 size={15} className="ss-spin" /> : <Aperture size={15} />} {report ? "Check again" : "Check this phone's camera"}
+        </button>
+        {report && (
+          <button className="ss-btn ss-btn-ghost" style={{ flex: "0 0 auto" }} onClick={copy}>
+            {copied ? <Check size={15} /> : <FileText size={15} />} {copied ? "Copied" : "Copy"}
+          </button>
+        )}
+      </div>
+      {report && <pre className="ss-camcheck">{report}</pre>}
     </div>
   );
 }
@@ -1803,7 +1879,7 @@ function RoomsTab({ rooms, photoCache, doneRooms, totalPhotos, onReorder, onAddR
 // tap the shutter, the frame is grabbed straight off the video element, the
 // feed never stops. Falls back to the native picker (via onFallback) if the
 // browser or device won't cooperate, so shooting never dead-ends.
-function LiveCamera({ label, count, onCapture, onClose, onFallback }) {
+function LiveCamera({ label, count, lastThumb, resumeKey, onCapture, onClose, onFallback, onWideShot }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const canvasRef = useRef(null);
@@ -1894,6 +1970,17 @@ function LiveCamera({ label, count, onCapture, onClose, onFallback }) {
     const idx = lenses.findIndex((d) => d.deviceId === activeLensId);
     const next = lenses[(idx + 1) % lenses.length];
     if (next) { stopStream(); startStream(next.deviceId); }
+  }
+
+  // Where the browser can't reach the ultra-wide lens at all (Samsung keeps
+  // it away from third-party apps, Chrome included), the phone's own camera
+  // app still can. This borrows it for one shot: release the sensor first
+  // so the camera app can open it, and the visibility/focus handlers below
+  // bring the live feed straight back once the surveyor returns.
+  function wideShot() {
+    stopStream();
+    setState("starting");
+    onWideShot();
   }
 
   // Native (non-passive) touch listeners, so preventDefault actually stops
@@ -1993,18 +2080,38 @@ function LiveCamera({ label, count, onCapture, onClose, onFallback }) {
     // the camera indicator lit. Stopping it also freezes the last frame in
     // the <video>, so the shutter must be taken away until the feed is
     // running again — otherwise a tap "captures" a frame from ten minutes ago.
+    // `resume` also runs on focus/pageshow: coming back from the phone's
+    // camera app (wideShot above) doesn't always fire visibilitychange —
+    // some pickers overlay the page rather than backgrounding it.
+    function resume() {
+      if (!document.hidden && !streamRef.current && stateRef.current === "starting") startStream(activeLensIdRef.current);
+    }
     function onVis() {
       if (document.hidden) {
         stopStream();
         if (stateRef.current === "ready") setState("starting");
-      } else if (!streamRef.current && stateRef.current === "starting") {
-        startStream(activeLensIdRef.current);
+      } else {
+        resume();
       }
     }
     document.addEventListener("visibilitychange", onVis);
-    return () => document.removeEventListener("visibilitychange", onVis);
+    window.addEventListener("focus", resume);
+    window.addEventListener("pageshow", resume);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("focus", resume);
+      window.removeEventListener("pageshow", resume);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // belt and braces for the wide-shot round trip: the parent bumps this
+  // when the camera app hands a photo back, in case no focus/visibility
+  // event marked the return
+  useEffect(() => {
+    if (resumeKey && !streamRef.current && stateRef.current === "starting") startStream(activeLensIdRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resumeKey]);
 
   function capture() {
     const video = videoRef.current;
@@ -2057,7 +2164,8 @@ function LiveCamera({ label, count, onCapture, onClose, onFallback }) {
         <span className="ss-livecam-label">{label}</span>
         {state === "ready" && lenses.length > 1 && (
           <button className="ss-livecam-lens" onClick={switchLens} title="Try the other camera lens">
-            <SwitchCamera size={17} />
+            <SwitchCamera size={16} />
+            <span>{Math.max(0, lenses.findIndex((d) => d.deviceId === activeLensId)) + 1}/{lenses.length}</span>
           </button>
         )}
         <span className="ss-livecam-count">{count}</span>
@@ -2081,25 +2189,33 @@ function LiveCamera({ label, count, onCapture, onClose, onFallback }) {
         </div>
       )}
 
-      {state === "ready" && zoomCaps && (
+      {state === "ready" && (
         <div className="ss-livecam-zoom">
-          <span className="ss-livecam-zoom-label">{zoom.toFixed(1)}×</span>
-          <input
-            type="range"
-            className="ss-livecam-zoom-slider"
-            min={zoomCaps.min}
-            max={zoomCaps.max}
-            step={zoomCaps.step}
-            value={zoom}
-            onChange={(e) => applyZoom(parseFloat(e.target.value))}
-            aria-label="Zoom"
-          />
+          <button className="ss-livecam-wide" onClick={wideShot}
+            title="One wide-angle shot with the phone's own camera app, then straight back here">
+            <Expand size={14} /> Wide shot
+          </button>
+          {zoomCaps && (
+            <>
+              <span className="ss-livecam-zoom-label">{zoom.toFixed(1)}×</span>
+              <input
+                type="range"
+                className="ss-livecam-zoom-slider"
+                min={zoomCaps.min}
+                max={zoomCaps.max}
+                step={zoomCaps.step}
+                value={zoom}
+                onChange={(e) => applyZoom(parseFloat(e.target.value))}
+                aria-label="Zoom"
+              />
+            </>
+          )}
         </div>
       )}
 
       {state === "ready" && (
         <div className="ss-livecam-bottom">
-          {justTaken && <img className="ss-livecam-last" src={justTaken} alt="" />}
+          {(lastThumb || justTaken) && <img className="ss-livecam-last" src={lastThumb || justTaken} alt="" />}
           <button className="ss-livecam-shutter" onClick={capture} aria-label="Take photo" />
           <button className="ss-livecam-switch" onClick={() => { stopStream(); onFallback(); }} aria-label="Use phone's camera app instead" title="Use phone's camera app instead">
             <RefreshCw size={16} />
@@ -2116,6 +2232,7 @@ function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDeleteLast
   const inputRef = useRef(null);
   const [noteOpen, setNoteOpen] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [resumeKey, setResumeKey] = useState(0);
   const room = rooms[index];
   const count = room.photoIds.length;
   const lastId = room.photoIds[count - 1];
@@ -2134,6 +2251,7 @@ function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDeleteLast
     // all, in the order chosen.
     const files = Array.from((e.target.files) || []);
     e.target.value = "";
+    setResumeKey((k) => k + 1);
     for (const file of files) {
       try {
         const { dataUrl, thumb } = await processCapture(file);
@@ -2154,9 +2272,12 @@ function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDeleteLast
         <LiveCamera
           label={room.name}
           count={count}
+          lastThumb={last ? (last.thumb || last.dataUrl) : null}
+          resumeKey={resumeKey}
           onCapture={onCapture}
           onClose={() => setCameraOpen(false)}
           onFallback={() => { setCameraOpen(false); inputRef.current && inputRef.current.click(); }}
+          onWideShot={() => { inputRef.current && inputRef.current.click(); }}
         />
       )}
 
@@ -3752,7 +3873,17 @@ function StyleBlock() {
         background: rgba(0,0,0,.5); border-radius: 999px; padding: 6px 16px 6px 12px;
       }
       .ss-livecam-zoom-label { color: #fff; font-weight: 800; font-size: 12.5px; font-variant-numeric: tabular-nums; min-width: 32px; text-align: center; }
-      .ss-livecam-zoom-slider { width: 150px; accent-color: var(--hivis); touch-action: pan-x; }
+      .ss-livecam-zoom-slider { width: 110px; accent-color: var(--hivis); touch-action: pan-x; }
+      .ss-livecam-wide {
+        display: flex; align-items: center; gap: 6px; white-space: nowrap; flex-shrink: 0;
+        background: var(--hivis); color: var(--hivis-deep); font-weight: 800; font-size: 12.5px;
+        border-radius: 999px; padding: 7px 12px;
+      }
+      .ss-camcheck {
+        white-space: pre-wrap; word-break: break-word; margin: 10px 0 0;
+        font: 600 11.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+        background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 10px; color: var(--ink);
+      }
       .ss-livecam-flash { position: absolute; inset: 0; background: #fff; opacity: .85; animation: ss-flashfade .13s ease-out forwards; pointer-events: none; }
       @keyframes ss-flashfade { from { opacity: .85; } to { opacity: 0; } }
       .ss-livecam-top {
@@ -3764,14 +3895,14 @@ function StyleBlock() {
       }
       .ss-livecam-close { width: 36px; height: 36px; border-radius: 999px; background: rgba(0,0,0,.4); color: #fff; display: flex; align-items: center; justify-content: center; }
       .ss-livecam-label { flex: 1; color: #fff; font-weight: 800; font-size: 15px; text-shadow: 0 1px 3px rgba(0,0,0,.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .ss-livecam-count { min-width: 28px; text-align: center; background: var(--hivis); color: var(--hivis-ink); font-weight: 900; font-size: 14px; border-radius: 999px; padding: 4px 10px; font-variant-numeric: tabular-nums; }
-      .ss-livecam-lens { width: 34px; height: 34px; border-radius: 999px; background: rgba(0,0,0,.4); color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+      .ss-livecam-count { min-width: 28px; text-align: center; background: var(--hivis); color: var(--hivis-deep); font-weight: 900; font-size: 14px; border-radius: 999px; padding: 4px 10px; font-variant-numeric: tabular-nums; }
+      .ss-livecam-lens { height: 34px; padding: 0 10px; border-radius: 999px; background: rgba(0,0,0,.4); color: #fff; display: flex; align-items: center; justify-content: center; gap: 5px; flex-shrink: 0; font-weight: 800; font-size: 12px; font-variant-numeric: tabular-nums; }
       .ss-livecam-msg {
         position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
         gap: 14px; color: #fff; text-align: center; padding: 40px 32px; font-size: 14.5px; font-weight: 600;
       }
       .ss-livecam-fallback {
-        display: flex; align-items: center; gap: 8px; background: var(--hivis); color: var(--hivis-ink);
+        display: flex; align-items: center; gap: 8px; background: var(--hivis); color: var(--hivis-deep);
         font-weight: 800; font-size: 14px; border-radius: 999px; padding: 11px 20px; margin-top: 6px;
       }
       .ss-livecam-bottom {
