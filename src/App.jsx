@@ -1807,14 +1807,24 @@ function LiveCamera({ label, count, onCapture, onClose, onFallback }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const canvasRef = useRef(null);
+  const containerRef = useRef(null);
   const [state, setState] = useState("starting"); // starting|ready|denied|busy|unsupported
   const [flash, setFlash] = useState(false);
   const [justTaken, setJustTaken] = useState(null); // small data URL of the last frame
+  // Some Android cameras expose a continuous optical range through this same
+  // getUserMedia track — including below 1x on phones whose "environment"
+  // camera is a fused wide/ultra-wide/tele module. Where that's not exposed
+  // (iOS Safari, older Android, single-lens phones) the controls just don't
+  // appear, same as before.
+  const [zoomCaps, setZoomCaps] = useState(null); // {min, max, step} or null
+  const [zoom, setZoom] = useState(1);
   const capturing = useRef(false);
   const alive = useRef(true);
   const opening = useRef(false);
   const stateRef = useRef(state);
   stateRef.current = state;
+  const zoomStateRef = useRef({ zoom: 1, caps: null });
+  zoomStateRef.current = { zoom, caps: zoomCaps };
 
   function stopStream() {
     if (streamRef.current) {
@@ -1823,6 +1833,72 @@ function LiveCamera({ label, count, onCapture, onClose, onFallback }) {
     }
     if (videoRef.current) videoRef.current.srcObject = null;
   }
+
+  function detectZoom(stream) {
+    try {
+      const track = stream.getVideoTracks()[0];
+      const caps = track.getCapabilities ? track.getCapabilities() : null;
+      if (caps && caps.zoom && typeof caps.zoom.max === "number" && caps.zoom.max > caps.zoom.min) {
+        const settings = track.getSettings ? track.getSettings() : {};
+        const z = typeof settings.zoom === "number" ? settings.zoom : caps.zoom.min;
+        setZoomCaps({ min: caps.zoom.min, max: caps.zoom.max, step: caps.zoom.step || 0.1 });
+        setZoom(z);
+      } else {
+        setZoomCaps(null);
+        setZoom(1);
+      }
+    } catch {
+      setZoomCaps(null);
+      setZoom(1);
+    }
+  }
+
+  function applyZoom(z) {
+    const caps = zoomStateRef.current.caps;
+    if (!caps) return;
+    const clamped = Math.min(caps.max, Math.max(caps.min, z));
+    setZoom(clamped);
+    const track = streamRef.current && streamRef.current.getVideoTracks()[0];
+    if (track) track.applyConstraints({ advanced: [{ zoom: clamped }] }).catch(() => {});
+  }
+
+  // Native (non-passive) touch listeners, so preventDefault actually stops
+  // the gesture — React's synthetic touch handlers are passive by default
+  // and can't reliably block it. Reads current zoom/caps off a ref so this
+  // effect only needs to run once, not on every zoom change.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    let pinch = null;
+    const dist = (touches) => {
+      const [a, b] = touches;
+      return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    };
+    function onStart(e) {
+      if (e.touches.length === 2) pinch = { startDist: dist(e.touches), startZoom: zoomStateRef.current.zoom };
+    }
+    function onMove(e) {
+      if (e.touches.length === 2 && pinch && zoomStateRef.current.caps) {
+        e.preventDefault();
+        const ratio = dist(e.touches) / pinch.startDist;
+        applyZoom(pinch.startZoom * ratio);
+      }
+    }
+    function onEnd(e) {
+      if (e.touches.length < 2) pinch = null;
+    }
+    el.addEventListener("touchstart", onStart, { passive: true });
+    el.addEventListener("touchmove", onMove, { passive: false });
+    el.addEventListener("touchend", onEnd, { passive: true });
+    el.addEventListener("touchcancel", onEnd, { passive: true });
+    return () => {
+      el.removeEventListener("touchstart", onStart);
+      el.removeEventListener("touchmove", onMove);
+      el.removeEventListener("touchend", onEnd);
+      el.removeEventListener("touchcancel", onEnd);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function startStream() {
     if (opening.current) return;
@@ -1847,6 +1923,7 @@ function LiveCamera({ label, count, onCapture, onClose, onFallback }) {
             videoRef.current.srcObject = stream;
             await videoRef.current.play().catch(() => {});
           }
+          detectZoom(stream);
           setState("ready");
           return;
         } catch (e) {
@@ -1930,7 +2007,7 @@ function LiveCamera({ label, count, onCapture, onClose, onFallback }) {
   const broken = state === "denied" || state === "busy" || state === "unsupported";
 
   return (
-    <div className="ss-livecam">
+    <div className="ss-livecam" ref={containerRef}>
       <video ref={videoRef} className="ss-livecam-video" autoPlay muted playsInline />
       {flash && <div className="ss-livecam-flash" />}
 
@@ -1955,6 +2032,22 @@ function LiveCamera({ label, count, onCapture, onClose, onFallback }) {
           <button className="ss-livecam-fallback" onClick={() => { stopStream(); onFallback(); }}>
             <Camera size={15} /> Use phone's camera instead
           </button>
+        </div>
+      )}
+
+      {state === "ready" && zoomCaps && (
+        <div className="ss-livecam-zoom">
+          <span className="ss-livecam-zoom-label">{zoom.toFixed(1)}×</span>
+          <input
+            type="range"
+            className="ss-livecam-zoom-slider"
+            min={zoomCaps.min}
+            max={zoomCaps.max}
+            step={zoomCaps.step}
+            value={zoom}
+            onChange={(e) => applyZoom(parseFloat(e.target.value))}
+            aria-label="Zoom"
+          />
         </div>
       )}
 
@@ -3605,7 +3698,15 @@ function StyleBlock() {
         display: flex; flex-direction: column;
         max-width: 430px; margin: 0 auto; overflow: hidden;
       }
-      .ss-livecam-video { flex: 1; width: 100%; height: 100%; object-fit: cover; background: #000; }
+      .ss-livecam-video { flex: 1; width: 100%; height: 100%; object-fit: cover; background: #000; touch-action: none; }
+      .ss-livecam-zoom {
+        position: absolute; left: 50%; bottom: calc(112px + env(safe-area-inset-bottom));
+        transform: translateX(-50%); z-index: 2;
+        display: flex; align-items: center; gap: 10px;
+        background: rgba(0,0,0,.5); border-radius: 999px; padding: 6px 16px 6px 12px;
+      }
+      .ss-livecam-zoom-label { color: #fff; font-weight: 800; font-size: 12.5px; font-variant-numeric: tabular-nums; min-width: 32px; text-align: center; }
+      .ss-livecam-zoom-slider { width: 150px; accent-color: var(--hivis); touch-action: pan-x; }
       .ss-livecam-flash { position: absolute; inset: 0; background: #fff; opacity: .85; animation: ss-flashfade .13s ease-out forwards; pointer-events: none; }
       @keyframes ss-flashfade { from { opacity: .85; } to { opacity: 0; } }
       .ss-livecam-top {
