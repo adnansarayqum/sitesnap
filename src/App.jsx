@@ -1971,15 +1971,11 @@ function LiveCamera({ label, count, lastThumb, resumeKey, onCapture, onClose, on
     }
   }
 
-  const ultraLens = lenses.find((d) => /ultra/i.test(d.label)) || null;
-  const teleLens = lenses.find((d) => /tele/i.test(d.label)) || null;
-  const mainLens = lenses.find((d) => !/ultra|tele/i.test(d.label)) || null;
   const activeLabel = (lenses.find((d) => d.deviceId === activeLensId) || {}).label || "";
-  const activeIsUltra = /ultra/i.test(activeLabel);
-  const activeIsTele = /tele/i.test(activeLabel);
   // the slider reads in the lens's own units; shown relative to the main
-  // camera so 0.5× means what it means in the phone's camera app
-  const lensScale = activeIsUltra ? 0.5 : 1;
+  // camera so 0.5× on an iPhone's ultra-wide means what it means in the
+  // phone's camera app
+  const lensScale = /ultra/i.test(activeLabel) ? 0.5 : 1;
 
   function pickLens(device) {
     if (!device || device.deviceId === activeLensId) return;
@@ -2183,8 +2179,8 @@ function LiveCamera({ label, count, lastThumb, resumeKey, onCapture, onClose, on
       <div className="ss-livecam-top">
         <button className="ss-livecam-close" onClick={close}><X size={20} /></button>
         <span className="ss-livecam-label">{label}</span>
-        {state === "ready" && lenses.length > 1 && !ultraLens && (
-          <button className="ss-livecam-lens" onClick={switchLens} title="Try the other camera lens">
+        {state === "ready" && lenses.length > 1 && (
+          <button className="ss-livecam-lens" onClick={switchLens} title={activeLabel ? `Lens: ${activeLabel} — tap for the next one` : "Try the other camera lens"}>
             <SwitchCamera size={16} />
             <span>{Math.max(0, lenses.findIndex((d) => d.deviceId === activeLensId)) + 1}/{lenses.length}</span>
           </button>
@@ -2212,18 +2208,10 @@ function LiveCamera({ label, count, lastThumb, resumeKey, onCapture, onClose, on
 
       {state === "ready" && (
         <div className="ss-livecam-zoom">
-          {ultraLens ? (
-            <div className="ss-livecam-seg" role="group" aria-label="Lens">
-              <button className={activeIsUltra ? "on" : ""} onClick={() => pickLens(ultraLens)}>0.5×</button>
-              <button className={!activeIsUltra && !activeIsTele ? "on" : ""} onClick={() => pickLens(mainLens || ultraLens)}>1×</button>
-              {teleLens && <button className={activeIsTele ? "on" : ""} onClick={() => pickLens(teleLens)}>Tele</button>}
-            </div>
-          ) : (
-            <button className="ss-livecam-wide" onClick={wideShot}
-              title="One wide-angle shot with the phone's own camera app, then straight back here">
-              <Expand size={14} /> Wide shot
-            </button>
-          )}
+          <button className="ss-livecam-wide" onClick={wideShot}
+            title="One wide-angle shot with the phone's own camera app, then straight back here">
+            <Expand size={14} /> Wide shot
+          </button>
           {zoomCaps && (
             <>
               <span className="ss-livecam-zoom-label">{(zoom * lensScale).toFixed(1)}×</span>
