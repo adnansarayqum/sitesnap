@@ -240,6 +240,20 @@ export async function saveGoogleClientId(id) {
   try { await set(GOOGLE_CLIENT_KEY, id); } catch {}
 }
 
+// A connection made through the cloud-link service (server/index.js): the
+// sealed refresh-token blob this phone can't read, plus the account label.
+// Presented to the server whenever an upload needs an access token.
+const cloudLinkKey = (provider) => `sitesnap:cloudLink:${provider}`;
+export async function loadCloudLink(provider) {
+  try { return (await get(cloudLinkKey(provider))) || null; } catch { return null; }
+}
+export async function saveCloudLink(provider, link) {
+  try { await set(cloudLinkKey(provider), link); } catch {}
+}
+export async function clearCloudLink(provider) {
+  try { await del(cloudLinkKey(provider)); } catch {}
+}
+
 export async function loadFieldMode() {
   try { return (await get(FIELD_MODE_KEY)) || false; } catch { return false; }
 }

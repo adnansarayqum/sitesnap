@@ -14,6 +14,7 @@ import { SettingsScreen } from "./screens/Settings.jsx";
 import { SetupScreen } from "./screens/Setup.jsx";
 import { WalkScreen } from "./screens/Walk.jsx";
 import { StyleBlock } from "./styles.jsx";
+import { claimFromUrl } from "./cloud/service.js";
 
 // Root: owns the open inspection, its rooms and the thumbnail cache, and
 // routes between the top-level tabs and the screens inside a case file.
@@ -125,6 +126,8 @@ export default function SiteSnap() {
     });
     (async () => {
       await migrateLegacy();
+      // back from a same-tab cloud sign-in (see cloud/service.js)
+      claimFromUrl().then((j) => { if (j) setStorageAlert(`${j.label} connected${j.account ? " — " + j.account : ""}`); });
       // ask the browser not to evict an inspection under disk pressure;
       // browsers usually grant this only once the app is on the home screen
       requestDurableStorage().then((granted) => setDurable(granted));

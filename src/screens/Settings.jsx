@@ -6,6 +6,7 @@ import {
   loadWebhook, saveWebhook, loadWebhookKey, saveWebhookKey, storageEstimate, loadMsClientId, saveMsClientId, loadGoogleClientId, saveGoogleClientId, hasBuiltInMsClientId, hasBuiltInGoogleClientId,
 } from "../storage.js";
 import { loadGoogleDrive, loadMsGraph } from "../cloud/lazy.js";
+import { cloudServiceConfig, linkedAccount, beginLink, unlink } from "../cloud/service.js";
 import { TabBar } from "./Home.jsx";
 
 /* ---------------- settings ---------------- */
@@ -36,7 +37,7 @@ export function CloudProviderCard({ label, icon, connected, connecting, account,
       <button
         className={`ss-btn ${connected ? "ss-btn-ghost" : "ss-btn-primary"}`}
         style={{ marginTop: 10 }}
-        disabled={connecting || (!connected && !clientId.trim())}
+        disabled={connecting || (!connected && !builtIn && !clientId.trim())}
         onClick={connected ? onDisconnect : onConnect}
       >
         {connecting ? <Loader2 size={16} className="ss-spin" /> : connected ? "Disconnect" : `Connect ${label}`}
@@ -57,8 +58,14 @@ export function SettingsScreen({ fieldMode, onToggleFieldMode, onTab }) {
 
   const [googleClientId, setGoogleClientId] = useState("");
   const [googleOn, setGoogleOn] = useState(false);
+  const [googleAccount, setGoogleAccount] = useState(null);
   const [googleBusy, setGoogleBusy] = useState(false);
   const [googleError, setGoogleError] = useState(null);
+
+  // which providers this deployment's cloud-link service can sign in for
+  // (server/index.js) — when one can, the in-browser client-ID flow below
+  // is bypassed for it entirely
+  const [svc, setSvc] = useState({ onedrive: false, google: false });
 
   const [storage, setStorage] = useState(null);
   const [durable, setDurable] = useState(null);
@@ -66,8 +73,12 @@ export function SettingsScreen({ fieldMode, onToggleFieldMode, onTab }) {
   useEffect(() => {
     loadWebhook().then((u) => setHookUrl(u || ""));
     loadWebhookKey().then((k) => setHookKey(k || ""));
-    loadMsClientId().then(async (id) => {
+    cloudServiceConfig().then(setSvc);
+    (async () => {
+      const link = await linkedAccount("onedrive");
+      const id = await loadMsClientId();
       setMsClientId(id || "");
+      if (link) { setMsAccountName(link.account || "connected"); return; }
       // MSAL's cache lives in localStorage, so a returning surveyor can
       // already be signed in — only pull the library in if there's an ID
       // to check against.
@@ -75,17 +86,20 @@ export function SettingsScreen({ fieldMode, onToggleFieldMode, onTab }) {
       const { msAccount } = await loadMsGraph();
       const acc = await msAccount(id);
       if (acc) setMsAccountName(acc.username);
-    });
-    // Google's access token is memory-only (see cloud/googleDrive.js) and
-    // doesn't survive a reload on its own — but if the browser still has a
-    // live Google session, a silent (no-popup) request usually gets a new
-    // one without asking the surveyor to sign in again every time.
-    loadGoogleClientId().then(async (id) => {
+    })();
+    (async () => {
+      const link = await linkedAccount("google");
+      const id = await loadGoogleClientId();
       setGoogleClientId(id || "");
+      if (link) { setGoogleOn(true); setGoogleAccount(link.account || null); return; }
+      // Google's access token is memory-only (see cloud/googleDrive.js) and
+      // doesn't survive a reload on its own — but if the browser still has a
+      // live Google session, a silent (no-popup) request usually gets a new
+      // one without asking the surveyor to sign in again every time.
       if (!id) return;
       const { trySilentGoogleReconnect } = await loadGoogleDrive();
       setGoogleOn(await trySilentGoogleReconnect(id));
-    });
+    })();
     storageEstimate().then(setStorage);
     if (navigator.storage && navigator.storage.persisted) navigator.storage.persisted().then(setDurable);
   }, []);
@@ -100,41 +114,70 @@ export function SettingsScreen({ fieldMode, onToggleFieldMode, onTab }) {
 
   async function connectMs() {
     setMsBusy(true); setMsError(null);
+    // the sign-in window has to be opened inside the tap itself, before any
+    // await, or Safari's popup blocker eats it (see cloud/service.js)
+    const win = svc.onedrive ? window.open("about:blank", "_blank") : null;
     try {
-      await saveMsClientId(msClientId.trim());
-      const { connectOneDrive } = await loadMsGraph();
-      const acc = await connectOneDrive(msClientId.trim());
-      setMsAccountName(acc.username);
+      if (svc.onedrive) {
+        const acct = await beginLink("onedrive", win);
+        if (acct === null && !win) return; // this tab is navigating to the sign-in
+        setMsAccountName(acct || "connected");
+      } else {
+        await saveMsClientId(msClientId.trim());
+        const { connectOneDrive } = await loadMsGraph();
+        const acc = await connectOneDrive(msClientId.trim());
+        setMsAccountName(acc.username);
+      }
       flash("OneDrive connected");
     } catch (e) {
+      try { win && win.close(); } catch { /* already gone */ }
       setMsError(e && e.message ? e.message : "Couldn't connect to OneDrive.");
     } finally { setMsBusy(false); }
   }
   async function disconnectMs() {
     setMsBusy(true);
-    const { disconnectOneDrive } = await loadMsGraph();
-    await disconnectOneDrive(msClientId.trim());
+    if (await linkedAccount("onedrive")) {
+      await unlink("onedrive");
+    } else {
+      const { disconnectOneDrive } = await loadMsGraph();
+      await disconnectOneDrive(msClientId.trim());
+    }
     setMsAccountName(null);
     setMsBusy(false);
   }
 
   async function connectGoogle() {
     setGoogleBusy(true); setGoogleError(null);
+    const win = svc.google ? window.open("about:blank", "_blank") : null;
     try {
-      await saveGoogleClientId(googleClientId.trim());
-      const { connectGoogleDrive } = await loadGoogleDrive();
-      await connectGoogleDrive(googleClientId.trim());
+      if (svc.google) {
+        const acct = await beginLink("google", win);
+        if (acct === null && !win) return;
+        setGoogleAccount(acct || null);
+      } else {
+        await saveGoogleClientId(googleClientId.trim());
+        const { connectGoogleDrive } = await loadGoogleDrive();
+        await connectGoogleDrive(googleClientId.trim());
+      }
       setGoogleOn(true);
       flash("Google Drive connected");
     } catch (e) {
+      try { win && win.close(); } catch { /* already gone */ }
       setGoogleError(e && e.message ? e.message : "Couldn't connect to Google Drive.");
     } finally { setGoogleBusy(false); }
   }
   async function disconnectGoogle() {
-    const { disconnectGoogleDrive } = await loadGoogleDrive();
-    disconnectGoogleDrive();
+    if (await linkedAccount("google")) {
+      await unlink("google");
+    } else {
+      const { disconnectGoogleDrive } = await loadGoogleDrive();
+      disconnectGoogleDrive();
+    }
     setGoogleOn(false);
+    setGoogleAccount(null);
   }
+
+  const serviceOn = svc.onedrive || svc.google;
 
   return (
     <div className="ss-col">
@@ -147,10 +190,9 @@ export function SettingsScreen({ fieldMode, onToggleFieldMode, onTab }) {
       <div className="ss-scroll">
         <div className="ss-section-label" style={{ marginTop: 4 }}>Direct cloud link</div>
         <p className="ss-fineprint" style={{ margin: "0 2px 10px" }}>
-          Sign in with your own Microsoft or Google account and SiteSnap writes
-          straight into your OneDrive or Drive — no Make/n8n/Zapier scenario
-          needed. Requires a free app registration in Azure or Google Cloud;
-          see the setup guide in the repo's docs.
+          {serviceOn
+            ? "Sign in once with your own Microsoft or Google account. SiteSnap keeps the connection and files straight into your OneDrive or Drive — no sign-in prompts after that."
+            : "Sign in with your own Microsoft or Google account and SiteSnap writes straight into your OneDrive or Drive — no Make/n8n/Zapier scenario needed. Requires a free app registration in Azure or Google Cloud; see the setup guide in the repo's docs."}
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <CloudProviderCard
@@ -158,15 +200,15 @@ export function SettingsScreen({ fieldMode, onToggleFieldMode, onTab }) {
             connected={!!msAccountName} connecting={msBusy} account={msAccountName}
             clientId={msClientId} onClientId={setMsClientId}
             onConnect={connectMs} onDisconnect={disconnectMs} error={msError}
-            builtIn={hasBuiltInMsClientId()}
+            builtIn={svc.onedrive || hasBuiltInMsClientId()}
             portalHint="From portal.azure.com → App registrations → New registration (SPA, redirect URI = this app's URL)."
           />
           <CloudProviderCard
             label="Google Drive" icon={<CloudUpload size={16} />}
-            connected={googleOn} connecting={googleBusy} account={null}
+            connected={googleOn} connecting={googleBusy} account={googleAccount}
             clientId={googleClientId} onClientId={setGoogleClientId}
             onConnect={connectGoogle} onDisconnect={disconnectGoogle} error={googleError}
-            builtIn={hasBuiltInGoogleClientId()}
+            builtIn={svc.google || hasBuiltInGoogleClientId()}
             portalHint="From console.cloud.google.com → APIs & Services → Credentials → OAuth client ID (Web application)."
           />
         </div>

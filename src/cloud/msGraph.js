@@ -3,6 +3,7 @@
 // static PWA) so a surveyor can sign in with their own Microsoft account
 // and Graph writes straight into their OneDrive.
 import { PublicClientApplication } from "@azure/msal-browser";
+import { serviceToken } from "./service.js";
 
 const SCOPES = ["Files.ReadWrite", "User.Read"];
 
@@ -53,6 +54,10 @@ export async function disconnectOneDrive(clientId) {
 }
 
 async function getToken(clientId) {
+  // linked through the server-side service: no MSAL, no popups, ever
+  const svc = await serviceToken("onedrive");
+  if (svc) return svc;
+  if (!clientId) throw new Error("Not connected to OneDrive");
   const pca = await getMsal(clientId);
   const account = pca.getAllAccounts()[0];
   if (!account) throw new Error("Not connected to OneDrive");

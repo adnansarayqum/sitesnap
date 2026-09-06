@@ -25,12 +25,17 @@ npm run dev
 
 **Railway**: at [railway.com/new](https://railway.com/new) choose
 **Deploy from GitHub repo** and pick this repo. It builds with
-`npm run build` and serves `dist/` via the `start` script (see
-`railway.json`). After the first deploy, open the service → **Settings →
-Networking → Generate Domain** to get the public HTTPS URL.
+`npm run build` and the `start` script runs `server/index.js`, which
+serves `dist/` and hosts the cloud-link service (see `railway.json`).
+After the first deploy, open the service → **Settings → Networking →
+Generate Domain** to get the public HTTPS URL. To let surveyors connect
+OneDrive / Google Drive with a single sign-in, add `TOKEN_KEY` and the
+provider secrets under **Variables** —
+[`docs/direct-cloud-link-setup.md`](docs/direct-cloud-link-setup.md).
 
-**Vercel / Netlify / Cloudflare Pages** also work: import the repo and
-they auto-detect Vite.
+**Vercel / Netlify / Cloudflare Pages** also work for the app itself
+(import the repo, they auto-detect Vite) — but as static hosts they don't
+run the cloud-link service, so the browser-only sign-in applies there.
 
 HTTPS is required (all three provide it) — the camera and the Save-to-Photos
 share sheet only work on secure origins.
@@ -57,7 +62,10 @@ src/
     Settings.jsx        cloud links, field mode, camera check, storage
   components/           VoiceMemo, TopBar, ReorderableList
   lib/                  image pipeline, room presets, small helpers
-  cloud/                OneDrive (MSAL) and Google Drive clients, loaded on demand
+  cloud/                OneDrive and Google Drive clients (loaded on demand),
+                        service.js = the phone's side of the cloud-link service
+server/
+  index.js              serves dist/ + the cloud-link service (OAuth, sealed tokens)
 ```
 
 ## How photos are stored
@@ -70,8 +78,9 @@ deleted until "Close inspection" is tapped on the Finish screen.
 
 **Direct link (no automation tool needed).** In Settings, sign in with your
 own Microsoft or Google account and SiteSnap writes straight into your
-OneDrive or Drive. Requires a one-time, free app registration in Azure or
-Google Cloud — see
+OneDrive or Drive. With the cloud-link service configured on the server,
+that's one sign-in per phone, ever; requires a one-time, free app
+registration in Azure or Google Cloud — see
 [`docs/direct-cloud-link-setup.md`](docs/direct-cloud-link-setup.md).
 
 **Webhook (Make / n8n / Zapier), with AI drafting.** The app POSTs each

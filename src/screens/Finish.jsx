@@ -7,6 +7,7 @@ import {
   loadWebhook, saveWebhook, loadWebhookKey, saveWebhookKey, loadMsClientId, loadGoogleClientId,
 } from "../storage.js";
 import { loadGoogleDrive, loadMsGraph } from "../cloud/lazy.js";
+import { linkedAccount } from "../cloud/service.js";
 import { extFor } from "../components/VoiceMemo.jsx";
 import { canShareFiles } from "../lib/image.js";
 import { pad } from "../lib/util.js";
@@ -44,13 +45,17 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
 
   useEffect(() => {
     (async () => {
+      // a link made through the cloud-link service needs no library loaded
+      // and no silent re-request — it just is connected
+      const msLink = await linkedAccount("onedrive");
       const msId = await loadMsClientId();
-      const acc = msId ? await (await loadMsGraph()).msAccount(msId) : null;
+      const acc = msLink ? { username: msLink.account || "OneDrive" } : (msId ? await (await loadMsGraph()).msAccount(msId) : null);
       // A silent (no-popup) request picks the Google connection back up if
       // the browser still has a live session — never worth attempting if
       // Google was never configured for this device at all.
+      const googleLink = await linkedAccount("google");
       const googleId = await loadGoogleClientId();
-      const googleOn = googleId ? await (await loadGoogleDrive()).trySilentGoogleReconnect(googleId) : false;
+      const googleOn = googleLink ? true : (googleId ? await (await loadGoogleDrive()).trySilentGoogleReconnect(googleId) : false);
       setDirect({ ms: acc ? acc.username : null, google: googleOn });
     })();
   }, []);

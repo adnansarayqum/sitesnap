@@ -1,9 +1,59 @@
 # Direct cloud link setup (OneDrive / Google Drive, no Make needed)
 
-SiteSnap can now write straight into your own OneDrive or Google Drive —
-you sign in once from *Settings*, and every upload afterwards goes directly
+SiteSnap can write straight into your own OneDrive or Google Drive — you
+sign in once from *Settings*, and every upload afterwards goes directly
 from your phone to your cloud storage. No Make/n8n/Zapier scenario, no
 webhook, nothing in between.
+
+There are two ways to wire it up. **Use the first.**
+
+## The cloud-link service (recommended — sign in once, ever)
+
+`server/index.js` — the same process that serves the app on Railway — can
+complete the sign-in itself. Because it holds the provider's client
+*secret*, Microsoft and Google give it the long-lived refresh tokens they
+refuse to give a browser: a phone connects once and stays connected, with
+no sign-in prompts afterwards, including in the installed iPhone app. (The
+browser-only route further down gets re-prompted roughly daily on iOS; see
+`docs/frictionless-cloud-link.md` for why.) It keeps no database — the
+refresh token is sealed with a server-only key and lives on the phone.
+
+Set these in Railway → the service → **Variables**, then redeploy:
+
+| variable | value |
+|---|---|
+| `TOKEN_KEY` | any long random string (e.g. `openssl rand -hex 32`). Changing it later logs every phone out. |
+| `MS_CLIENT_ID`, `MS_CLIENT_SECRET` | from the Azure app registration below |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | from the Google Cloud OAuth client below |
+| `PUBLIC_URL` | optional — the app's public URL, only if Railway's forwarded host isn't right |
+
+Set either provider or both; *Settings* shows **Connect** for whichever is
+configured and hides the client-ID field. `/api/cloud/config` on the
+deployment tells you what it sees.
+
+**Azure registration for the service** — as in the OneDrive steps below,
+except: under *Redirect URI* choose platform **Web** (not SPA) and enter
+`https://<your-app>/auth/onedrive/callback`; then **Certificates &
+secrets → New client secret**, copy the *value* (shown once) into
+`MS_CLIENT_SECRET`. Under *API permissions* add `Files.ReadWrite`,
+`offline_access`, `openid`, `profile`, `email` (all delegated, no admin
+consent). Supported account types must still be *any organizational
+directory and personal Microsoft accounts* — a work tenant whose policy
+forbids that can't host this registration; use a personal Microsoft
+account.
+
+**Google client for the service** — as in the Google Drive steps below,
+except: the OAuth client's *Authorized redirect URIs* gets
+`https://<your-app>/auth/google/callback` (and no JavaScript origin is
+needed); copy both the Client ID and the Client secret. Then on the
+**OAuth consent screen**, set *Publishing status* to **In production** —
+while it's *Testing*, Google revokes every connection after 7 days. No
+Google review is needed because `drive.file` is a non-sensitive scope.
+
+Everything below this line is the older browser-only route, kept for a
+deployment with no server secrets set.
+
+---
 
 This is a genuine alternative to the Make.com pipeline in
 `docs/cloud-workflow.md`, not a replacement for it — you can set up one, the
@@ -100,8 +150,11 @@ sessions on its own.
 
 ## Where this lives in the code
 
-- `src/cloud/msGraph.js` — OneDrive, via `@azure/msal-browser` (PKCE,
-  public client, no secret).
+- `server/index.js` — the cloud-link service: pairing, the OAuth callback,
+  sealing, `/api/cloud/token`. `src/cloud/service.js` is the phone's side.
+- `src/cloud/msGraph.js` — OneDrive uploads via Graph; token from the
+  service when linked that way, else `@azure/msal-browser` (PKCE, public
+  client, no secret).
 - `src/cloud/googleDrive.js` — Google Drive, via Google Identity Services'
   token client, plus a small find-or-create-folder helper (Drive has no
   path-based upload like Graph does).

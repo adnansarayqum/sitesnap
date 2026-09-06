@@ -1,5 +1,11 @@
 # Making the cloud link frictionless
 
+> **Status:** the token service described below is built — `server/index.js`
+> and `src/cloud/service.js` — and deploys dormant until `TOKEN_KEY` and a
+> provider's client ID + secret are set in Railway (see
+> `docs/direct-cloud-link-setup.md`). The first-run card and background
+> filing are still to do.
+
 The bar: **tap once, sign in once, never think about it again** — on an
 iPhone, as an installed PWA, with no signal half the morning. Measured
 against that, here is where the friction is today, what actually removes

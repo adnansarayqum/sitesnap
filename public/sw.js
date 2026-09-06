@@ -1,7 +1,7 @@
 // SiteSnap service worker — keeps the app shell available offline so an
 // inspection can carry on mid-property with no signal. Photos live in
 // IndexedDB, so only the shell (HTML + hashed assets) is cached here.
-const CACHE = "sitesnap-shell-v2";
+const CACHE = "sitesnap-shell-v3";
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -19,6 +19,9 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== "GET" || url.origin !== location.origin) return;
+  // the cloud-link service (sign-in pages, token endpoints) is never the
+  // app shell and must never be served from cache
+  if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/auth/")) return;
 
   // App shell: network-first so deploys show up, cached copy when offline.
   if (event.request.mode === "navigate") {

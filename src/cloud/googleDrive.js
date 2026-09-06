@@ -3,6 +3,8 @@
 // Services' token client (Google's current recommendation for a
 // browser-only app with no backend), scoped to drive.file so this app can
 // only see files it created itself, not the surveyor's whole Drive.
+import { serviceToken } from "./service.js";
+
 const SCOPE = "https://www.googleapis.com/auth/drive.file";
 
 let gisLoaded = null;
@@ -69,6 +71,11 @@ export function disconnectGoogleDrive() {
 }
 
 async function getToken(clientId) {
+  // linked through the server-side service: a real refresh token, no
+  // hourly re-prompt
+  const svc = await serviceToken("google");
+  if (svc) return svc;
+  if (!clientId) throw new Error("Not connected to Google Drive");
   if (googleConnected()) return currentToken.access_token;
   // the access token is short-lived (~1h) and not persisted across reloads —
   // silently ask for a new one first; Google may still require a visible
