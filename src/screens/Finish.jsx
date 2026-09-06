@@ -356,7 +356,7 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
     const put = provider === "ms"
       ? async (segments, filename, file) => {
           const { uploadToOneDrive } = await loadMsGraph();
-          return uploadToOneDrive(await loadMsClientId(), segments, file.name ? file : new File([file], filename, { type: file.type }));
+          return uploadToOneDrive(await loadMsClientId(), [...segments, filename], file.name ? file : new File([file], filename, { type: file.type }));
         }
       : async (segments, filename, file) => {
           const { uploadToGoogleDrive } = await loadGoogleDrive();

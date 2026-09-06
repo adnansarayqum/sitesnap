@@ -69,7 +69,7 @@ async function work() {
         const segments = ["Inspections", ctx.inspection.address, `${pad(idx + 1)}. ${room.name}`];
         if (provider === "ms") {
           const { uploadToOneDrive } = await loadMsGraph();
-          await uploadToOneDrive(await loadMsClientId(), segments, file);
+          await uploadToOneDrive(await loadMsClientId(), [...segments, file.name], file);
         } else {
           const { uploadToGoogleDrive } = await loadGoogleDrive();
           await uploadToGoogleDrive(await loadGoogleClientId(), segments, file.name, file);
