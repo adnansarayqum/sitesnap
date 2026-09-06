@@ -46,6 +46,28 @@ link so you can hand it over on WhatsApp. The invitee opens the link on the
 phone they'll inspect with, signs in with the invited address (or *Continue
 with Microsoft/Google* on that address), and lands in the firm.
 
+## The firm's case register
+
+Every case a member opens is mirrored to the register as they work: the
+details, rooms, conditions, notes, activity, and a thumbnail of each photo
+— not the photos themselves. The phone pushes after each change (a burst
+of captions becomes one push), sends thumbnails the server doesn't have
+yet in small batches, flushes when the app is swiped away, and reconciles
+anything missed whenever the Cases tab is opened. Offline, the case lives
+on the phone and catches up on signal.
+
+- **Case numbers** are handed out by the server, per firm, on a case's
+  first sync — so two surveyors starting properties at the same time never
+  share a number. Until then the case shows no number.
+- **Cases** in the app shows this phone's cases as before, then *Elsewhere
+  in the firm*: colleagues' open cases, and this person's own from another
+  phone. Tapping one opens a read-only copy with thumbnails.
+- **Closing** a case keeps it in the register (with thumbnails) after the
+  phone lets the full-size photos go. **Discarding** removes the register
+  copy too — a surveyor can discard their own, an admin anyone's.
+- Thumbnails are ~480px JPEGs, around 20–40 KB each: a 60-photo case is
+  roughly 2 MB in Postgres.
+
 ## Roles
 
 | | surveyor | admin | owner |

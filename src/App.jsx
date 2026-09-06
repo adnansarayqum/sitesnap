@@ -18,6 +18,8 @@ import { claimFromUrl, setAccountLinks } from "./cloud/service.js";
 import { fetchMe, signOut as apiSignOut, captureInviteFromUrl, clearPendingInvite, inviteInfo, acceptInvite, cloudServiceConfig } from "./auth.js";
 import { SignInScreen } from "./screens/SignIn.jsx";
 import { OrgScreen } from "./screens/Org.jsx";
+import { RemoteCaseScreen } from "./screens/RemoteCase.jsx";
+import { setSyncEnabled, queueCaseSync, pushCaseNow, deleteRemoteCase, fetchRegister, reconcile, onSync, syncState, resetSyncState } from "./sync.js";
 
 // Root: owns the open inspection, its rooms and the thumbnail cache, and
 // routes between the top-level tabs and the screens inside a case file.
@@ -36,6 +38,10 @@ export default function SiteSnap() {
   const [cfg, setCfg] = useState({ mode: "local", onedrive: false, google: false });
   const [invite, setInvite] = useState(null);
   const [inviteToken, setInviteToken] = useState(null);
+  // the firm's case register (accounts mode) and this phone's sync status
+  const [register, setRegister] = useState([]);
+  const [sync, setSync] = useState(syncState());
+  const [remoteCaseId, setRemoteCaseId] = useState(null);
   const [caseTab, setCaseTab] = useState("overview"); // overview|rooms|findings|export, while screen === "casefile"
   const [inspection, setInspection] = useState(null);
   const [index, setIndex] = useState([]);
@@ -102,6 +108,37 @@ export default function SiteSnap() {
     saveNow.current = false;
   }, [inspection, rooms]);
 
+  // accounts mode: the firm's register follows the phone (see sync.js).
+  // The server hands out the case number on first sync; it lands on the
+  // record here so every screen shows it.
+  useEffect(() => {
+    if (!inspection || inspection.id === suppressSaveId.current) return;
+    const id = inspection.id;
+    queueCaseSync(inspection, rooms, photoCache, {
+      onCaseNo: (n) => setInspection((p) => (p && p.id === id && !p.caseNo ? { ...p, caseNo: n } : p)),
+    });
+  }, [inspection, rooms, photoCache]);
+
+  useEffect(() => onSync(setSync), []);
+
+  // The register is read when the Cases tab opens (and after sign-in), not
+  // kept live; each read also pushes anything local the register is missing.
+  async function syncRegister(m) {
+    if (!(m && m.mode === "accounts" && m.user && m.org)) return;
+    try {
+      let rows = await fetchRegister("all");
+      setRegister(rows);
+      if (await reconcile(await loadIndex(), rows, loadInspection)) {
+        rows = await fetchRegister("all");
+        setRegister(rows);
+      }
+    } catch { /* offline, or signed out — the next read tries again */ }
+  }
+  useEffect(() => {
+    if (screen === "cases") syncRegister(me);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen]);
+
   useEffect(() => {
     // The app can be swiped away mid-debounce. pagehide/visibilitychange are
     // the last chance, but a browser may abort a write started that late, so
@@ -143,7 +180,8 @@ export default function SiteSnap() {
       const token = captureInviteFromUrl();
       setInviteToken(token);
       if (token) inviteInfo(token).then(setInvite);
-      await applyMe(await fetchMe());
+      const meAtBoot = await fetchMe();
+      await applyMe(meAtBoot);
       // ask the browser not to evict an inspection under disk pressure;
       // browsers usually grant this only once the app is on the home screen
       requestDurableStorage().then((granted) => setDurable(granted));
@@ -151,6 +189,7 @@ export default function SiteSnap() {
       setArchive(await loadArchive());
       loadFieldMode().then(setFieldMode);
       setScreen("home");
+      syncRegister(meAtBoot);
       // media left behind by an interrupted close/discard is unreachable
       // from any inspection and only wastes the phone's storage
       sweepOrphans(Date.now() - 60 * 1000).then((n) => { if (n) console.info(`removed ${n} orphaned media item(s)`); });
@@ -172,6 +211,8 @@ export default function SiteSnap() {
       setAccountLinks(null);
       setStorageNamespace("");
     }
+    setSyncEnabled(!!(m && m.mode === "accounts" && m.user && m.org));
+    setRegister([]);
   }
 
   async function reloadMe() {
@@ -187,6 +228,7 @@ export default function SiteSnap() {
     await applyMe(m);
     await refreshIndex();
     setArchive(await loadArchive());
+    syncRegister(m);
   }
 
   async function doSignOut() {
@@ -215,6 +257,7 @@ export default function SiteSnap() {
     suppressSaveId.current = null;
     setReturnTab(fromTab);
     setCaseTab("overview");
+    resetSyncState(id);
     setInspection(data.inspection);
     setRooms(data.rooms || []);
     const ids = (data.rooms || []).flatMap((r) => r.photoIds);
@@ -278,7 +321,9 @@ export default function SiteSnap() {
   }
 
   async function startInspection(address, postcode, roomList, caseDetails) {
-    const caseNo = await nextCaseNo();
+    // in a firm the register numbers cases, on first sync; alone, this phone does
+    const caseNo = me && me.mode === "accounts" && me.org ? null : await nextCaseNo();
+    resetSyncState(null);
     const insp = {
       id: uid("insp"), address, postcode, startedAt: Date.now(), caseNo,
       activity: [{ ts: Date.now(), text: "Case opened" }],
@@ -433,6 +478,9 @@ export default function SiteSnap() {
     pendingPhotos.current = {};
     const ids = rooms.flatMap((r) => r.photoIds);
     const memoIds = rooms.flatMap((r) => (r.memos || []).map((m) => m.id));
+    // the register keeps the closed case (with its thumbnails) after the
+    // phone lets the photos go
+    await pushCaseNow(inspection, rooms, photoCache, { status: "closed" }).catch(() => {});
     await archiveInspection({
       id: inspection.id,
       address: inspection.address,
@@ -462,6 +510,7 @@ export default function SiteSnap() {
     }
     await clearState(id);
     await refreshIndex();
+    deleteRemoteCase(id);
   }
 
   // Filenames read like the report: "03 Kitchen - damp and mould to ceiling.jpg",
@@ -548,6 +597,8 @@ export default function SiteSnap() {
             onOpen={(id) => openInspection(id, "cases")}
             onDiscard={discardInspection}
             onTab={setScreen}
+            register={register}
+            onOpenRemote={(id) => { setRemoteCaseId(id); setScreen("remotecase"); }}
           />
         )}
 
@@ -562,6 +613,10 @@ export default function SiteSnap() {
           />
         )}
 
+        {view === "remotecase" && remoteCaseId && (
+          <RemoteCaseScreen id={remoteCaseId} onBack={() => setScreen("cases")} />
+        )}
+
         {view === "setup" && (
           <SetupScreen onBack={() => setScreen(returnTab)} onStart={startInspection} />
         )}
@@ -569,6 +624,7 @@ export default function SiteSnap() {
         {view === "casefile" && inspection && (
           <CaseFileScreen
             inspection={inspection}
+            sync={accounts && me.org ? sync : null}
             rooms={rooms}
             photoCache={photoCache}
             totalPhotos={totalPhotos}

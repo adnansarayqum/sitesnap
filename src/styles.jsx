@@ -702,6 +702,22 @@ export function StyleBlock() {
       .ss-scroll { overflow-x: hidden; }
       .ss-key-row > * { min-width: 0; }
       .ss-role-select { max-width: 100%; text-overflow: ellipsis; }
+
+      /* ---- firm register ---- */
+      .ss-sync { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--muted); margin: 10px 2px 0; }
+      .ss-sync-error { color: var(--red); }
+      .ss-sync-offline { color: var(--amber); }
+      .ss-remote-room { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; margin-top: 10px; }
+      .ss-remote-room-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+      .ss-remote-note { margin: 6px 0 0; font-size: 13px; color: var(--muted); white-space: pre-wrap; }
+      .ss-remote-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
+      .ss-remote-thumb { margin: 0; }
+      .ss-remote-thumb img, .ss-remote-thumb-empty { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; background: var(--paper-deep); display: block; }
+      .ss-remote-thumb figcaption { font-size: 10.5px; color: var(--muted); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .ss-cond-pill { font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; border-radius: 999px; padding: 3px 8px; background: var(--paper-deep); color: var(--muted); }
+      .ss-cond-pill.poor { background: #F3E3DF; color: var(--red); }
+      .ss-cond-pill.fair { background: #F2ECDD; color: var(--amber); }
+      .ss-cond-pill.good { background: var(--pine-tint); color: var(--pine); }
     `}</style>
   );
 }

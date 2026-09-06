@@ -192,9 +192,11 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: "4mb" }));
 // every mutating API call is JSON from our own page; a cross-site form
 // post can't set that content type, and SameSite=Lax keeps the cookie
-// off cross-site posts anyway
+// off cross-site posts anyway. DELETE carries no body and can't be sent
+// by a form at all (a cross-site fetch DELETE needs a CORS preflight).
 app.use("/api", (req, res, next) => {
-  if (req.method !== "GET" && req.method !== "HEAD" && !req.is("application/json")) return res.status(415).json({ error: "json_only" });
+  const mutating = !["GET", "HEAD", "DELETE"].includes(req.method);
+  if (mutating && !req.is("application/json")) return res.status(415).json({ error: "json_only" });
   res.set("Cache-Control", "no-store");
   next();
 });
@@ -570,6 +572,107 @@ if (hasDb) {
   }));
 }
 
+// ---- the firm's case register ---------------------------------------------
+// Everything about a case except the full-size photos: the phone pushes the
+// record after every change (debounced) and the thumbnails it hasn't sent
+// yet. Case numbers are handed out here, per firm, on first sync.
+if (hasDb) {
+  const CASE_ID = /^insp_[\w-]{4,60}$/;
+
+  app.get("/api/cases", requireOrg, wrap(async (req, res) => {
+    const status = ["open", "closed", "all"].includes(String(req.query.status)) ? String(req.query.status) : "all";
+    const rows = (await q(`
+      select c.id, c.case_no, c.address, c.postcode, c.status, c.started_at, c.closed_at, c.updated_at, c.created_by,
+             c.doc->>'ref' as ref, coalesce(u.name, u.email) as created_by_name, c.doc->'lastUpload' as last_upload,
+             (select count(*)::int from photos p where p.case_id = c.id) as photos,
+             jsonb_array_length(coalesce(c.doc->'rooms', '[]'::jsonb)) as rooms
+      from cases c left join users u on u.id = c.created_by
+      where c.org_id = $1 and ($2 = 'all' or c.status = $2)
+      order by c.updated_at desc limit 500`, [req.session.org_id, status])).rows;
+    res.json({ cases: rows });
+  }));
+
+  app.get("/api/cases/:id", requireOrg, wrap(async (req, res) => {
+    const c = await one(`select c.*, coalesce(u.name, u.email) as created_by_name from cases c
+                         left join users u on u.id = c.created_by where c.id = $1 and c.org_id = $2`, [req.params.id, req.session.org_id]);
+    if (!c) return res.status(404).json({ error: "not_found" });
+    const photos = (await q("select id, room_id, no, caption, (thumb is not null) as has_thumb from photos where case_id = $1 order by no nulls last", [c.id])).rows;
+    res.json({ case: { ...c, photos } });
+  }));
+
+  app.put("/api/cases/:id", requireOrg, wrap(async (req, res) => {
+    const id = String(req.params.id);
+    if (!CASE_ID.test(id)) return res.status(400).json({ error: "bad_id" });
+    const b = req.body || {};
+    const doc = b.doc && typeof b.doc === "object" ? b.doc : {};
+    const photos = Array.isArray(b.photos) ? b.photos.slice(0, 2000) : [];
+    const status = b.status === "closed" ? "closed" : "open";
+    const out = await tx(async (c) => {
+      const existing = (await c.query("select org_id, case_no, created_by from cases where id = $1", [id])).rows[0];
+      if (existing && existing.org_id !== req.session.org_id) { const e = new Error("forbidden"); e.status = 403; throw e; }
+      let caseNo = existing ? existing.case_no : null;
+      if (caseNo == null) {
+        await c.query("insert into org_counters (org_id) values ($1) on conflict do nothing", [req.session.org_id]);
+        const r = await c.query("update org_counters set next_case_no = next_case_no + 1 where org_id = $1 returning next_case_no - 1 as n", [req.session.org_id]);
+        caseNo = r.rows[0].n;
+      }
+      await c.query(`insert into cases (id, org_id, created_by, case_no, address, postcode, status, started_at, closed_at, updated_at, doc)
+                     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, now(), $10)
+                     on conflict (id) do update set address = excluded.address, postcode = excluded.postcode, status = excluded.status,
+                       started_at = excluded.started_at, closed_at = excluded.closed_at, updated_at = now(), doc = excluded.doc`,
+        [id, req.session.org_id, existing ? existing.created_by : req.session.user_id, caseNo,
+          String(b.address || "").slice(0, 300), String(b.postcode || "").slice(0, 20) || null, status,
+          b.startedAt ? new Date(b.startedAt) : null, b.closedAt ? new Date(b.closedAt) : null, JSON.stringify(doc)]);
+      const keep = photos.map((p) => String(p.id));
+      await c.query("delete from photos where case_id = $1 and not (id = any($2::text[]))", [id, keep]);
+      for (const p of photos) {
+        await c.query(`insert into photos (id, case_id, room_id, no, caption) values ($1, $2, $3, $4, $5)
+                       on conflict (id) do update set room_id = excluded.room_id, no = excluded.no, caption = excluded.caption`,
+          [String(p.id), id, p.roomId ? String(p.roomId) : null, Number.isFinite(p.no) ? p.no : null, p.caption ? String(p.caption).slice(0, 500) : null]);
+      }
+      const missing = (await c.query("select id from photos where case_id = $1 and thumb is null", [id])).rows.map((r) => r.id);
+      return { case_no: caseNo, missingThumbs: missing, created: !existing };
+    });
+    if (out.created) await audit(req, "case.created", id, { case_no: out.case_no });
+    res.json({ case_no: out.case_no, missingThumbs: out.missingThumbs });
+  }));
+
+  app.post("/api/cases/:id/thumbs", requireOrg, wrap(async (req, res) => {
+    const owned = await one("select 1 from cases where id = $1 and org_id = $2", [req.params.id, req.session.org_id]);
+    if (!owned) return res.status(404).json({ error: "not_found" });
+    const thumbs = Array.isArray(req.body && req.body.thumbs) ? req.body.thumbs.slice(0, 25) : [];
+    let stored = 0;
+    for (const t of thumbs) {
+      const m = /^data:image\/(?:jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/.exec(String(t.dataUrl || ""));
+      if (!m) continue;
+      const buf = Buffer.from(m[1], "base64");
+      if (buf.length > 160 * 1024) continue; // a thumbnail, not the photo
+      const r = await q("update photos set thumb = $3 where id = $1 and case_id = $2", [String(t.id), req.params.id, buf]);
+      stored += r.rowCount;
+    }
+    res.json({ stored });
+  }));
+
+  app.get("/api/photos/:id/thumb", requireOrg, wrap(async (req, res) => {
+    const p = await one("select p.thumb from photos p join cases c on c.id = p.case_id where p.id = $1 and c.org_id = $2", [req.params.id, req.session.org_id]);
+    if (!p || !p.thumb) return res.status(404).end();
+    res.set("Content-Type", "image/jpeg");
+    res.set("Cache-Control", "private, max-age=86400");
+    res.send(p.thumb);
+  }));
+
+  // discarding on the phone removes the register copy too — it never happened
+  app.delete("/api/cases/:id", requireOrg, wrap(async (req, res) => {
+    const c = await one("select created_by from cases where id = $1 and org_id = $2", [req.params.id, req.session.org_id]);
+    if (!c) return res.json({ ok: true });
+    const admin = ["owner", "admin"].includes(req.membership.role);
+    if (!admin && c.created_by !== req.session.user_id) return res.status(403).json({ error: "admin_only" });
+    await q("delete from cases where id = $1", [req.params.id]);
+    await audit(req, "case.deleted", req.params.id);
+    res.json({ ok: true });
+  }));
+}
+
 // ---- the app itself --------------------------------------------------------
 app.use(express.static(DIST, {
   index: false,
@@ -588,7 +691,7 @@ app.get("*", (req, res) => {
 app.use((err, req, res, next) => {
   console.error(`${req.method} ${req.path}:`, err && err.stack ? err.stack.split("\n").slice(0, 3).join(" | ") : err);
   if (res.headersSent) return;
-  res.status(500).json({ error: "server_error" });
+  res.status(err && err.status ? err.status : 500).json({ error: err && err.status ? err.message : "server_error" });
 });
 
 (async () => {

@@ -151,7 +151,7 @@ export function HomeScreen({ index, onNew, onOpen, onTab, orgName }) {
   );
 }
 
-export function CasesScreen({ index, archive, durable, onNew, onOpen, onDiscard, onTab }) {
+export function CasesScreen({ index, archive, durable, onNew, onOpen, onDiscard, onTab, register, onOpenRemote }) {
   const [confirmId, setConfirmId] = useState(null);
   const [q, setQ] = useState("");
   const open = [...index].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
@@ -162,8 +162,28 @@ export function CasesScreen({ index, archive, durable, onNew, onOpen, onDiscard,
   const matches = (i) => !needle || [i.address, i.ref, i.postcode].filter(Boolean).join(" ").toLowerCase().includes(needle);
   const openShown = open.filter(matches);
   const doneShown = done.filter(matches);
+  // the firm's register (accounts mode): colleagues' cases, and this
+  // person's own from another phone — anything not already on this one
+  const here = new Set([...open.map((i) => i.id), ...done.map((a) => a.id)]);
+  const remote = (register || []).filter((c) => !here.has(c.id));
+  const matchesRemote = (c) => !needle || [c.address, c.ref, c.postcode, c.created_by_name].filter(Boolean).join(" ").toLowerCase().includes(needle);
+  const remoteOpen = remote.filter((c) => c.status === "open" && matchesRemote(c));
+  const remoteClosed = remote.filter((c) => c.status === "closed" && matchesRemote(c));
+  const remoteRow = (c) => (
+    <div key={c.id} className="ss-row">
+      <button className="ss-row-tap" onClick={() => onOpenRemote(c.id)}>
+        <div className="ss-row-main ss-job">
+          <span className="ss-row-name">{c.address}</span>
+          <span className="ss-job-sub">
+            {c.case_no ? `Case ${c.case_no} · ` : ""}{c.photos} photo{c.photos === 1 ? "" : "s"} · by {c.created_by_name || "a colleague"}
+            {" · "}{relativeDay(new Date(c.updated_at).getTime())}
+          </span>
+        </div>
+      </button>
+    </div>
+  );
 
-  if (open.length === 0 && done.length === 0) {
+  if (open.length === 0 && done.length === 0 && remote.length === 0) {
     return (
       <div className="ss-col">
         <div className="ss-home-top">
@@ -245,13 +265,21 @@ export function CasesScreen({ index, archive, durable, onNew, onOpen, onDiscard,
           </div>
         )}
         {open.length === 0 && !needle && (
-          <p className="ss-empty-note">Nothing in progress. Start a new inspection below.</p>
+          <p className="ss-empty-note">Nothing in progress on this phone. Start a new inspection below.</p>
         )}
 
-        {doneShown.length > 0 && (
+        {remoteOpen.length > 0 && (
+          <>
+            <div className="ss-section-label" style={{ marginTop: 22 }}>Elsewhere in the firm</div>
+            <div className="ss-list">{remoteOpen.map(remoteRow)}</div>
+          </>
+        )}
+
+        {(doneShown.length > 0 || remoteClosed.length > 0) && (
           <>
             <div className="ss-section-label" style={{ marginTop: 22 }}>Completed</div>
             <div className="ss-list">
+              {remoteClosed.slice(0, 50).map(remoteRow)}
               {doneShown.slice(0, 25).map((a) => (
                 <div key={a.id} className="ss-row ss-row-done">
                   <div className="ss-row-tap">

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  Camera, Check, Image as ImageIcon, Pencil, Plus, StickyNote,
+  Camera, Check, Image as ImageIcon, Pencil, Plus, StickyNote, CloudUpload, CloudOff, Loader2, AlertTriangle,
 } from "lucide-react";
 import { ReorderableList, TopBar } from "../components/shared.jsx";
 import { pad } from "../lib/util.js";
@@ -15,7 +15,7 @@ import { relativeDay } from "./Home.jsx";
 // Evidence (the live camera and a room's photos) still push on top of this,
 // same as before; only the finished-case wizard collapsed into tabs.
 export function CaseFileScreen({
-  inspection, rooms, photoCache, totalPhotos, doneRooms,
+  inspection, sync, rooms, photoCache, totalPhotos, doneRooms,
   caseTab, onCaseTab, onExit, onReorder, onAddRoom, onRename, onOpenRoom, onWalk,
   filesForRoom, filesForUpload, fullPhoto, audioCache,
   onUploadResult, onExportResult, onFindings, onSaveAll, onDone, onSettings,
@@ -77,7 +77,7 @@ export function CaseFileScreen({
       </div>
 
       {caseTab === "overview" && (
-        <OverviewTab inspection={inspection} rooms={rooms} totalPhotos={totalPhotos} doneRooms={doneRooms} onWalk={onWalk} />
+        <OverviewTab inspection={inspection} sync={sync} rooms={rooms} totalPhotos={totalPhotos} doneRooms={doneRooms} onWalk={onWalk} />
       )}
       {caseTab === "rooms" && (
         <RoomsTab
@@ -100,7 +100,7 @@ export function CaseFileScreen({
   );
 }
 
-export function OverviewTab({ inspection, rooms, totalPhotos, doneRooms, onWalk }) {
+export function OverviewTab({ inspection, sync, rooms, totalPhotos, doneRooms, onWalk }) {
   const firstEmpty = Math.max(0, rooms.findIndex((r) => r.photoIds.length === 0));
   const rank = { Poor: 3, Fair: 2, Good: 1 };
   const worst = rooms.reduce((w, r) => ((rank[r.condition] || 0) > (rank[w] || 0) ? r.condition : w), null);
@@ -136,6 +136,16 @@ export function OverviewTab({ inspection, rooms, totalPhotos, doneRooms, onWalk 
             </div>
           </div>
         </div>
+
+        {sync && (
+          <div className={`ss-sync ss-sync-${sync.status}`} role="status">
+            {sync.status === "synced" && <><CloudUpload size={12} /> In the firm register · updated {relativeDay(sync.at)}</>}
+            {sync.status === "syncing" && <><Loader2 size={12} className="ss-spin" /> Updating the firm register…</>}
+            {sync.status === "offline" && <><CloudOff size={12} /> Offline — the register catches up when you're back on signal</>}
+            {sync.status === "error" && <><AlertTriangle size={12} /> Register not updated: {sync.error}</>}
+            {sync.status === "idle" && <><CloudUpload size={12} /> Not in the firm register yet</>}
+          </div>
+        )}
 
         <div className="ss-section-label" style={{ marginTop: 20 }}>Case activity</div>
         {(inspection.activity && inspection.activity.length) ? (
