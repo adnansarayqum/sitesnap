@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import {
-  AlertTriangle, ArrowRight, Camera, CircleCheck, CloudUpload, Download, FolderTree, Home as HomeIcon, Plus, Search, Settings as SettingsIcon, Smartphone, Trash2, X,
+  AlertTriangle, ArrowRight, Camera, CircleCheck, CloudUpload, Download, FileText, FolderTree, Home as HomeIcon, Mic, Plus, Search, Settings as SettingsIcon, Smartphone, Star, Trash2, WifiOff, X,
 } from "lucide-react";
 import {
   loadInspection, loadPhoto,
@@ -74,10 +74,17 @@ export function HomeScreen({ index, onNew, onOpen, onTab, orgName, needsCloud })
           <div className="ss-eyebrow">{orgName || "Property inspections"}</div>
           <h1 className="ss-h1">Every photo,<br />already filed.</h1>
           <p className="ss-lede">
-            Pick the rooms, walk the property, shoot as you go. Photos file
-            themselves into numbered room folders — rate each room, add notes,
-            and export everything in one tap at the end.
+            Walk the property, shoot as you go. Photos sort themselves into
+            numbered rooms while you rate, note and go — no filing later.
           </p>
+          <div className="ss-home-features">
+            <span className="ss-home-feature"><CloudUpload size={13} /> Auto-files to your drive</span>
+            <span className="ss-home-feature"><Star size={13} /> Condition ratings</span>
+            <span className="ss-home-feature"><Mic size={13} /> Voice notes</span>
+            <span className="ss-home-feature"><WifiOff size={13} /> Works offline</span>
+            <span className="ss-home-feature"><FileText size={13} /> One-tap PDF export</span>
+          </div>
+          <div className="ss-home-steps-label">How it works</div>
           <div className="ss-home-steps">
             <div><span className="ss-step-n">1</span> Set up the property</div>
             <div><span className="ss-step-n">2</span> Walk, shoot &amp; rate each room</div>

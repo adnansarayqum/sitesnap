@@ -112,10 +112,37 @@ export function StyleBlock() {
       .ss-mark { width: 44px; height: 44px; border-radius: 13px; background: var(--pine); color: var(--hivis); display: flex; align-items: center; justify-content: center; margin-bottom: 22px; }
       .ss-eyebrow { font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--pine); margin-bottom: 10px; }
       .ss-h1 { font-family: 'Libre Caslon Text', Georgia, serif; font-style: italic; font-size: 38px; line-height: 1.04; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 14px; }
-      .ss-lede { color: var(--muted); font-size: 15px; margin: 0 0 26px; max-width: 34ch; }
+      .ss-lede { color: var(--muted); font-size: 15px; margin: 0 0 18px; max-width: 34ch; }
+      .ss-home-features { display: flex; flex-wrap: wrap; gap: 7px; margin: 0 0 28px; }
+      .ss-home-feature {
+        display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px 6px 9px;
+        border-radius: 999px; background: var(--card); border: 1px solid var(--line);
+        font-size: 12px; font-weight: 700; color: var(--ink); white-space: nowrap;
+      }
+      .ss-home-feature svg { color: var(--pine); flex-shrink: 0; }
+      .ss-home-steps-label { font-size: 11px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; color: var(--muted2); margin: 0 0 12px; }
       .ss-home-steps { display: flex; flex-direction: column; gap: 10px; font-weight: 600; font-size: 14px; }
       .ss-home-steps > div { display: flex; align-items: center; gap: 10px; }
       .ss-step-n { width: 24px; height: 24px; border-radius: 8px; background: var(--card); border: 1px solid var(--line); display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: var(--pine); }
+
+      @keyframes ss-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+      @media (prefers-reduced-motion: no-preference) {
+        .ss-home-hero > * { animation: ss-rise .5s cubic-bezier(.16,1,.3,1) both; }
+        .ss-home-hero > *:nth-child(1) { animation-delay: 0ms; }
+        .ss-home-hero > *:nth-child(2) { animation-delay: 40ms; }
+        .ss-home-hero > *:nth-child(3) { animation-delay: 80ms; }
+        .ss-home-hero > *:nth-child(4) { animation-delay: 120ms; }
+        .ss-home-hero > *:nth-child(5) { animation-delay: 160ms; }
+        .ss-home-hero > *:nth-child(6) { animation-delay: 200ms; }
+        .ss-home-hero > *:nth-child(7) { animation-delay: 240ms; }
+        .ss-home-hero > *:nth-child(8) { animation-delay: 280ms; }
+        .ss-home-feature { animation: ss-rise .4s cubic-bezier(.16,1,.3,1) both; }
+        .ss-home-features .ss-home-feature:nth-child(1) { animation-delay: 170ms; }
+        .ss-home-features .ss-home-feature:nth-child(2) { animation-delay: 200ms; }
+        .ss-home-features .ss-home-feature:nth-child(3) { animation-delay: 230ms; }
+        .ss-home-features .ss-home-feature:nth-child(4) { animation-delay: 260ms; }
+        .ss-home-features .ss-home-feature:nth-child(5) { animation-delay: 290ms; }
+      }
 
       /* ---- inputs ---- */
       .ss-input {
