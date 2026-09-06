@@ -703,6 +703,17 @@ export function StyleBlock() {
       .ss-key-row > * { min-width: 0; }
       .ss-role-select { max-width: 100%; text-overflow: ellipsis; }
 
+      /* ---- first run + background filing ---- */
+      .ss-firstrun { background: var(--pine); color: #fff; border-radius: 16px; padding: 16px 16px 14px; margin: 0 0 14px; }
+      .ss-home-hero .ss-firstrun { margin-top: 22px; }
+      .ss-firstrun-title { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 15px; }
+      .ss-firstrun p { margin: 6px 0 12px; font-size: 13.5px; line-height: 1.45; color: rgba(255,255,255,.82); }
+      .ss-firstrun-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+      .ss-firstrun .ss-btn-primary { background: var(--hivis); color: var(--hivis-deep); width: auto; padding: 10px 16px; }
+      .ss-firstrun .ss-link { color: rgba(255,255,255,.85); }
+      .ss-live-filing { display: block; margin-top: 8px; font-size: 12px; font-weight: 700; color: var(--hivis); opacity: .85; }
+      .ss-filing-note { margin-top: 8px; }
+
       /* ---- firm register ---- */
       .ss-sync { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--muted); margin: 10px 2px 0; }
       .ss-sync-error { color: var(--red); }

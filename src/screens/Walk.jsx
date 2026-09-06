@@ -382,7 +382,7 @@ export function LiveCamera({ label, count, lastThumb, resumeKey, onCapture, onCl
 
 export const BAD_IMAGE_MSG = "That image couldn't be read, so it wasn't added — try the shot again.";
 
-export function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDeleteLast, onMeta, onAddMemo, onDeleteMemo, onExit, onError }) {
+export function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDeleteLast, onMeta, onAddMemo, onDeleteMemo, onExit, onError, filing }) {
   const inputRef = useRef(null);
   const [noteOpen, setNoteOpen] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -444,6 +444,11 @@ export function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDel
         <div className="ss-live-eyebrow">Room {pad(index + 1)} of {pad(rooms.length)}</div>
         <div className="ss-live-room">{room.name}</div>
         <span className="ss-live-stamp">Next: Exhibit {nextExhibitNo}</span>
+        {filing && filing.provider && (
+          <span className="ss-live-filing">
+            {filing.pending > 0 ? `Filing ${filing.pending} to ${filing.provider === "ms" ? "OneDrive" : "Drive"}…` : `Files itself to ${filing.provider === "ms" ? "OneDrive" : "Drive"}`}
+          </span>
+        )}
         <div className="ss-tally">{count}</div>
         <div className="ss-live-sub">photo{count === 1 ? "" : "s"} in this room</div>
 

@@ -52,6 +52,7 @@ export const listMembers = () => call("GET", "/api/org/members");
 export const setMemberRole = (userId, role) => call("PATCH", `/api/org/members/${userId}`, { role });
 export const removeMember = (userId) => call("DELETE", `/api/org/members/${userId}`);
 export const listInvites = () => call("GET", "/api/org/invites");
+export const listAudit = () => call("GET", "/api/org/audit");
 export const sendInvite = (email, role) => call("POST", "/api/org/invites", { email, role });
 export const cancelInvite = (id) => call("DELETE", `/api/org/invites/${id}`);
 export const acceptInvite = (token) => call("POST", "/api/invites/accept", { token });

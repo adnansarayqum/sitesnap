@@ -4,7 +4,7 @@
 > and `src/cloud/service.js` — and deploys dormant until `TOKEN_KEY` and a
 > provider's client ID + secret are set in Railway (see
 > `docs/direct-cloud-link-setup.md`). The first-run card and background
-> filing are still to do.
+> filing are built too (`src/filing.js`).
 
 The bar: **tap once, sign in once, never think about it again** — on an
 iPhone, as an installed PWA, with no signal half the morning. Measured

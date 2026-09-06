@@ -17,7 +17,7 @@ import express from "express";
 import crypto from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { hasDb, migrate, q, one, tx } from "./db.js";
+import { hasDb, migrate, closeDb, q, one, tx } from "./db.js";
 import {
   attachSession, requireUser, requireOrg, requireAdmin, createSession, destroySession,
   clearSessionCookie, setSessionCookie, findOrCreateUser, issueCode, verifyCode,
@@ -386,6 +386,8 @@ app.get("/api/cloud/claim", wrap(async (req, res) => {
 }));
 
 app.post("/api/cloud/token", wrap(async (req, res) => {
+  // a runaway client must not hammer Microsoft or Google with refreshes
+  if (!rateLimit(`token:${req.session ? req.session.user_id : clientIp(req)}`, 120, 10 * 60 * 1000)) return res.status(429).json({ error: "slow_down" });
   if (hasDb) {
     if (!req.session) return res.status(401).json({ error: "sign_in" });
     const provider = String((req.body && req.body.provider) || "");
@@ -519,6 +521,14 @@ if (hasDb) {
     });
     await audit(req, "member.removed", req.params.userId);
     res.json({ ok: true });
+  }));
+
+  // who did what in the firm — team changes, cases opened and removed
+  app.get("/api/org/audit", requireAdmin, wrap(async (req, res) => {
+    const rows = (await q(`select a.action, a.target, a.detail, a.at, coalesce(u.name, u.email) as who
+                           from audit_log a left join users u on u.id = a.user_id
+                           where a.org_id = $1 order by a.at desc limit 60`, [req.session.org_id])).rows;
+    res.json({ events: rows });
   }));
 
   app.get("/api/org/invites", requireAdmin, wrap(async (req, res) => {
@@ -694,13 +704,30 @@ app.use((err, req, res, next) => {
   res.status(err && err.status ? err.status : 500).json({ error: err && err.status ? err.message : "server_error" });
 });
 
+// expired sessions, spent codes and stale invitations are dropped on boot
+// and every six hours; nothing a person can still use is touched
+async function purge() {
+  try {
+    await q("delete from sessions where expires_at < now()");
+    await q("delete from login_codes where expires_at < now() - interval '1 day'");
+    await q("delete from invites where accepted_at is null and expires_at < now() - interval '30 days'");
+  } catch (e) { console.error("purge failed:", e.message); }
+}
+
 (async () => {
   if (hasDb) {
-    try { await migrate(); }
+    try { await migrate(); await purge(); setInterval(purge, 6 * 60 * 60 * 1000).unref(); }
     catch (e) { console.error("database unavailable:", e.message); process.exit(1); }
   }
-  app.listen(PORT, "0.0.0.0", () => {
+  const server = app.listen(PORT, "0.0.0.0", () => {
     const on = Object.keys(PROVIDERS).filter(enabled);
     console.log(`SiteSnap on :${PORT} — mode: ${hasDb ? "accounts" : "local"}; cloud link: ${on.length ? on.join(", ") : "off (set TOKEN_KEY plus a provider's client ID and secret)"}; email: ${emailConfigured ? "resend" : "log only"}`);
   });
+  // Railway sends SIGTERM on redeploy: finish in-flight requests, then go
+  const shutdown = () => {
+    server.close(() => { closeDb().catch(() => {}).finally(() => process.exit(0)); });
+    setTimeout(() => process.exit(0), 8000).unref();
+  };
+  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", shutdown);
 })();

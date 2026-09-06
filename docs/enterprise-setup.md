@@ -68,6 +68,33 @@ on the phone and catches up on signal.
 - Thumbnails are ~480px JPEGs, around 20–40 KB each: a 60-photo case is
   roughly 2 MB in Postgres.
 
+## Background filing
+
+Once a person's drive is linked (through *Continue with Microsoft/Google*
+or Settings), each photo is uploaded a few seconds after it's taken, into
+the same `/Inspections/<address>/<folder>/` layout as the Export tab —
+one at a time, only with signal, retried with backoff, never blocking the
+camera. The Export tab then shows how many are already filed and sends
+only the rest plus the notes file. Photos shot offline, or before the
+drive was linked, are filed when the case is next opened with signal.
+Captions added after a photo has been filed appear in the notes file and
+the report rather than in the filename.
+
+## Before onboarding a paying firm
+
+Not code — but the things a firm's IT or compliance lead will ask for:
+
+- A **privacy notice** for account holders (what's stored: email, name,
+  firm, sessions, sealed drive credential, case metadata and thumbnails).
+- A **data processing agreement**: even without holding photographs, the
+  register holds addresses of tenants' homes and thumbnails of their
+  rooms. Keep the retention and deletion story simple: a firm's owner can
+  discard cases; deleting a firm removes everything under it (cascade).
+- **Terms of service** and a named security contact.
+- Turn on Railway's paid plan for daily Postgres backups, and keep
+  `TOKEN_KEY` in a password manager — it is the only thing that can't be
+  regenerated without every user reconnecting their drive.
+
 ## Roles
 
 | | surveyor | admin | owner |

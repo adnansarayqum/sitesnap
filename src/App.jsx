@@ -3,7 +3,7 @@ import {
   AlertTriangle, Loader2, Undo2, X,
 } from "lucide-react";
 import {
-  loadIndex, loadInspection, migrateLegacy, saveState, clearState, loadPhoto, savePhoto, updatePhoto, removePhoto, loadAudio, saveAudio, removeAudio, loadArchive, archiveInspection, sweepOrphans, setStorageErrorHandler, requestDurableStorage, storageEstimate, loadFieldMode, saveFieldMode, nextCaseNo, setStorageNamespace,
+  loadIndex, loadInspection, migrateLegacy, saveState, clearState, loadPhoto, savePhoto, updatePhoto, removePhoto, loadAudio, saveAudio, removeAudio, loadArchive, archiveInspection, sweepOrphans, setStorageErrorHandler, requestDurableStorage, storageEstimate, loadFieldMode, saveFieldMode, nextCaseNo, setStorageNamespace, loadWebhook,
 } from "./storage.js";
 import { THUMB_DIM, dataUrlToFile, drawScaled, loadImage, shareFiles } from "./lib/image.js";
 import { pad, safeFileName, uid } from "./lib/util.js";
@@ -20,6 +20,8 @@ import { SignInScreen } from "./screens/SignIn.jsx";
 import { OrgScreen } from "./screens/Org.jsx";
 import { RemoteCaseScreen } from "./screens/RemoteCase.jsx";
 import { setSyncEnabled, queueCaseSync, pushCaseNow, deleteRemoteCase, fetchRegister, reconcile, onSync, syncState, resetSyncState } from "./sync.js";
+import { configureFiling, enqueueFiling, clearFilingQueue, onFiling, filingState } from "./filing.js";
+import { linkedAccount } from "./cloud/service.js";
 
 // Root: owns the open inspection, its rooms and the thumbnail cache, and
 // routes between the top-level tabs and the screens inside a case file.
@@ -42,6 +44,11 @@ export default function SiteSnap() {
   const [register, setRegister] = useState([]);
   const [sync, setSync] = useState(syncState());
   const [remoteCaseId, setRemoteCaseId] = useState(null);
+  // background filing: which linked drive photos go to as they're taken,
+  // and whether Home should still be asking where photos go
+  const [filing, setFiling] = useState(filingState());
+  const [needsCloud, setNeedsCloud] = useState(false);
+  const filingCtx = useRef(null);
   const [caseTab, setCaseTab] = useState("overview"); // overview|rooms|findings|export, while screen === "casefile"
   const [inspection, setInspection] = useState(null);
   const [index, setIndex] = useState([]);
@@ -287,6 +294,10 @@ export default function SiteSnap() {
     photoSeq.current = (data.rooms || []).flatMap((r) => r.photoIds)
       .reduce((m, pid) => Math.max(m, (cache[pid] && cache[pid].no) || 0), 0);
     setScreen("casefile");
+    // anything shot offline, or before a drive was linked, files now
+    const p = await refreshAutoFiling();
+    clearFilingQueue();
+    if (p) enqueueFiling(ids.filter((pid) => !(cache[pid] && cache[pid].filed && cache[pid].filed.provider === p)), 1500);
   }
 
   // Leaves the property loaded on disk — the surveyor is moving to the next
@@ -338,6 +349,7 @@ export default function SiteSnap() {
     setPhotoCache({});
     originals.current = {};
     photoSeq.current = 0;
+    clearFilingQueue();
     setScreen("casefile");
   }
 
@@ -358,6 +370,7 @@ export default function SiteSnap() {
     ));
     const roomName = (rooms.find((r) => r.id === roomId) || {}).name || "a room";
     logActivity(`Photo added to ${roomName} — Exhibit ${no}`);
+    enqueueFiling([photo.id]);
     // if the write fails the full image stays in memory so it can still be
     // exported before the app closes; once written, only the thumbnail stays
     savePhoto(photo)
@@ -549,6 +562,32 @@ export default function SiteSnap() {
   const totalPhotos = rooms.reduce((s, r) => s + r.photoIds.length, 0);
   const doneRooms = rooms.filter((r) => r.photoIds.length > 0).length;
 
+  // the compressed copy, named like the report — what the Export tab sends
+  async function fileForPhoto(room, id) {
+    const p = await fullPhoto(id);
+    if (!p || !p.dataUrl) return null;
+    return dataUrlToFile(p.dataUrl, photoFilename(p, room, room.photoIds.indexOf(id), "jpg"));
+  }
+  filingCtx.current = { inspection, rooms, photoCache, fileFor: fileForPhoto };
+
+  function markFiled(id, filed) {
+    setPhotoCache((c) => (c[id] ? { ...c, [id]: { ...c[id], filed } } : c));
+  }
+
+  // which drive (if any) is linked through the service decides whether
+  // photos file themselves; re-read whenever that could have changed
+  async function refreshAutoFiling() {
+    const p = (await linkedAccount("onedrive")) ? "ms" : (await linkedAccount("google")) ? "google" : null;
+    configureFiling({ provider: p, context: () => filingCtx.current, filed: markFiled });
+    setNeedsCloud(!p && !(await loadWebhook()));
+    return p;
+  }
+  useEffect(() => onFiling(setFiling), []);
+  useEffect(() => {
+    if (screen === "home" || screen === "casefile") refreshAutoFiling();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen]);
+
   function toggleFieldMode() {
     setFieldMode((prev) => { const next = !prev; saveFieldMode(next); return next; });
   }
@@ -582,6 +621,7 @@ export default function SiteSnap() {
           <HomeScreen
             index={index}
             orgName={accounts && me.org ? me.org.name : null}
+            needsCloud={needsCloud}
             onNew={() => { setReturnTab("home"); setScreen("setup"); }}
             onOpen={(id) => openInspection(id, "home")}
             onTab={setScreen}
@@ -644,6 +684,8 @@ export default function SiteSnap() {
             onUploadResult={(r) => { setInspectionMeta({ lastUpload: r }); logActivity(r.ok ? (r.confirmed ? "Filed in the cloud" : "Sent to the cloud") : "Upload didn't finish"); }}
             onExportResult={(r) => setInspectionMeta({ lastExport: r })}
             onFindings={(f) => setInspectionMeta({ draftFindings: f })}
+            filing={filing}
+            onFiled={(ids, provider) => ids.forEach((id) => markFiled(id, { provider, at: Date.now() }))}
             onSaveAll={async () => shareFiles(await filesForAll(), "Inspection photos")}
             onDone={finishAndReset}
             onSettings={() => exitCase("settings")}
@@ -667,6 +709,7 @@ export default function SiteSnap() {
             onAddMemo={(blob, secs) => addMemo(rooms[walkIndex].id, blob, secs)}
             onDeleteMemo={(mid) => deleteMemo(rooms[walkIndex].id, mid)}
             onExit={() => setScreen("casefile")}
+            filing={filing}
           />
         )}
 

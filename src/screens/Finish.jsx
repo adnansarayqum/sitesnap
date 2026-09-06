@@ -37,7 +37,7 @@ export function parseDraftFindings(body) {
 
 /* ---------------- finish / export ---------------- */
 
-export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom, filesForUpload, fullPhoto, audioCache, onUploadResult, onExportResult, onFindings, onSaveAll, onDone, onSettings }) {
+export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom, filesForUpload, fullPhoto, audioCache, onUploadResult, onExportResult, onFindings, onSaveAll, onDone, onSettings, filing, onFiled }) {
   const [note, setNote] = useState(null);
   const [direct, setDirect] = useState({ ms: null, google: false }); // account name / connected flags
   const [directUpload, setDirectUpload] = useState(null); // { provider, statuses, running, sent, total }
@@ -339,13 +339,18 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
   // /Inspections/<address>/<folder>/<file> layout Make produces, so a job
   // filed this way sits next to ones filed through a webhook without anyone
   // having to know which route each one took.
+  // photos already filed in the background (filing.js) aren't sent twice
+  const isFiled = (id, provider) => { const p = photoCache[id]; return !!(p && p.filed && p.filed.provider === provider); };
+  const filedCount = (provider) => rooms.reduce((n, r) => n + r.photoIds.filter((id) => isFiled(id, provider)).length, 0);
+
   async function uploadDirect(provider) {
     if (directUpload && directUpload.running) return;
     setDirectError(null);
     const statuses = {};
     populated.forEach((r) => { statuses[r.id] = "queued"; });
     const memoCount = rooms.reduce((s, r) => s + (r.memos || []).length, 0);
-    const total = populated.reduce((s, r) => s + r.photoIds.length, 0) + memoCount + 1;
+    const toSend = (room) => room.photoIds.filter((id) => !isFiled(id, provider));
+    const total = populated.reduce((s, r) => s + toSend(r).length, 0) + memoCount + 1;
     setDirectUpload({ provider, statuses, running: true, sent: 0, total });
 
     const put = provider === "ms"
@@ -364,11 +369,13 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
         const idx = rooms.indexOf(room);
         setDirectUpload((s) => s && ({ ...s, statuses: { ...s.statuses, [room.id]: "uploading" } }));
         const folder = `${pad(idx + 1)}. ${room.name}`;
-        const files = await filesForUpload(room);
+        const ids = toSend(room);
+        const files = ids.length ? await filesForUpload({ ...room, photoIds: ids }) : [];
         for (const f of files) {
           await put(["Inspections", inspection.address, folder], f.name, f);
           setDirectUpload((s) => s && ({ ...s, sent: s.sent + 1 }));
         }
+        if (ids.length && onFiled) onFiled(ids, provider);
         setDirectUpload((s) => s && ({ ...s, statuses: { ...s.statuses, [room.id]: "done" } }));
       }
       for (const room of rooms) {
@@ -496,7 +503,11 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
               <CloudUpload size={19} />
               {directUpload && directUpload.provider === "ms" && directUpload.running
                 ? `Filing to OneDrive ${directUpload.sent} of ${directUpload.total}…`
-                : "Upload directly to OneDrive"}
+                : filedCount("ms") >= totalPhotos && totalPhotos > 0
+                  ? "All photos filed — send notes to OneDrive"
+                  : filedCount("ms") > 0
+                    ? `Upload the rest to OneDrive (${totalPhotos - filedCount("ms")} of ${totalPhotos})`
+                    : "Upload directly to OneDrive"}
             </button>
             {directUpload && directUpload.provider === "ms" && directUpload.running && (
               <div className="ss-upbar"><div style={{ width: `${directUpload.total ? Math.round((directUpload.sent / directUpload.total) * 100) : 0}%` }} /></div>
@@ -511,7 +522,11 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
               <CloudUpload size={19} />
               {directUpload && directUpload.provider === "google" && directUpload.running
                 ? `Filing to Google Drive ${directUpload.sent} of ${directUpload.total}…`
-                : "Upload directly to Google Drive"}
+                : filedCount("google") >= totalPhotos && totalPhotos > 0
+                  ? "All photos filed — send notes to Google Drive"
+                  : filedCount("google") > 0
+                    ? `Upload the rest to Google Drive (${totalPhotos - filedCount("google")} of ${totalPhotos})`
+                    : "Upload directly to Google Drive"}
             </button>
             {directUpload && directUpload.provider === "google" && directUpload.running && (
               <div className="ss-upbar"><div style={{ width: `${directUpload.total ? Math.round((directUpload.sent / directUpload.total) * 100) : 0}%` }} /></div>
@@ -519,6 +534,13 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
           </>
         )}
         {directError && <p className="ss-fineprint" style={{ color: "var(--red)" }}>{directError}</p>}
+        {filing && filing.provider && totalPhotos > 0 && (
+          <p className="ss-fineprint ss-filing-note" style={{ textAlign: "center" }}>
+            {filing.pending > 0
+              ? `Filing ${filing.pending} photo${filing.pending === 1 ? "" : "s"} to ${filing.provider === "ms" ? "OneDrive" : "Google Drive"} in the background…`
+              : `${filedCount(filing.provider)} of ${totalPhotos} photo${totalPhotos === 1 ? "" : "s"} filed to ${filing.provider === "ms" ? "OneDrive" : "Google Drive"} as they were taken. Captions added later are in the notes file and the report.`}
+          </p>
+        )}
 
         {!hookUrl && !direct.ms && !direct.google && (
           <p className="ss-fineprint" style={{ textAlign: "center" }}>No cloud link set up yet.</p>

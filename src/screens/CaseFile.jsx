@@ -15,7 +15,7 @@ import { relativeDay } from "./Home.jsx";
 // Evidence (the live camera and a room's photos) still push on top of this,
 // same as before; only the finished-case wizard collapsed into tabs.
 export function CaseFileScreen({
-  inspection, sync, rooms, photoCache, totalPhotos, doneRooms,
+  inspection, sync, filing, onFiled, rooms, photoCache, totalPhotos, doneRooms,
   caseTab, onCaseTab, onExit, onReorder, onAddRoom, onRename, onOpenRoom, onWalk,
   filesForRoom, filesForUpload, fullPhoto, audioCache,
   onUploadResult, onExportResult, onFindings, onSaveAll, onDone, onSettings,
@@ -89,7 +89,7 @@ export function CaseFileScreen({
         <FindingsTab draft={inspection.draftFindings} onChange={onFindings} />
       )}
       {caseTab === "export" && (
-        <FinishScreen
+        <FinishScreen filing={filing} onFiled={onFiled}
           inspection={inspection} rooms={rooms} photoCache={photoCache} totalPhotos={totalPhotos}
           filesForRoom={filesForRoom} filesForUpload={filesForUpload} fullPhoto={fullPhoto} audioCache={audioCache}
           onUploadResult={onUploadResult} onExportResult={onExportResult} onFindings={onFindings}

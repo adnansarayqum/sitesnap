@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Loader2, UserPlus, X, Copy, Check } from "lucide-react";
-import { listMembers, listInvites, sendInvite, cancelInvite, setMemberRole, removeMember, renameOrg } from "../auth.js";
+import { listMembers, listInvites, listAudit, sendInvite, cancelInvite, setMemberRole, removeMember, renameOrg } from "../auth.js";
 
 /* ---------------- team (admins) ---------------- */
 
@@ -9,6 +9,7 @@ const ROLE_LABEL = { owner: "Owner", admin: "Admin", surveyor: "Surveyor" };
 export function TeamSettings({ me, onChanged, flash }) {
   const [members, setMembers] = useState(null);
   const [invites, setInvites] = useState([]);
+  const [events, setEvents] = useState([]);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("surveyor");
   const [busy, setBusy] = useState(false);
@@ -20,8 +21,8 @@ export function TeamSettings({ me, onChanged, flash }) {
 
   async function refresh() {
     try {
-      const [m, i] = await Promise.all([listMembers(), listInvites()]);
-      setMembers(m.members); setInvites(i.invites);
+      const [m, i, a] = await Promise.all([listMembers(), listInvites(), listAudit().catch(() => ({ events: [] }))]);
+      setMembers(m.members); setInvites(i.invites); setEvents(a.events || []);
     } catch (e) { setError(e.message); }
   }
   useEffect(() => { refresh(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -137,8 +138,40 @@ export function TeamSettings({ me, onChanged, flash }) {
         )}
       </div>
       {error && <p className="ss-fineprint ss-error" role="alert" style={{ marginTop: 8 }}>{error}</p>}
+
+      {events.length > 0 && (
+        <>
+          <div className="ss-section-label" style={{ marginTop: 20 }}>Recent activity</div>
+          <div className="ss-activity">
+            {events.slice(0, 20).map((e, i) => (
+              <div key={i} className="ss-activity-row">
+                <span className="ss-activity-time">{relative(e.at)}</span>
+                <span className="ss-activity-dot" />
+                <span className="ss-activity-text">{describe(e)}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </>
   );
+}
+
+function describe(e) {
+  const who = e.who || "someone";
+  const d = e.detail || {};
+  switch (e.action) {
+    case "org.created": return `${who} created the firm`;
+    case "org.renamed": return `${who} renamed the firm to ${e.target}`;
+    case "invite.sent": return `${who} invited ${e.target}${d.role ? ` as ${d.role}` : ""}`;
+    case "invite.accepted": return `${e.target} joined${d.role ? ` as ${d.role}` : ""}`;
+    case "member.role": return `${who} changed a member's role to ${d.role}`;
+    case "member.removed": return `${who} removed a member`;
+    case "case.created": return `${who} opened case${d.case_no ? ` No. ${d.case_no}` : ""}`;
+    case "case.deleted": return `${who} discarded a case`;
+    case "signin": return `${who} signed in with ${e.target === "google" ? "Google" : "Microsoft"}`;
+    default: return `${who}: ${e.action}`;
+  }
 }
 
 function relative(ts) {
