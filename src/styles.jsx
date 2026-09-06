@@ -361,7 +361,7 @@ export function StyleBlock() {
       .ss-accept input { width: 19px; height: 19px; flex-shrink: 0; accent-color: var(--red); margin: 0; }
 
       .ss-row-done { opacity: .82; }
-      .ss-row-done .ss-row-tap { cursor: default; }
+      .ss-row-done .ss-row-tap:disabled { cursor: default; }
       .ss-job-up.warn { background: var(--amber-tint); color: var(--amber); }
       .ss-empty-note { font-size: 13.5px; color: var(--muted); text-align: center; padding: 22px 10px 4px; margin: 0; }
 

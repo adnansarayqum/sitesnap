@@ -181,6 +181,10 @@ export function CasesScreen({ index, archive, durable, onNew, onOpen, onDiscard,
   // person's own from another phone — anything not already on this one
   const here = new Set([...open.map((i) => i.id), ...done.map((a) => a.id)]);
   const remote = (register || []).filter((c) => !here.has(c.id));
+  // a closed case's own photos are gone from this phone, but the register
+  // kept its details and thumbnails — so it's still worth opening, as long
+  // as it actually made it to the register (it may have closed offline)
+  const inRegister = new Set((register || []).map((c) => c.id));
   const matchesRemote = (c) => !needle || [c.address, c.ref, c.postcode, c.created_by_name].filter(Boolean).join(" ").toLowerCase().includes(needle);
   const remoteOpen = remote.filter((c) => c.status === "open" && matchesRemote(c));
   const remoteClosed = remote.filter((c) => c.status === "closed" && matchesRemote(c));
@@ -297,7 +301,8 @@ export function CasesScreen({ index, archive, durable, onNew, onOpen, onDiscard,
               {remoteClosed.slice(0, 50).map(remoteRow)}
               {doneShown.slice(0, 25).map((a) => (
                 <div key={a.id} className="ss-row ss-row-done">
-                  <div className="ss-row-tap">
+                  <button className="ss-row-tap" onClick={() => onOpenRemote(a.id)} disabled={!inRegister.has(a.id)}
+                    title={inRegister.has(a.id) ? undefined : "This case closed before it could sync — its details didn't reach the register"}>
                     <div className="ss-row-main ss-job">
                       <span className="ss-row-name">{a.address}</span>
                       <span className="ss-job-sub">
@@ -314,7 +319,7 @@ export function CasesScreen({ index, archive, durable, onNew, onOpen, onDiscard,
                           : a.lastExport ? <><Download size={11} /> Exported only</> : <><X size={11} /> Never uploaded</>}
                       </span>
                     </div>
-                  </div>
+                  </button>
                 </div>
               ))}
             </div>
