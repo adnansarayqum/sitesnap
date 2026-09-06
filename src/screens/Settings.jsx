@@ -7,7 +7,48 @@ import {
 } from "../storage.js";
 import { loadGoogleDrive, loadMsGraph } from "../cloud/lazy.js";
 import { cloudServiceConfig, linkedAccount, beginLink, unlink } from "../cloud/service.js";
+import { updateName, switchOrg } from "../auth.js";
 import { TabBar } from "./Home.jsx";
+import { TeamSettings } from "./Team.jsx";
+
+/* ---------------- account (accounts mode) ---------------- */
+
+function AccountCard({ me, onSignOut, onChanged, flash }) {
+  const [name, setName] = useState(me.user.name || "");
+  const [busy, setBusy] = useState(false);
+  const isAdmin = me.org && ["owner", "admin"].includes(me.org.role);
+  return (
+    <>
+      <div className="ss-section-label" style={{ marginTop: 4 }}>Account</div>
+      <div className="ss-storage-card">
+        <div className="ss-key-row">
+          <input className="ss-input" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} aria-label="Your name" />
+          <button className="ss-btn ss-btn-primary" disabled={busy || name.trim() === (me.user.name || "")}
+            onClick={async () => { setBusy(true); try { await updateName(name.trim()); onChanged(); flash("Name saved"); } finally { setBusy(false); } }}>Save</button>
+        </div>
+        <div className="ss-account-row" style={{ marginTop: 6 }}><span className="ss-muted">Signed in as</span><span style={{ fontWeight: 700 }}>{me.user.email}</span></div>
+        {me.org && (
+          <div className="ss-account-row">
+            <span className="ss-muted">Firm</span>
+            {me.orgs && me.orgs.length > 1 ? (
+              <select className="ss-role-select" value={me.org.id} aria-label="Firm"
+                onChange={async (e) => { await switchOrg(e.target.value); onChanged(); }}>
+                {me.orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+              </select>
+            ) : (
+              <span style={{ fontWeight: 700 }}>{me.org.name} <span className="ss-role-pill" style={{ marginLeft: 6 }}>{me.org.role}</span></span>
+            )}
+          </div>
+        )}
+        <button className="ss-btn ss-btn-ghost" style={{ marginTop: 10 }} onClick={onSignOut}>Sign out</button>
+        <p className="ss-fineprint" style={{ margin: "8px 2px 0" }}>
+          Signing out keeps this phone's photos where they are; they're shown again when you sign back in.
+        </p>
+      </div>
+      {isAdmin && <TeamSettings me={me} onChanged={onChanged} flash={flash} />}
+    </>
+  );
+}
 
 /* ---------------- settings ---------------- */
 
@@ -46,7 +87,7 @@ export function CloudProviderCard({ label, icon, connected, connecting, account,
   );
 }
 
-export function SettingsScreen({ fieldMode, onToggleFieldMode, onTab }) {
+export function SettingsScreen({ fieldMode, onToggleFieldMode, onTab, me, onSignOut, onMeChanged }) {
   const [hookUrl, setHookUrl] = useState("");
   const [hookKey, setHookKey] = useState("");
   const [savedNote, setSavedNote] = useState(null);
@@ -188,7 +229,10 @@ export function SettingsScreen({ fieldMode, onToggleFieldMode, onTab }) {
         </div>
       </div>
       <div className="ss-scroll">
-        <div className="ss-section-label" style={{ marginTop: 4 }}>Direct cloud link</div>
+        {me && me.mode === "accounts" && me.user && (
+          <AccountCard me={me} onSignOut={onSignOut} onChanged={onMeChanged} flash={flash} />
+        )}
+        <div className="ss-section-label" style={{ marginTop: me && me.mode === "accounts" ? 20 : 4 }}>Direct cloud link</div>
         <p className="ss-fineprint" style={{ margin: "0 2px 10px" }}>
           {serviceOn
             ? "Sign in once with your own Microsoft or Google account. SiteSnap keeps the connection and files straight into your OneDrive or Drive — no sign-in prompts after that."

@@ -1,5 +1,9 @@
 # Going multi-user: architecture and what it commits you to
 
+> **Status:** Option A is built, on Railway Postgres with the app's own auth
+> rather than Supabase — see `docs/enterprise-setup.md`. The case register
+> (metadata + thumbnails on the server) is the next stage.
+
 SiteSnap today has no backend. It is a static page plus the browser's own
 storage, and every upload goes to a webhook the user controls. That is why it
 costs pennies to run and why you hold none of anyone's data.

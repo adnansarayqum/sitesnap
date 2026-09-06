@@ -1,21 +1,29 @@
-// SiteSnap's small backend. Two jobs:
+// SiteSnap's backend. Serves the built app and, depending on what's
+// configured, runs in one of two modes:
 //
-//   1. Serve the built app (what `serve -s dist` used to do).
-//   2. Turn a one-time OneDrive / Google Drive sign-in into a connection
-//      that lasts — which a browser-only app can't have: Microsoft caps a
-//      SPA's refresh token at 24 hours and Google won't issue one at all.
-//      As a confidential client (it holds the client secrets) this gets the
-//      long-lived kind.
+//   local     — no DATABASE_URL. The app is the single-user PWA it always
+//               was. If TOKEN_KEY and a provider's secrets are set, the
+//               cloud-link service works statelessly: the refresh token is
+//               sealed and kept on the phone (see docs/frictionless-cloud-link.md).
 //
-// There is deliberately no database. The refresh token is sealed with a key
-// only this server knows and handed to the phone, which stores the sealed
-// blob and presents it whenever it needs an access token. Nothing here
-// survives a restart except the environment: lose TOKEN_KEY and every phone
-// simply has to connect again. See docs/frictionless-cloud-link.md.
+//   accounts  — DATABASE_URL set. Sign-in (email code, Microsoft, Google),
+//               firms ("orgs") with roles and invitations, cloud links kept
+//               per user so they follow them across devices, and the firm's
+//               case register. Sessions are httpOnly cookies.
+//
+// Secrets never leave this process; the phone only ever holds a session
+// cookie and, in local mode, a sealed blob it can't read.
 import express from "express";
 import crypto from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { hasDb, migrate, q, one, tx } from "./db.js";
+import {
+  attachSession, requireUser, requireOrg, requireAdmin, createSession, destroySession,
+  clearSessionCookie, setSessionCookie, findOrCreateUser, issueCode, verifyCode,
+  rateLimit, clientIp, normEmail, validEmail, randomToken, sha256, audit,
+} from "./auth.js";
+import { sendEmail, emailConfigured, signInCodeEmail, inviteEmail } from "./email.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.join(__dirname, "..", "dist");
@@ -79,8 +87,9 @@ function unseal(blob) {
 // The phone asks for a pairing code, opens the sign-in with it, and polls
 // for the result. That way it doesn't matter which browser the provider
 // sends the callback to — an installed iOS web app and Safari keep separate
-// storage, and the callback can land in either.
-const pending = new Map(); // pair -> { created, provider, result? }
+// storage, and the callback can land in either. Used both for linking a
+// drive ("link") and for signing in with Microsoft/Google ("signin").
+const pending = new Map(); // pair -> { created, provider, purpose, userId?, result? }
 const PAIR_TTL_MS = 10 * 60 * 1000;
 
 function sweep() {
@@ -99,6 +108,13 @@ function baseUrl(req) {
   return `${proto}://${req.get("host")}`;
 }
 
+function newPair(provider, purpose, userId) {
+  sweep();
+  const pair = crypto.randomBytes(16).toString("base64url");
+  pending.set(pair, { created: Date.now(), provider, purpose, userId: userId || null });
+  return pair;
+}
+
 async function exchange(provider, params) {
   const c = PROVIDERS[provider];
   const body = new URLSearchParams({ client_id: c.clientId, client_secret: c.clientSecret, ...params });
@@ -112,13 +128,31 @@ async function exchange(provider, params) {
   return json;
 }
 
-// a label for the account, from the id_token both providers return when
-// `openid email` is in the scope — display only, never used as identity
-function accountFrom(tok) {
+// what the id_token says about the account — both providers return one
+// when `openid email` is in the scope
+function identityFrom(tok) {
   try {
-    const payload = JSON.parse(Buffer.from(String(tok.id_token).split(".")[1], "base64url").toString("utf8"));
-    return payload.email || payload.preferred_username || payload.upn || payload.name || "";
-  } catch { return ""; }
+    const p = JSON.parse(Buffer.from(String(tok.id_token).split(".")[1], "base64url").toString("utf8"));
+    const email = p.email || p.preferred_username || p.upn || "";
+    return { email: validEmail(normEmail(email)) ? normEmail(email) : "", name: p.name || "", label: email || p.name || "" };
+  } catch { return { email: "", name: "", label: "" }; }
+}
+
+async function refreshAccess(provider, refreshToken) {
+  return exchange(provider, { grant_type: "refresh_token", refresh_token: refreshToken, scope: PROVIDERS[provider].scope });
+}
+
+async function revokeAtProvider(provider, refreshToken) {
+  const c = PROVIDERS[provider];
+  if (!c || !c.revokeUrl) return;
+  try { await fetch(`${c.revokeUrl}?token=${encodeURIComponent(refreshToken)}`, { method: "POST" }); } catch { /* best effort */ }
+}
+
+async function storeLink(userId, provider, refreshToken, account) {
+  await q(`insert into cloud_links (user_id, provider, refresh_token_enc, account)
+           values ($1, $2, $3, $4)
+           on conflict (user_id, provider) do update set refresh_token_enc = excluded.refresh_token_enc, account = excluded.account, updated_at = now()`,
+    [userId, provider, seal({ rt: refreshToken }), account || null]);
 }
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
@@ -132,26 +166,139 @@ a{display:inline-block;background:#10352A;color:#fff;text-decoration:none;font-w
 <main><h1>${esc(title)}</h1><p>${esc(text)}</p>${backHref ? `<a href="${esc(backHref)}">Back to SiteSnap</a>` : ""}</main>`;
 }
 
+// ---- "me": what the app needs to know about the signed-in person ---------
+async function me(req) {
+  const base = { mode: hasDb ? "accounts" : "local", providers: { onedrive: enabled("onedrive"), google: enabled("google") }, email: emailConfigured };
+  if (!hasDb || !req.session) return { ...base, user: null };
+  const user = await one("select id, email, name, created_at from users where id = $1", [req.session.user_id]);
+  if (!user) return { ...base, user: null };
+  const orgs = (await q(`select o.id, o.name, m.role from memberships m join orgs o on o.id = m.org_id where m.user_id = $1 order by o.name`, [user.id])).rows;
+  const org = req.membership ? { id: req.membership.org_id, name: req.membership.org_name, role: req.membership.role } : null;
+  const links = (await q("select provider, account from cloud_links where user_id = $1", [user.id])).rows;
+  return { ...base, user, org, orgs, links };
+}
+
 // ---- app -----------------------------------------------------------------
 const app = express();
 app.disable("x-powered-by");
 app.set("trust proxy", true);
-app.use(express.json({ limit: "64kb" }));
-
-app.get("/api/cloud/config", (req, res) => {
-  res.set("Cache-Control", "no-store");
-  res.json({ onedrive: enabled("onedrive"), google: enabled("google") });
+app.use((req, res, next) => {
+  res.set("X-Content-Type-Options", "nosniff");
+  res.set("Referrer-Policy", "same-origin");
+  res.set("X-Frame-Options", "DENY");
+  res.set("Permissions-Policy", "camera=(self), microphone=(self), geolocation=()");
+  next();
 });
+app.use(express.json({ limit: "4mb" }));
+// every mutating API call is JSON from our own page; a cross-site form
+// post can't set that content type, and SameSite=Lax keeps the cookie
+// off cross-site posts anyway
+app.use("/api", (req, res, next) => {
+  if (req.method !== "GET" && req.method !== "HEAD" && !req.is("application/json")) return res.status(415).json({ error: "json_only" });
+  res.set("Cache-Control", "no-store");
+  next();
+});
+if (hasDb) app.use(attachSession);
+else app.use((req, res, next) => { req.session = null; req.membership = null; next(); });
 
-app.post("/api/cloud/pair", (req, res) => {
+const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+
+app.get("/healthz", wrap(async (req, res) => {
+  let dbOk = null;
+  if (hasDb) { try { await q("select 1"); dbOk = true; } catch { dbOk = false; } }
+  res.status(dbOk === false ? 503 : 200).json({ ok: dbOk !== false, mode: hasDb ? "accounts" : "local", db: dbOk });
+}));
+
+app.get("/api/config", wrap(async (req, res) => {
+  res.json({ mode: hasDb ? "accounts" : "local", providers: { onedrive: enabled("onedrive"), google: enabled("google") }, email: emailConfigured });
+}));
+// older clients
+app.get("/api/cloud/config", (req, res) => res.json({ onedrive: enabled("onedrive"), google: enabled("google") }));
+
+app.get("/api/me", wrap(async (req, res) => res.json(await me(req))));
+
+// ---- sign-in --------------------------------------------------------------
+if (hasDb) {
+  app.post("/api/auth/code", wrap(async (req, res) => {
+    const email = normEmail(req.body && req.body.email);
+    if (!validEmail(email)) return res.status(400).json({ error: "bad_email" });
+    if (!rateLimit(`code:ip:${clientIp(req)}`, 20, 10 * 60 * 1000) || !rateLimit(`code:email:${email}`, 3, 10 * 60 * 1000)) {
+      return res.status(429).json({ error: "slow_down" });
+    }
+    const code = await issueCode(email);
+    try { await sendEmail({ to: email, ...signInCodeEmail(code) }); }
+    catch (e) { console.error("sign-in email failed:", e.message); return res.status(502).json({ error: "email_failed" }); }
+    res.json({ ok: true, delivery: emailConfigured ? "email" : "log" });
+  }));
+
+  app.post("/api/auth/verify", wrap(async (req, res) => {
+    const email = normEmail(req.body && req.body.email);
+    if (!validEmail(email)) return res.status(400).json({ error: "bad_email" });
+    if (!rateLimit(`verify:ip:${clientIp(req)}`, 30, 10 * 60 * 1000)) return res.status(429).json({ error: "slow_down" });
+    const v = await verifyCode(email, req.body.code);
+    if (!v.ok) return res.status(401).json({ error: v.reason });
+    const user = await findOrCreateUser(email, null);
+    await createSession(req, res, user.id);
+    req.session = { user_id: user.id, org_id: null };
+    await acceptInviteIfAny(req, user, req.body.invite);
+    await reloadSession(req);
+    res.json(await me(req));
+  }));
+
+  app.post("/api/auth/signout", wrap(async (req, res) => {
+    await destroySession(req);
+    clearSessionCookie(req, res);
+    res.json({ ok: true });
+  }));
+
+  app.patch("/api/me", requireUser, wrap(async (req, res) => {
+    const name = String((req.body && req.body.name) || "").trim().slice(0, 80);
+    await q("update users set name = $2 where id = $1", [req.session.user_id, name || null]);
+    res.json(await me(req));
+  }));
+
+  // sign in with Microsoft / Google — no session needed to start
+  app.post("/api/auth/oauth/pair", wrap(async (req, res) => {
+    const provider = String((req.body && req.body.provider) || "");
+    if (!enabled(provider)) return res.status(404).json({ error: "provider not configured" });
+    if (!rateLimit(`oauth:ip:${clientIp(req)}`, 30, 10 * 60 * 1000)) return res.status(429).json({ error: "slow_down" });
+    const pair = newPair(provider, "signin");
+    res.json({ pair, url: `${baseUrl(req)}/auth/${provider}/start?pair=${pair}` });
+  }));
+}
+
+// after a session exists on req: apply a pending invitation the phone
+// carried in from an invite link, if it's addressed to this person
+async function acceptInviteIfAny(req, user, token) {
+  if (!token) return null;
+  const inv = await one("select * from invites where token_hash = $1 and accepted_at is null and expires_at > now()", [sha256(token)]);
+  if (!inv || normEmail(inv.email) !== normEmail(user.email)) return null;
+  await tx(async (c) => {
+    await c.query(`insert into memberships (org_id, user_id, role) values ($1, $2, $3)
+                   on conflict (org_id, user_id) do update set role = excluded.role`, [inv.org_id, user.id, inv.role]);
+    await c.query("update invites set accepted_at = now() where id = $1", [inv.id]);
+    await c.query("update sessions set org_id = $2 where user_id = $1", [user.id, inv.org_id]);
+  });
+  await audit({ session: { org_id: inv.org_id, user_id: user.id } }, "invite.accepted", inv.email, { role: inv.role });
+  return inv;
+}
+
+async function reloadSession(req) {
+  const fresh = await one("select * from sessions where user_id = $1 order by created_at desc limit 1", [req.session.user_id]);
+  req.session = fresh || req.session;
+  req.membership = req.session.org_id
+    ? await one("select m.*, o.name as org_name from memberships m join orgs o on o.id = m.org_id where m.org_id = $1 and m.user_id = $2", [req.session.org_id, req.session.user_id])
+    : null;
+}
+
+// ---- cloud link pairing (works in both modes) -----------------------------
+app.post("/api/cloud/pair", wrap(async (req, res) => {
   const provider = String((req.body && req.body.provider) || "");
   if (!enabled(provider)) return res.status(404).json({ error: "provider not configured" });
-  sweep();
-  const pair = crypto.randomBytes(16).toString("base64url");
-  pending.set(pair, { created: Date.now(), provider });
-  res.set("Cache-Control", "no-store");
+  if (hasDb && !req.session) return res.status(401).json({ error: "sign_in" });
+  const pair = newPair(provider, "link", req.session && req.session.user_id);
   res.json({ pair, url: `${baseUrl(req)}/auth/${provider}/start?pair=${pair}` });
-});
+}));
 
 app.get("/auth/:provider/start", (req, res) => {
   const { provider } = req.params;
@@ -173,7 +320,7 @@ app.get("/auth/:provider/start", (req, res) => {
   res.redirect(u.toString());
 });
 
-app.get("/auth/:provider/callback", async (req, res) => {
+app.get("/auth/:provider/callback", wrap(async (req, res) => {
   const { provider } = req.params;
   const [pair, sig] = String(req.query.state || "").split(".");
   const p = pending.get(pair);
@@ -184,6 +331,8 @@ app.get("/auth/:provider/callback", async (req, res) => {
     pending.delete(pair);
     return res.status(400).send(page("Sign-in was cancelled", String(req.query.error_description || req.query.error), baseUrl(req)));
   }
+  const label = PROVIDERS[provider].label;
+  const back = `${baseUrl(req)}/?cloudpair=${encodeURIComponent(pair)}`;
   try {
     const tok = await exchange(provider, {
       grant_type: "authorization_code",
@@ -191,35 +340,80 @@ app.get("/auth/:provider/callback", async (req, res) => {
       redirect_uri: `${baseUrl(req)}/auth/${provider}/callback`,
       scope: PROVIDERS[provider].scope,
     });
+    const who = identityFrom(tok);
     if (!tok.refresh_token) throw new Error("The sign-in didn't include a lasting token — for Google, remove SiteSnap's access at myaccount.google.com/permissions and try again.");
-    const account = accountFrom(tok);
-    p.result = { blob: seal({ v: 1, p: provider, rt: tok.refresh_token, acct: account, iat: Date.now() }), account };
-    res.send(page(`${PROVIDERS[provider].label} connected${account ? " as " + account : ""}`,
-      "SiteSnap has already picked this up — you can close this.", `${baseUrl(req)}/?cloudpair=${encodeURIComponent(pair)}`));
+
+    if (p.purpose === "signin") {
+      if (!who.email) throw new Error(`Your ${provider === "google" ? "Google" : "Microsoft"} account didn't share an email address, which SiteSnap needs to know who you are.`);
+      const user = await findOrCreateUser(who.email, who.name);
+      await storeLink(user.id, provider, tok.refresh_token, who.label);
+      const token = await createSession(req, null, user.id);
+      setSessionCookie(req, res, token); // same-browser case gets it straight away too
+      p.result = { session: token, account: who.label };
+      await audit({ session: { user_id: user.id, org_id: null } }, "signin", provider);
+      return res.send(page(`Signed in as ${who.label}`, "SiteSnap has already picked this up — you can close this.", back));
+    }
+
+    if (hasDb) {
+      // accounts mode: the link belongs to the person who started the pairing
+      await storeLink(p.userId, provider, tok.refresh_token, who.label);
+      p.result = { account: who.label };
+    } else {
+      p.result = { blob: seal({ v: 1, p: provider, rt: tok.refresh_token, acct: who.label, iat: Date.now() }), account: who.label };
+    }
+    res.send(page(`${label} connected${who.label ? " as " + who.label : ""}`, "SiteSnap has already picked this up — you can close this.", back));
   } catch (e) {
     pending.delete(pair);
     res.status(502).send(page("Couldn't finish connecting", e.message, baseUrl(req)));
   }
-});
+}));
 
-app.get("/api/cloud/claim", (req, res) => {
-  res.set("Cache-Control", "no-store");
+// polled by the phone; for a sign-in pairing this is also where the
+// session cookie lands in the right browser
+app.get("/api/cloud/claim", wrap(async (req, res) => {
   const pair = String(req.query.pair || "");
   const p = pending.get(pair);
   if (!p) return res.status(404).json({ status: "expired" });
   if (!p.result) return res.json({ status: "pending" });
   pending.delete(pair);
-  res.json({ status: "done", provider: p.provider, ...p.result });
-});
+  if (p.purpose === "signin") {
+    setSessionCookie(req, res, p.result.session);
+    return res.json({ status: "done", purpose: "signin", provider: p.provider, account: p.result.account });
+  }
+  res.json({ status: "done", purpose: "link", provider: p.provider, ...p.result });
+}));
 
-app.post("/api/cloud/token", async (req, res) => {
-  res.set("Cache-Control", "no-store");
+app.post("/api/cloud/token", wrap(async (req, res) => {
+  if (hasDb) {
+    if (!req.session) return res.status(401).json({ error: "sign_in" });
+    const provider = String((req.body && req.body.provider) || "");
+    if (!enabled(provider)) return res.status(404).json({ error: "provider not configured" });
+    const link = await one("select * from cloud_links where user_id = $1 and provider = $2", [req.session.user_id, provider]);
+    if (!link) return res.status(404).json({ error: "not_linked" });
+    let inner;
+    try { inner = unseal(link.refresh_token_enc); } catch { return res.status(401).json({ error: "reconnect" }); }
+    try {
+      const tok = await refreshAccess(provider, inner.rt);
+      if (tok.refresh_token && tok.refresh_token !== inner.rt) {
+        await q("update cloud_links set refresh_token_enc = $3, updated_at = now() where user_id = $1 and provider = $2",
+          [req.session.user_id, provider, seal({ rt: tok.refresh_token })]);
+      }
+      return res.json({ access_token: tok.access_token, expires_in: tok.expires_in || 3600, account: link.account || "" });
+    } catch (e) {
+      if (e.code === "invalid_grant") {
+        await q("delete from cloud_links where user_id = $1 and provider = $2", [req.session.user_id, provider]);
+        return res.status(401).json({ error: "reconnect" });
+      }
+      return res.status(502).json({ error: e.message });
+    }
+  }
+  // local mode: the sealed blob is the credential
   let inner;
   try { inner = unseal(req.body && req.body.blob); } catch { return res.status(401).json({ error: "reconnect" }); }
   const provider = inner.p;
   if (!enabled(provider)) return res.status(404).json({ error: "provider not configured" });
   try {
-    const tok = await exchange(provider, { grant_type: "refresh_token", refresh_token: inner.rt, scope: PROVIDERS[provider].scope });
+    const tok = await refreshAccess(provider, inner.rt);
     const out = { access_token: tok.access_token, expires_in: tok.expires_in || 3600, account: inner.acct || "" };
     // Microsoft rotates the refresh token on every use — hand the phone the
     // re-sealed one so the connection keeps sliding forward
@@ -229,17 +423,152 @@ app.post("/api/cloud/token", async (req, res) => {
     if (e.code === "invalid_grant") return res.status(401).json({ error: "reconnect" });
     res.status(502).json({ error: e.message });
   }
-});
+}));
 
-app.post("/api/cloud/revoke", async (req, res) => {
+app.post("/api/cloud/revoke", wrap(async (req, res) => {
   let inner;
   try { inner = unseal(req.body && req.body.blob); } catch { return res.json({ ok: true }); }
-  const c = PROVIDERS[inner.p];
-  if (c && c.revokeUrl) {
-    try { await fetch(`${c.revokeUrl}?token=${encodeURIComponent(inner.rt)}`, { method: "POST" }); } catch { /* best effort */ }
-  }
+  await revokeAtProvider(inner.p, inner.rt);
   res.json({ ok: true });
-});
+}));
+
+if (hasDb) {
+  app.delete("/api/cloud/link/:provider", requireUser, wrap(async (req, res) => {
+    const { provider } = req.params;
+    const link = await one("select * from cloud_links where user_id = $1 and provider = $2", [req.session.user_id, provider]);
+    if (link) {
+      try { await revokeAtProvider(provider, unseal(link.refresh_token_enc).rt); } catch { /* best effort */ }
+      await q("delete from cloud_links where user_id = $1 and provider = $2", [req.session.user_id, provider]);
+    }
+    res.json({ ok: true });
+  }));
+
+  // ---- firms -----------------------------------------------------------------
+  app.post("/api/orgs", requireUser, wrap(async (req, res) => {
+    const name = String((req.body && req.body.name) || "").trim().slice(0, 120);
+    if (name.length < 2) return res.status(400).json({ error: "bad_name" });
+    const org = await tx(async (c) => {
+      const o = (await c.query("insert into orgs (name) values ($1) returning *", [name])).rows[0];
+      await c.query("insert into memberships (org_id, user_id, role) values ($1, $2, 'owner')", [o.id, req.session.user_id]);
+      await c.query("insert into org_counters (org_id) values ($1)", [o.id]);
+      await c.query("update sessions set org_id = $2 where id = $1", [req.session.id, o.id]);
+      return o;
+    });
+    await audit({ session: { org_id: org.id, user_id: req.session.user_id } }, "org.created", org.name);
+    await reloadSession(req);
+    res.json(await me(req));
+  }));
+
+  app.post("/api/session/org", requireUser, wrap(async (req, res) => {
+    const orgId = String((req.body && req.body.org_id) || "");
+    const m = await one("select 1 from memberships where org_id = $1 and user_id = $2", [orgId, req.session.user_id]);
+    if (!m) return res.status(403).json({ error: "not_a_member" });
+    await q("update sessions set org_id = $2 where id = $1", [req.session.id, orgId]);
+    await reloadSession(req);
+    res.json(await me(req));
+  }));
+
+  app.patch("/api/org", requireAdmin, wrap(async (req, res) => {
+    const name = String((req.body && req.body.name) || "").trim().slice(0, 120);
+    if (name.length < 2) return res.status(400).json({ error: "bad_name" });
+    await q("update orgs set name = $2 where id = $1", [req.session.org_id, name]);
+    await audit(req, "org.renamed", name);
+    await reloadSession(req);
+    res.json(await me(req));
+  }));
+
+  app.get("/api/org/members", requireOrg, wrap(async (req, res) => {
+    const rows = (await q(`select u.id, u.email, u.name, m.role, m.created_at, u.last_seen_at
+                           from memberships m join users u on u.id = m.user_id
+                           where m.org_id = $1 order by m.role = 'owner' desc, m.role = 'admin' desc, lower(coalesce(u.name, u.email))`,
+      [req.session.org_id])).rows;
+    res.json({ members: rows });
+  }));
+
+  app.patch("/api/org/members/:userId", requireAdmin, wrap(async (req, res) => {
+    const role = String((req.body && req.body.role) || "");
+    if (!["owner", "admin", "surveyor"].includes(role)) return res.status(400).json({ error: "bad_role" });
+    const target = await one("select * from memberships where org_id = $1 and user_id = $2", [req.session.org_id, req.params.userId]);
+    if (!target) return res.status(404).json({ error: "not_found" });
+    // only an owner hands out or takes away ownership
+    if ((role === "owner" || target.role === "owner") && req.membership.role !== "owner") return res.status(403).json({ error: "owner_only" });
+    if (target.role === "owner" && role !== "owner") {
+      const owners = await one("select count(*)::int as n from memberships where org_id = $1 and role = 'owner'", [req.session.org_id]);
+      if (owners.n <= 1) return res.status(409).json({ error: "last_owner" });
+    }
+    await q("update memberships set role = $3 where org_id = $1 and user_id = $2", [req.session.org_id, req.params.userId, role]);
+    await audit(req, "member.role", req.params.userId, { role });
+    res.json({ ok: true });
+  }));
+
+  app.delete("/api/org/members/:userId", requireAdmin, wrap(async (req, res) => {
+    const target = await one("select * from memberships where org_id = $1 and user_id = $2", [req.session.org_id, req.params.userId]);
+    if (!target) return res.status(404).json({ error: "not_found" });
+    if (target.role === "owner") {
+      if (req.membership.role !== "owner") return res.status(403).json({ error: "owner_only" });
+      const owners = await one("select count(*)::int as n from memberships where org_id = $1 and role = 'owner'", [req.session.org_id]);
+      if (owners.n <= 1) return res.status(409).json({ error: "last_owner" });
+    }
+    await tx(async (c) => {
+      await c.query("delete from memberships where org_id = $1 and user_id = $2", [req.session.org_id, req.params.userId]);
+      // their sessions fall back to another firm they belong to, or none
+      await c.query(`update sessions set org_id = (select org_id from memberships where user_id = $1 order by created_at desc limit 1)
+                     where user_id = $1 and org_id = $2`, [req.params.userId, req.session.org_id]);
+    });
+    await audit(req, "member.removed", req.params.userId);
+    res.json({ ok: true });
+  }));
+
+  app.get("/api/org/invites", requireAdmin, wrap(async (req, res) => {
+    const rows = (await q("select id, email, role, created_at, expires_at from invites where org_id = $1 and accepted_at is null and expires_at > now() order by created_at desc",
+      [req.session.org_id])).rows;
+    res.json({ invites: rows });
+  }));
+
+  app.post("/api/org/invites", requireAdmin, wrap(async (req, res) => {
+    const email = normEmail(req.body && req.body.email);
+    const role = String((req.body && req.body.role) || "surveyor");
+    if (!validEmail(email)) return res.status(400).json({ error: "bad_email" });
+    if (!["admin", "surveyor"].includes(role)) return res.status(400).json({ error: "bad_role" });
+    if (!rateLimit(`invite:org:${req.session.org_id}`, 50, 60 * 60 * 1000)) return res.status(429).json({ error: "slow_down" });
+    const already = await one("select 1 from memberships m join users u on u.id = m.user_id where m.org_id = $1 and lower(u.email) = $2", [req.session.org_id, email]);
+    if (already) return res.status(409).json({ error: "already_member" });
+    const token = randomToken(24);
+    const inv = await one(`insert into invites (org_id, email, role, token_hash, invited_by, expires_at)
+                           values ($1, $2, $3, $4, $5, now() + interval '14 days') returning id, email, role, created_at, expires_at`,
+      [req.session.org_id, email, role, sha256(token), req.session.user_id]);
+    const link = `${baseUrl(req)}/?invite=${token}`;
+    const inviter = await one("select name, email from users where id = $1", [req.session.user_id]);
+    let delivered = false;
+    try { await sendEmail({ to: email, ...inviteEmail({ orgName: req.membership.org_name, inviterName: inviter.name || inviter.email, link }) }); delivered = emailConfigured; }
+    catch (e) { console.error("invite email failed:", e.message); }
+    await audit(req, "invite.sent", email, { role });
+    // the link is returned so an admin can hand it over directly (WhatsApp,
+    // in person) when email isn't set up or didn't arrive
+    res.json({ invite: inv, link, delivered });
+  }));
+
+  app.delete("/api/org/invites/:id", requireAdmin, wrap(async (req, res) => {
+    await q("delete from invites where id = $1 and org_id = $2", [req.params.id, req.session.org_id]);
+    res.json({ ok: true });
+  }));
+
+  // what an invite link is for — shown on the sign-in screen before signing in
+  app.get("/api/invites/:token", wrap(async (req, res) => {
+    const inv = await one(`select i.email, i.role, i.expires_at, o.name as org_name from invites i join orgs o on o.id = i.org_id
+                           where i.token_hash = $1 and i.accepted_at is null and i.expires_at > now()`, [sha256(req.params.token)]);
+    if (!inv) return res.status(404).json({ error: "invalid" });
+    res.json({ org_name: inv.org_name, email: inv.email, role: inv.role });
+  }));
+
+  app.post("/api/invites/accept", requireUser, wrap(async (req, res) => {
+    const user = await one("select * from users where id = $1", [req.session.user_id]);
+    const inv = await acceptInviteIfAny(req, user, req.body && req.body.token);
+    if (!inv) return res.status(404).json({ error: "invalid_or_wrong_email" });
+    await reloadSession(req);
+    res.json(await me(req));
+  }));
+}
 
 // ---- the app itself --------------------------------------------------------
 app.use(express.static(DIST, {
@@ -255,7 +584,20 @@ app.get("*", (req, res) => {
   res.sendFile(path.join(DIST, "index.html"), { headers: { "Cache-Control": "no-cache" } });
 });
 
-app.listen(PORT, "0.0.0.0", () => {
-  const on = Object.keys(PROVIDERS).filter(enabled);
-  console.log(`SiteSnap on :${PORT} — cloud link: ${on.length ? on.join(", ") : "off (set TOKEN_KEY plus a provider's client ID and secret)"}`);
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  console.error(`${req.method} ${req.path}:`, err && err.stack ? err.stack.split("\n").slice(0, 3).join(" | ") : err);
+  if (res.headersSent) return;
+  res.status(500).json({ error: "server_error" });
 });
+
+(async () => {
+  if (hasDb) {
+    try { await migrate(); }
+    catch (e) { console.error("database unavailable:", e.message); process.exit(1); }
+  }
+  app.listen(PORT, "0.0.0.0", () => {
+    const on = Object.keys(PROVIDERS).filter(enabled);
+    console.log(`SiteSnap on :${PORT} — mode: ${hasDb ? "accounts" : "local"}; cloud link: ${on.length ? on.join(", ") : "off (set TOKEN_KEY plus a provider's client ID and secret)"}; email: ${emailConfigured ? "resend" : "log only"}`);
+  });
+})();

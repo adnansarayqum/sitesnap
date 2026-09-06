@@ -672,6 +672,36 @@ export function StyleBlock() {
         display: inline-block; margin-top: 10px; padding: 4px 10px; border: 1.5px solid rgba(217,244,79,.5);
         border-radius: 4px; color: var(--hivis); font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
       }
+
+      /* ---- accounts: sign-in, firm, team ---- */
+      .ss-signin { padding-top: 40px; }
+      .ss-signin form { display: flex; flex-direction: column; }
+      .ss-code { font: 800 30px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .18em; text-align: center; padding: 16px 12px; }
+      .ss-or { display: flex; align-items: center; gap: 12px; color: var(--muted2); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; margin: 18px 0 12px; }
+      .ss-or::before, .ss-or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+      .ss-signin-links { display: flex; justify-content: space-between; margin-top: 14px; }
+      .ss-signin-links .ss-link { padding: 6px 0; }
+      .ss-error { color: var(--red); margin: 12px 2px 0; }
+      .ss-invite-banner { background: var(--pine-tint); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; font-size: 14px; margin-bottom: 18px; line-height: 1.45; }
+      .ss-org-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+      .ss-org-card-title { display: flex; align-items: center; gap: 7px; font-weight: 800; font-size: 14px; }
+      .ss-org-row { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 12px 4px; border-top: 1px solid var(--line-soft); font-weight: 700; font-size: 14px; text-align: left; }
+      .ss-org-row:first-of-type { border-top: 0; }
+      .ss-role-pill { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); background: var(--paper-deep); border-radius: 999px; padding: 4px 9px; flex-shrink: 0; }
+      .ss-member-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line-soft); }
+      .ss-member-row:first-child { border-top: 0; padding-top: 2px; }
+      .ss-member-name { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .ss-member-sub { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .ss-role-select { appearance: none; -webkit-appearance: none; background: var(--paper-deep); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font: inherit; font-size: 13px; font-weight: 700; color: var(--ink); }
+      .ss-icon-btn { width: 32px; height: 32px; border-radius: 999px; display: flex; align-items: center; justify-content: center; color: var(--muted); background: var(--paper-deep); flex-shrink: 0; }
+      .ss-invite-result { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line-soft); }
+      .ss-account-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; font-size: 13.5px; }
+      .ss-account-row .ss-muted { color: var(--muted); }
+      /* a wide <select> or a long value in a flex row must shrink, never push
+         the page sideways */
+      .ss-scroll { overflow-x: hidden; }
+      .ss-key-row > * { min-width: 0; }
+      .ss-role-select { max-width: 100%; text-overflow: ellipsis; }
     `}</style>
   );
 }

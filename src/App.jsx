@@ -3,7 +3,7 @@ import {
   AlertTriangle, Loader2, Undo2, X,
 } from "lucide-react";
 import {
-  loadIndex, loadInspection, migrateLegacy, saveState, clearState, loadPhoto, savePhoto, updatePhoto, removePhoto, loadAudio, saveAudio, removeAudio, loadArchive, archiveInspection, sweepOrphans, setStorageErrorHandler, requestDurableStorage, storageEstimate, loadFieldMode, saveFieldMode, nextCaseNo,
+  loadIndex, loadInspection, migrateLegacy, saveState, clearState, loadPhoto, savePhoto, updatePhoto, removePhoto, loadAudio, saveAudio, removeAudio, loadArchive, archiveInspection, sweepOrphans, setStorageErrorHandler, requestDurableStorage, storageEstimate, loadFieldMode, saveFieldMode, nextCaseNo, setStorageNamespace,
 } from "./storage.js";
 import { THUMB_DIM, dataUrlToFile, drawScaled, loadImage, shareFiles } from "./lib/image.js";
 import { pad, safeFileName, uid } from "./lib/util.js";
@@ -14,7 +14,10 @@ import { SettingsScreen } from "./screens/Settings.jsx";
 import { SetupScreen } from "./screens/Setup.jsx";
 import { WalkScreen } from "./screens/Walk.jsx";
 import { StyleBlock } from "./styles.jsx";
-import { claimFromUrl } from "./cloud/service.js";
+import { claimFromUrl, setAccountLinks } from "./cloud/service.js";
+import { fetchMe, signOut as apiSignOut, captureInviteFromUrl, clearPendingInvite, inviteInfo, acceptInvite, cloudServiceConfig } from "./auth.js";
+import { SignInScreen } from "./screens/SignIn.jsx";
+import { OrgScreen } from "./screens/Org.jsx";
 
 // Root: owns the open inspection, its rooms and the thumbnail cache, and
 // routes between the top-level tabs and the screens inside a case file.
@@ -27,6 +30,12 @@ export default function SiteSnap() {
   // returns to whichever tab it was opened from.
   const [screen, setScreen] = useState("loading");
   const [returnTab, setReturnTab] = useState("home");
+  // accounts mode: who's signed in and which firm (null = server unreachable
+  // or a deployment without a database, i.e. the single-user app)
+  const [me, setMe] = useState(null);
+  const [cfg, setCfg] = useState({ mode: "local", onedrive: false, google: false });
+  const [invite, setInvite] = useState(null);
+  const [inviteToken, setInviteToken] = useState(null);
   const [caseTab, setCaseTab] = useState("overview"); // overview|rooms|findings|export, while screen === "casefile"
   const [inspection, setInspection] = useState(null);
   const [index, setIndex] = useState([]);
@@ -126,8 +135,15 @@ export default function SiteSnap() {
     });
     (async () => {
       await migrateLegacy();
-      // back from a same-tab cloud sign-in (see cloud/service.js)
-      claimFromUrl().then((j) => { if (j) setStorageAlert(`${j.label} connected${j.account ? " — " + j.account : ""}`); });
+      // back from a same-tab cloud sign-in (see cloud/service.js) — claimed
+      // before /api/me so a sign-in pairing's cookie is already in place
+      const claimed = await claimFromUrl();
+      if (claimed && claimed.purpose === "link") setStorageAlert(`${claimed.label} connected${claimed.account ? " — " + claimed.account : ""}`);
+      setCfg(await cloudServiceConfig());
+      const token = captureInviteFromUrl();
+      setInviteToken(token);
+      if (token) inviteInfo(token).then(setInvite);
+      await applyMe(await fetchMe());
       // ask the browser not to evict an inspection under disk pressure;
       // browsers usually grant this only once the app is on the home screen
       requestDurableStorage().then((granted) => setDurable(granted));
@@ -144,6 +160,50 @@ export default function SiteSnap() {
   async function refreshIndex() {
     setIndex(await loadIndex());
   }
+
+  // accounts mode: apply what /api/me says — which person (so this phone's
+  // lists are namespaced to them), their drive links, and their firm
+  async function applyMe(m) {
+    setMe(m);
+    if (m && m.mode === "accounts") {
+      setAccountLinks(m.user ? m.links : []);
+      setStorageNamespace(m.user ? m.user.id : "");
+    } else {
+      setAccountLinks(null);
+      setStorageNamespace("");
+    }
+  }
+
+  async function reloadMe() {
+    let m = await fetchMe();
+    // an invitation carried in from a link is accepted once signed in
+    if (inviteToken && m && m.user && !m.org) {
+      try {
+        await acceptInvite(inviteToken);
+        clearPendingInvite(); setInviteToken(null); setInvite(null);
+        m = await fetchMe();
+      } catch { /* wrong email or expired — the firm screen explains */ }
+    }
+    await applyMe(m);
+    await refreshIndex();
+    setArchive(await loadArchive());
+  }
+
+  async function doSignOut() {
+    await flushAll();
+    try { await apiSignOut(); } catch { /* the session may already be gone */ }
+    setInspection(null); setRooms([]); setPhotoCache({});
+    setScreen("home");
+    await reloadMe();
+  }
+
+  useEffect(() => {
+    // any API call answered 401 — the session ended elsewhere
+    const h = () => fetchMe().then(applyMe);
+    window.addEventListener("ss:signed-out", h);
+    return () => window.removeEventListener("ss:signed-out", h);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Photos and voice notes stay on disk until an inspection is closed, so
   // opening one only pulls that property's media into memory. `fromTab` is
@@ -452,24 +512,34 @@ export default function SiteSnap() {
     await updatePhoto(photoId, { dataUrl, thumb }).catch(() => {});
   }
 
+  const accounts = !!(me && me.mode === "accounts");
+  const gate = screen !== "loading" && accounts && !me.user
+    ? <SignInScreen config={cfg} invite={invite} inviteToken={inviteToken} onSignedIn={reloadMe} />
+    : screen !== "loading" && accounts && !me.org
+      ? <OrgScreen me={me} invite={invite} inviteToken={inviteToken} onDone={reloadMe} onSignOut={doSignOut} />
+      : null;
+  const view = gate ? "gate" : screen;
+
   return (
     <div className={`ss-root${fieldMode ? " ss-field" : ""}`}>
       <StyleBlock />
       <div className="ss-frame">
-        {screen === "loading" && (
+        {gate}
+        {view === "loading" && (
           <div className="ss-center"><Loader2 className="ss-spin" size={26} /></div>
         )}
 
-        {screen === "home" && (
+        {view === "home" && (
           <HomeScreen
             index={index}
+            orgName={accounts && me.org ? me.org.name : null}
             onNew={() => { setReturnTab("home"); setScreen("setup"); }}
             onOpen={(id) => openInspection(id, "home")}
             onTab={setScreen}
           />
         )}
 
-        {screen === "cases" && (
+        {view === "cases" && (
           <CasesScreen
             index={index}
             archive={archive}
@@ -481,19 +551,22 @@ export default function SiteSnap() {
           />
         )}
 
-        {screen === "settings" && (
+        {view === "settings" && (
           <SettingsScreen
             fieldMode={fieldMode}
             onToggleFieldMode={toggleFieldMode}
             onTab={setScreen}
+            me={me}
+            onSignOut={doSignOut}
+            onMeChanged={reloadMe}
           />
         )}
 
-        {screen === "setup" && (
+        {view === "setup" && (
           <SetupScreen onBack={() => setScreen(returnTab)} onStart={startInspection} />
         )}
 
-        {screen === "casefile" && inspection && (
+        {view === "casefile" && inspection && (
           <CaseFileScreen
             inspection={inspection}
             rooms={rooms}
@@ -521,7 +594,7 @@ export default function SiteSnap() {
           />
         )}
 
-        {screen === "walk" && inspection && rooms[walkIndex] && (
+        {view === "walk" && inspection && rooms[walkIndex] && (
           <WalkScreen
             rooms={rooms}
             index={walkIndex}
@@ -541,7 +614,7 @@ export default function SiteSnap() {
           />
         )}
 
-        {screen === "evidence" && (() => {
+        {view === "evidence" && (() => {
           const room = rooms.find((r) => r.id === activeRoomId);
           if (!room) { setScreen("casefile"); return null; }
           return (

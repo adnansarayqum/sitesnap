@@ -64,9 +64,26 @@ src/
   lib/                  image pipeline, room presets, small helpers
   cloud/                OneDrive and Google Drive clients (loaded on demand),
                         service.js = the phone's side of the cloud-link service
+  auth.js               sign-in, firm and team calls (accounts mode)
+  screens/SignIn.jsx    email-code / Microsoft / Google sign-in
+  screens/Org.jsx       join by invitation or create a firm
+  screens/Team.jsx      members, roles, invitations (admins)
 server/
-  index.js              serves dist/ + the cloud-link service (OAuth, sealed tokens)
+  index.js              serves dist/, the cloud-link service, sign-in, firms, invites
+  auth.js               sessions (httpOnly cookies), sign-in codes, guards, audit
+  db.js / schema.sql    Postgres access and the idempotent schema; migrations.js
+  email.js              Resend (or log-only) for codes and invitations
 ```
+
+## Firms and sign-in (accounts mode)
+
+Set `DATABASE_URL` (Railway Postgres) and `TOKEN_KEY` and the same
+deployment becomes multi-firm: sign-in by email code or Microsoft/Google,
+firms with owners/admins/surveyors, invitations, and cloud links that follow
+each person across devices. Photos still go phone → the surveyor's own
+drive; the server never holds one. Setup, roles and what's stored:
+[`docs/enterprise-setup.md`](docs/enterprise-setup.md). Without a database
+the app is the single-user PWA it always was.
 
 ## How photos are stored
 

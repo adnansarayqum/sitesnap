@@ -36,7 +36,14 @@ export async function storageEstimate() {
 }
 
 const LEGACY_KEY = "sitesnap:inspection";   // pre-1.3: a single inspection
-const INDEX_KEY = "sitesnap:inspections";   // [{id, address, postcode, startedAt}]
+// In accounts mode every list that defines "what this person can see" is
+// kept per user, so two surveyors sharing a phone never see each other's
+// cases. Photos and records are keyed by their own unique ids and need no
+// namespace; the lists are what select them.
+let NS = "";
+export function setStorageNamespace(userId) { NS = userId ? String(userId) : ""; }
+const indexKey = () => (NS ? `sitesnap:u:${NS}:inspections` : "sitesnap:inspections"); // [{id, address, postcode, startedAt}]
+const INDEX_KEY_RE = /^sitesnap:(u:[^:]+:)?inspections$/;
 const HOOK_KEY = "sitesnap:webhook";
 const KEY_KEY = "sitesnap:webhookKey";
 
@@ -46,11 +53,11 @@ const recordKey = (id) => `sitesnap:inspection:${id}`;
 // can't finish and wipe one before starting the next, and may be out of
 // signal all morning.
 export async function loadIndex() {
-  try { return (await get(INDEX_KEY)) || []; } catch { return []; }
+  try { return (await get(indexKey())) || []; } catch { return []; }
 }
 
 async function writeIndex(list) {
-  try { await set(INDEX_KEY, list); } catch (e) { writeFailed("Saving the inspection list", e); }
+  try { await set(indexKey(), list); } catch (e) { writeFailed("Saving the inspection list", e); }
 }
 
 // Every index update is read-modify-write. Two saves in flight at once (a
@@ -120,7 +127,9 @@ export async function sweepOrphans(olderThan) {
     const all = await keys();
     const media = all.filter((k) => typeof k === "string" && (k.startsWith("sitesnap:photo:") || k.startsWith("sitesnap:audio:")));
     if (!media.length) return 0;
-    const index = await loadIndex();
+    // every user's index on this phone, not just the current one
+    const indexes = all.filter((k) => typeof k === "string" && INDEX_KEY_RE.test(k));
+    const index = (await Promise.all(indexes.map((k) => get(k).catch(() => [])))).flat().filter(Boolean);
     const live = new Set();
     for (const entry of index) {
       const rec = await loadInspection(entry.id);
@@ -138,22 +147,22 @@ export async function sweepOrphans(olderThan) {
 // A closed inspection leaves its photos behind (they live in the cloud now)
 // but keeps a record, so "did Vernon Road actually go?" is answerable without
 // opening OneDrive.
-const ARCHIVE_KEY = "sitesnap:archive";
+const archiveKey = () => (NS ? `sitesnap:u:${NS}:archive` : "sitesnap:archive");
 
 export async function loadArchive() {
-  try { return (await get(ARCHIVE_KEY)) || []; } catch { return []; }
+  try { return (await get(archiveKey())) || []; } catch { return []; }
 }
 
 export async function archiveInspection(entry) {
   try {
     const list = await loadArchive();
     list.unshift(entry);
-    await set(ARCHIVE_KEY, list.slice(0, 200));
+    await set(archiveKey(), list.slice(0, 200));
   } catch (e) { writeFailed("Saving the completed record", e); }
 }
 
 export async function clearArchive() {
-  try { await del(ARCHIVE_KEY); } catch {}
+  try { await del(archiveKey()); } catch {}
 }
 
 // One-time move of a pre-1.3 inspection into the multi-inspection store, so
@@ -265,14 +274,14 @@ export async function saveFieldMode(on) {
 // creation, never reused even if that case is later discarded. Queued the
 // same way as the inspection index so two properties started back-to-back
 // can't race each other onto the same number.
-const CASE_NO_KEY = "sitesnap:nextCaseNo";
+const caseNoKey = () => (NS ? `sitesnap:u:${NS}:nextCaseNo` : "sitesnap:nextCaseNo");
 let caseNoQueue = Promise.resolve();
 
 export function nextCaseNo() {
   const run = caseNoQueue.then(async () => {
     try {
-      const n = (await get(CASE_NO_KEY)) || 1; // starts at 1 on a fresh device — purely a local counter, not tied to any external case log
-      await set(CASE_NO_KEY, n + 1);
+      const n = (await get(caseNoKey())) || 1; // starts at 1 on a fresh device — purely a local counter, not tied to any external case log
+      await set(caseNoKey(), n + 1);
       return n;
     } catch (e) {
       writeFailed("Assigning a case number", e);

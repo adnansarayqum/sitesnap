@@ -28,7 +28,7 @@ export function TabBar({ active, onChange }) {
   );
 }
 
-export function HomeScreen({ index, onNew, onOpen, onTab }) {
+export function HomeScreen({ index, onNew, onOpen, onTab, orgName }) {
   const open = [...index].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   const active = open[0] || null;
   const others = open.slice(1, 5);
@@ -58,7 +58,7 @@ export function HomeScreen({ index, onNew, onOpen, onTab }) {
       <div className="ss-col">
         <div className="ss-home-hero">
           <div className="ss-mark"><Camera size={20} strokeWidth={2.4} /></div>
-          <div className="ss-eyebrow">Property inspections</div>
+          <div className="ss-eyebrow">{orgName || "Property inspections"}</div>
           <h1 className="ss-h1">Every photo,<br />already filed.</h1>
           <p className="ss-lede">
             Pick the rooms, walk the property, shoot as you go. Photos file
@@ -85,7 +85,7 @@ export function HomeScreen({ index, onNew, onOpen, onTab }) {
     <div className="ss-col">
       <div className="ss-home-top">
         <div>
-          <div className="ss-eyebrow-sm">SiteSnap</div>
+          <div className="ss-eyebrow-sm">{orgName || "SiteSnap"}</div>
           <div className="ss-title-lg">Dashboard</div>
         </div>
       </div>
