@@ -5,7 +5,8 @@ import {
 import {
   loadIndex, loadInspection, migrateLegacy, saveState, clearState, loadPhoto, savePhoto, updatePhoto, removePhoto, loadAudio, saveAudio, removeAudio, loadArchive, archiveInspection, sweepOrphans, setStorageErrorHandler, requestDurableStorage, storageEstimate, loadFieldMode, saveFieldMode, nextCaseNo, setStorageNamespace, loadWebhook,
 } from "./storage.js";
-import { THUMB_DIM, dataUrlToFile, drawScaled, loadImage, shareFiles } from "./lib/image.js";
+import { THUMB_DIM, dataUrlToFile, drawScaled, loadImage, processCapture, shareFiles } from "./lib/image.js";
+import { idPhotoName } from "./screens/Finish.jsx";
 import { pad, safeFileName, uid } from "./lib/util.js";
 import { CaseFileScreen } from "./screens/CaseFile.jsx";
 import { CasesScreen, HomeScreen } from "./screens/Home.jsx";
@@ -283,6 +284,10 @@ export default function SiteSnap() {
       }
       cache[pid] = lighten(p);
     }
+    if (data.inspection.idPhotoId) {
+      const p = await loadPhoto(data.inspection.idPhotoId);
+      if (p) cache[p.id] = lighten(p);
+    }
     setPhotoCache(cache);
     audioCache.current = {};
     const memoIds = (data.rooms || []).flatMap((r) => (r.memos || []).map((m) => m.id));
@@ -449,6 +454,37 @@ export default function SiteSnap() {
     setInspection((prev) => (prev ? { ...prev, ...patch } : prev));
   }
 
+  // The ID selfie is a photo of the case, not of a room: stored like any
+  // other photo, referenced from the inspection, never in a room's list —
+  // so it stays out of the numbered folders, the report and the AI step.
+  async function addIdPhoto(file) {
+    try {
+      const { dataUrl, thumb } = await processCapture(file);
+      const photo = { id: uid("ph"), roomId: null, no: null, caption: "ID photo", dataUrl, thumb, takenAt: Date.now() };
+      saveNow.current = true;
+      try { await savePhoto(photo); } catch { return; }
+      const old = inspection && inspection.idPhotoId;
+      if (old && old !== photo.id) removePhoto(old);
+      setPhotoCache((c) => ({ ...c, [photo.id]: lighten(photo) }));
+      setInspectionMeta({ idPhotoId: photo.id });
+      logActivity("ID photo taken");
+    } catch (e) { console.error(e); }
+  }
+  function removeIdPhoto() {
+    const id = inspection && inspection.idPhotoId;
+    if (!id) return;
+    removePhoto(id);
+    setPhotoCache((c) => { const n = { ...c }; delete n[id]; return n; });
+    setInspectionMeta({ idPhotoId: null });
+  }
+  async function shareIdPhoto() {
+    const id = inspection && inspection.idPhotoId;
+    if (!id) return;
+    const p = await fullPhoto(id);
+    if (!p || !p.dataUrl) return;
+    await shareFiles([dataUrlToFile(p.dataUrl, idPhotoName(inspection))], "ID photo");
+  }
+
   // A caption is typed one character at a time, and each photo record carries
   // its full-size image — so the write is debounced per photo rather than
   // rewriting a megabyte on every keystroke.
@@ -514,6 +550,7 @@ export default function SiteSnap() {
     setArchive(await loadArchive());
     await clearState(inspection.id);
     ids.forEach((id) => removePhoto(id));
+    if (inspection.idPhotoId) removePhoto(inspection.idPhotoId);
     memoIds.forEach((id) => removeAudio(id));
     await exitCase();
   }
@@ -525,6 +562,7 @@ export default function SiteSnap() {
       data.rooms.flatMap((r) => r.photoIds).forEach((pid) => removePhoto(pid));
       data.rooms.flatMap((r) => (r.memos || []).map((m) => m.id)).forEach((mid) => removeAudio(mid));
     }
+    if (data && data.inspection && data.inspection.idPhotoId) removePhoto(data.inspection.idPhotoId);
     await clearState(id);
     await refreshIndex();
     deleteRemoteCase(id);
@@ -687,7 +725,13 @@ export default function SiteSnap() {
             audioCache={audioCache}
             onUploadResult={(r) => { setInspectionMeta({ lastUpload: r }); logActivity(r.ok ? (r.confirmed ? "Filed in the cloud" : "Sent to the cloud") : "Upload didn't finish"); }}
             onExportResult={(r) => setInspectionMeta({ lastExport: r })}
-            onFindings={(f) => setInspectionMeta({ draftFindings: f })}
+            onFindings={(f) => setInspectionMeta({ findings: f })}
+            onTranscripts={(t) => setInspectionMeta({ transcripts: t })}
+            onActivity={logActivity}
+            idPhoto={inspection.idPhotoId ? photoCache[inspection.idPhotoId] || null : null}
+            onIdPhoto={addIdPhoto}
+            onRemoveIdPhoto={removeIdPhoto}
+            onShareIdPhoto={shareIdPhoto}
             filing={filing}
             onFiled={(ids, provider) => ids.forEach((id) => markFiled(id, { provider, at: Date.now() }))}
             onSaveAll={async () => shareFiles(await filesForAll(), "Inspection photos")}

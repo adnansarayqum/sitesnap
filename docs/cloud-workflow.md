@@ -1,5 +1,7 @@
 # Cloud workflow setup (Make.com → OneDrive + AI drafting)
 
+> **Note (Sept 2026):** the drafting leg of this workflow — notes → AI → findings — now runs inside SiteSnap itself on Claude, with review in the case's Findings tab. See `docs/ai-findings.md`. The photo and audio filing routes below are unchanged.
+
 This is the webhook route: SiteSnap POSTs to one URL you control, and your
 workflow decides what happens — including, uniquely to this route, running
 an AI drafting step over the notes. If you just want photos to land in your

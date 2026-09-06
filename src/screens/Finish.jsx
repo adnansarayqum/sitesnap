@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import {
-  AlertTriangle, Check, CircleCheck, Clock, CloudUpload, Download, FileText, FolderTree, ImagePlus, Link2, Loader2, MapPin, ShieldCheck, StickyNote, Trash2, X,
+  AlertTriangle, Check, CircleCheck, Clock, CloudUpload, Download, FileText, FolderTree, ImagePlus, Link2, Loader2, MapPin, Mic, Pencil, RotateCcw, ShieldCheck, Sparkles, StickyNote, Trash2, X,
 } from "lucide-react";
 import JSZip from "jszip";
 import {
@@ -9,9 +9,16 @@ import {
 import { loadGoogleDrive, loadMsGraph } from "../cloud/lazy.js";
 import { linkedAccount } from "../cloud/service.js";
 import { extFor } from "../components/VoiceMemo.jsx";
-import { canShareFiles } from "../lib/image.js";
-import { pad } from "../lib/util.js";
+import { canShareFiles, dataUrlToFile } from "../lib/image.js";
+import { pad, safeFileName } from "../lib/util.js";
 import { ReportView } from "./Report.jsx";
+import {
+  aiConfig, aiPhotoCopy, transcribeMemo, draftRoom, reviewFinding, emptyFindings, mergeRun, setFindingStatus,
+  effective, isApproved, needsAttention, approvedByRoom, findingsFiles, fromLegacyDraft,
+} from "../ai.js";
+
+// the ID photo files beside the inspection metadata, never in a room folder
+export const idPhotoName = (inspection) => `ID ${safeFileName(inspection.postcode || inspection.address || "photo")}.jpg`;
 
 export function describeHttp(status) {
   if (status === 401 || status === 403) return "The upload link rejected the access key.";
@@ -122,6 +129,14 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
         if (!room.photoIds.length) continue;
         const folder = root.folder(`${pad(i + 1)}. ${safeName(room.name)}`);
         (await filesForRoom(room)).forEach((f) => folder.file(f.name, f));
+      }
+      // approved findings for the workbook, and the ID photo — both beside the
+      // rooms, never inside one
+      const extras = findingsFiles(inspection.findings, rooms);
+      if (extras.length) { const meta = root.folder("_Inspection"); extras.forEach((f) => meta.file(f.name, f)); }
+      if (inspection.idPhotoId) {
+        const p = await fullPhoto(inspection.idPhotoId);
+        if (p && p.dataUrl) root.file(idPhotoName(inspection), dataUrlToFile(p.dataUrl, idPhotoName(inspection)));
       }
       const blob = await zip.generateAsync({ type: "blob" });
       const fileName = `${rootName}.zip`;
@@ -306,7 +321,23 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
         // photo numbers so findings can cite them without matching by hand
         photoNumbers: r.photoIds.map((id) => photoCache[id] && photoCache[id].no).filter(Boolean),
       })),
+      // what the surveyor approved in the Findings tab — the workbook can
+      // take these straight into the schedule
+      findings: approvedByRoom(inspection.findings, rooms),
     };
+    if (inspection.idPhotoId) {
+      const p = await fullPhoto(inspection.idPhotoId);
+      if (p && p.dataUrl) {
+        const ifd = baseFields(new FormData());
+        ifd.append("kind", "photo");
+        ifd.append("folder", "_Inspection");
+        ifd.append("room", "ID");
+        ifd.append("filename", idPhotoName(inspection));
+        ifd.append("file", dataUrlToFile(p.dataUrl, idPhotoName(inspection)), idPhotoName(inspection));
+        const r = await postToHook(url, key, ifd);
+        if (!r.ok) { anyFailed = true; failReason = failReason || r.reason; }
+      }
+    }
     const nfd = baseFields(new FormData());
     nfd.append("kind", "notes");
     // a folder so this still files sensibly against a workflow that has no
@@ -324,8 +355,11 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
       // its findings straight back in this response instead of only living
       // as a file in the drive — same trick the audio route uses for
       // transcripts. Nothing changes here if that step doesn't exist yet.
+      // ...but SiteSnap's own drafting step (the Findings tab) takes precedence:
+      // a workflow reply never overwrites findings the surveyor is reviewing.
       const drafted = parseDraftFindings(nres.body);
-      if (drafted && onFindings) onFindings(drafted);
+      const own = inspection.findings && inspection.findings.items && inspection.findings.items.length;
+      if (drafted && onFindings && !own) { const lifted = fromLegacyDraft(drafted, rooms); if (lifted) onFindings(lifted); }
     }
 
     setUpload((s) => s && ({ ...s, running: false, doneAll: !anyFailed }));
@@ -350,7 +384,8 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
     populated.forEach((r) => { statuses[r.id] = "queued"; });
     const memoCount = rooms.reduce((s, r) => s + (r.memos || []).length, 0);
     const toSend = (room) => room.photoIds.filter((id) => !isFiled(id, provider));
-    const total = populated.reduce((s, r) => s + toSend(r).length, 0) + memoCount + 1;
+    const extraFiles = findingsFiles(inspection.findings, rooms);
+    const total = populated.reduce((s, r) => s + toSend(r).length, 0) + memoCount + 1 + extraFiles.length + (inspection.idPhotoId ? 1 : 0);
     setDirectUpload({ provider, statuses, running: true, sent: 0, total });
 
     const put = provider === "ms"
@@ -401,7 +436,19 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
       };
       const notesFile = new File([JSON.stringify(payload, null, 2)], "inspection.json", { type: "application/json" });
       await put(["Inspections", inspection.address, "_Inspection"], "inspection.json", notesFile);
-      setDirectUpload((s) => s && ({ ...s, sent: s.sent + 1, running: false }));
+      setDirectUpload((s) => s && ({ ...s, sent: s.sent + 1 }));
+      for (const f of extraFiles) {
+        await put(["Inspections", inspection.address, "_Inspection"], f.name, f);
+        setDirectUpload((s) => s && ({ ...s, sent: s.sent + 1 }));
+      }
+      if (inspection.idPhotoId) {
+        const p = await fullPhoto(inspection.idPhotoId);
+        if (p && p.dataUrl) {
+          await put(["Inspections", inspection.address, "_Inspection"], idPhotoName(inspection), dataUrlToFile(p.dataUrl, idPhotoName(inspection)));
+          setDirectUpload((s) => s && ({ ...s, sent: s.sent + 1 }));
+        }
+      }
+      setDirectUpload((s) => s && ({ ...s, running: false }));
       if (onUploadResult) onUploadResult({ at: Date.now(), ok: true, confirmed: true, total, direct: provider });
       flash(`Filed directly to ${provider === "ms" ? "OneDrive" : "Google Drive"}`);
     } catch (e) {
@@ -638,80 +685,300 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
 
 /* ---------------- draft findings review ---------------- */
 
-// Mirrors the schema in docs/cloud-workflow.md — the AI drafts, the surveyor
-// reviews and approves each finding here before any of it reaches the
-// report. Nothing here sends or files anything; "Approve" only remembers
-// that a human looked at it.
-// Lives as the Findings tab of an open case, not a modal — always visible,
-// empty until the cloud workflow's AI drafting step actually replies to an
-// upload (see parseDraftFindings). Nothing here sends or files anything;
-// "Approve" only remembers that a human looked at it.
-export function FindingsTab({ draft, onChange }) {
-  const total = draft ? draft.rooms.reduce((n, r) => n + (r.findings || []).length, 0) : 0;
+/* ---------------- findings: the AI drafts, the surveyor decides ---------------- */
 
-  if (!total) {
+// The Findings tab of an open case. "Draft findings" sends each room that
+// has something to say — a note, a stated cause, voice notes, or a Fair/Poor
+// rating — to the server's drafting step (server/ai.js) together with the
+// room's photographs, and shows what comes back for review. Nothing here
+// files or sends anything; approving only decides what reaches the report
+// and the workbook export.
+const FLAG_LABEL = {
+  disagreement: "Photos disagree with your read", unpriced: "Unpriced — check", scope_uncertain: "Scope uncertain",
+  no_photo_evidence: "No photo shows it", legal_check: "Legal check", asbestos: "Asbestos",
+};
+const SCOPE_LABEL = { localised: "Localised repair", whole_element: "Whole element", multiple_elements: "Several elements", investigation_first: "Investigate first" };
+const money = (n) => `£${Math.round(n).toLocaleString("en-GB")}`;
+
+export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCache, onFindings, onTranscripts, onActivity }) {
+  const state = inspection.findings && inspection.findings.items ? inspection.findings : emptyFindings();
+  const transcripts = inspection.transcripts || {};
+  const [cfg, setCfg] = useState(null);
+  const [progress, setProgress] = useState(null); // { statuses: {roomId: queued|transcribing|drafting|done|failed}, running, error }
+  const [editing, setEditing] = useState(null);   // { id, defect, works, costLow, costHigh }
+  const [openTranscript, setOpenTranscript] = useState({});
+  useEffect(() => { aiConfig().then(setCfg); }, []);
+
+  const eligible = (r) => !!((r.note && r.note.trim()) || (r.hypothesis && r.hypothesis.trim()) || (r.memos || []).length || r.condition === "Poor" || r.condition === "Fair");
+  const candidates = rooms.filter(eligible);
+  const total = state.items.filter((f) => f.status !== "rejected").length;
+  const approved = state.items.filter(isApproved).length;
+  const flagged = state.items.filter((f) => f.status === "draft" && needsAttention(f)).length;
+
+  async function draftAll() {
+    if (progress && progress.running) return;
+    if (!candidates.length) return;
+    const statuses = {};
+    candidates.forEach((r) => { statuses[r.id] = "queued"; });
+    setProgress({ statuses, running: true, error: null });
+    let working = state;
+    let words = { ...transcripts };
+    let drafted = 0, failed = 0;
+    for (const room of candidates) {
+      const order = rooms.indexOf(room) + 1;
+      try {
+        // voice notes first: anything not yet transcribed goes up now, and the
+        // words are kept in the case so a re-draft doesn't pay for them twice
+        const memos = room.memos || [];
+        const pending = memos.filter((m) => !words[m.id] && audioCache.current[m.id]);
+        if (pending.length && cfg && cfg.transcription) {
+          setProgress((p) => p && ({ ...p, statuses: { ...p.statuses, [room.id]: "transcribing" } }));
+          for (const m of pending) {
+            try { words[m.id] = await transcribeMemo(inspection.id, room.id, m, audioCache.current[m.id]); }
+            catch (e) { words[m.id] = ""; console.error("transcribe", e); }
+          }
+          onTranscripts(words);
+        }
+        setProgress((p) => p && ({ ...p, statuses: { ...p.statuses, [room.id]: "drafting" } }));
+        const photos = [];
+        for (const pid of room.photoIds) {
+          const p = await fullPhoto(pid);
+          if (!p || !p.dataUrl) continue;
+          photos.push({ id: pid, no: p.no || null, caption: p.caption || "", dataUrl: await aiPhotoCopy(p.dataUrl) });
+        }
+        const res = await draftRoom({ inspection, room, order, transcripts: memos.map((m) => words[m.id]).filter(Boolean), photos });
+        working = mergeRun(working, room, res);
+        onFindings(working);
+        drafted += res.findings.length;
+        setProgress((p) => p && ({ ...p, statuses: { ...p.statuses, [room.id]: "done" } }));
+      } catch (e) {
+        failed += 1;
+        console.error("draft", e);
+        setProgress((p) => p && ({ ...p, statuses: { ...p.statuses, [room.id]: "failed" }, error: e.message }));
+      }
+    }
+    if (onActivity) onActivity(`Drafted ${drafted} finding${drafted === 1 ? "" : "s"} across ${candidates.length - failed} room${candidates.length - failed === 1 ? "" : "s"}${failed ? ` — ${failed} failed` : ""}`);
+    setProgress((p) => p && ({ ...p, running: false }));
+  }
+
+  function decide(f, status, reviewed) {
+    onFindings(setFindingStatus(state, f.id, status, reviewed));
+    reviewFinding(f.id, status, reviewed);
+    setEditing(null);
+  }
+  function startEdit(f) {
+    const e = effective(f);
+    setEditing({ id: f.id, defect: e.defect, works: e.remedial.works, costLow: e.cost.unpriced ? "" : e.cost.low, costHigh: e.cost.unpriced ? "" : e.cost.high });
+  }
+  function saveEdit(f) {
+    const low = editing.costLow === "" ? null : Number(editing.costLow);
+    const high = editing.costHigh === "" ? null : Number(editing.costHigh);
+    decide(f, "edited", { defect: editing.defect.trim(), works: editing.works.trim(), costLow: Number.isFinite(low) ? low : null, costHigh: Number.isFinite(high) ? high : null, at: Date.now() });
+  }
+  function approveUnflagged() {
+    let next = state;
+    for (const f of state.items) if (f.status === "draft" && !needsAttention(f)) { next = setFindingStatus(next, f.id, "approved"); reviewFinding(f.id, "approved"); }
+    onFindings(next);
+  }
+
+  const hasRuns = Object.keys(state.runs || {}).length > 0;
+  const aiOff = cfg && !cfg.enabled;
+  const draftLabel = hasRuns ? "Re-draft all rooms" : "Draft findings";
+
+  const statusBar = cfg && (
+    <div className="ss-ai-bar">
+      <Sparkles size={15} />
+      <span>
+        {cfg.enabled ? <>Drafted by <b>{cfg.model}</b> against <b>{cfg.reference}</b>.</> : <>Drafting is <b>off</b> on this server — it needs an ANTHROPIC_API_KEY.</>}
+        {cfg.enabled && !cfg.transcription && <> Voice notes won't be transcribed until OPENAI_API_KEY is set — typed notes still go through.</>}
+      </span>
+    </div>
+  );
+
+  const progressList = progress && (
+    <div className="ss-draft-rooms">
+      {candidates.map((r) => {
+        const st = progress.statuses[r.id] || "queued";
+        return (
+          <div key={r.id} className="ss-draft-room">
+            <span>{r.name}</span>
+            <span className={`st ${st}`}>
+              {(st === "drafting" || st === "transcribing") && <Loader2 size={12} className="ss-spin" />}
+              {st === "done" && <Check size={12} />}
+              {st === "failed" && <X size={12} />}
+              {st === "queued" ? "queued" : st === "transcribing" ? "transcribing" : st === "drafting" ? "reading photos" : st}
+            </span>
+          </div>
+        );
+      })}
+      {progress.error && <div className="ss-gaps"><AlertTriangle size={13} /> {progress.error}</div>}
+    </div>
+  );
+
+  if (!hasRuns && !(progress && progress.running)) {
     return (
-      <div className="ss-scroll">
-        <div className="ss-empty">
-          <ShieldCheck size={22} />
-          <p>No draft findings yet.<br />These appear automatically once your cloud workflow's AI drafting step replies to an upload.</p>
+      <>
+        <div className="ss-scroll">
+          {statusBar}
+          {progressList}
+          <div className="ss-empty">
+            <ShieldCheck size={22} />
+            <p>
+              No draft findings yet.<br />
+              {candidates.length
+                ? <>{candidates.length} room{candidates.length === 1 ? " has" : "s have"} notes, voice notes or a rating to work from. Drafting reads the photos too.</>
+                : <>Add a note, a voice note, your read on the cause, or rate a room Fair or Poor, and it can be drafted.</>}
+            </p>
+          </div>
         </div>
-      </div>
+        <div className="ss-footer">
+          <button className="ss-btn ss-btn-primary ss-btn-big" onClick={draftAll} disabled={!candidates.length || aiOff || !cfg}
+            title={aiOff ? "Set ANTHROPIC_API_KEY on the server" : undefined}>
+            <Sparkles size={18} /> {draftLabel}
+          </button>
+        </div>
+      </>
     );
   }
-
-  function toggleApprove(roomIdx, findingIdx) {
-    const rooms = draft.rooms.map((r, ri) => {
-      if (ri !== roomIdx) return r;
-      const findings = r.findings.map((f, fi) => (fi === findingIdx ? { ...f, approved: !f.approved } : f));
-      return { ...r, findings };
-    });
-    onChange({ ...draft, rooms });
-  }
-  function approveAll() {
-    onChange({ ...draft, rooms: draft.rooms.map((r) => ({ ...r, findings: (r.findings || []).map((f) => ({ ...f, approved: true })) })) });
-  }
-
-  const approved = draft.rooms.reduce((n, r) => n + (r.findings || []).filter((f) => f.approved).length, 0);
 
   return (
     <>
       <div className="ss-scroll">
+        {statusBar}
+        {progress && progress.running && progressList}
         <div className="ss-findings-banner">
           <ShieldCheck size={16} />
-          <span>Draft only. Nothing here is added to the report or sent anywhere — edit anything that doesn't read right in your workbook, this is just a first pass.</span>
+          <span>Drafts, not findings. Read every flag; approve what stands, edit what needs your wording, reject what's wrong. Only approved items reach the report and the workbook.</span>
         </div>
-        {draft.rooms.map((room, ri) => (room.findings || []).map((f, fi) => (
-          <div key={`${ri}-${fi}`} className="ss-finding-card">
-            <div className="ss-finding-head">
-              <span className="ss-finding-room">{room.room_name}</span>
-              <span className={`ss-pill-conf ${f.confidence === "high" ? "ok" : "warn"}`}>
-                {f.confidence === "high" ? "High confidence" : "Low confidence"}
-              </span>
+
+        {rooms.map((room) => {
+          const run = state.runs[room.id];
+          const items = state.items.filter((f) => f.roomId === room.id);
+          if (!run && !items.length) return null;
+          const memoText = (room.memos || []).map((m) => transcripts[m.id]).filter(Boolean);
+          return (
+            <div key={room.id} className="ss-room-run">
+              <div className="ss-room-run-head">
+                <h3>{room.name}</h3>
+                {run && <span className="ss-room-run-meta">{run.model === "mock" ? "mock draft" : run.model}{run.servedByFallback ? " · fallback" : ""} · {new Date(run.at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</span>}
+              </div>
+              {run && run.room_summary && <p className="ss-room-summary">{run.room_summary}</p>}
+              {memoText.length > 0 && (
+                <>
+                  <button className="ss-transcript-toggle" onClick={() => setOpenTranscript((o) => ({ ...o, [room.id]: !o[room.id] }))}>
+                    <Mic size={12} /> {openTranscript[room.id] ? "Hide" : "Show"} voice note transcript{memoText.length === 1 ? "" : "s"}
+                  </button>
+                  {openTranscript[room.id] && <div className="ss-transcript">{memoText.join("\n\n")}</div>}
+                </>
+              )}
+              {run && run.evidence_gaps && run.evidence_gaps.length > 0 && (
+                <div className="ss-gaps">What would settle the open questions:<ul>{run.evidence_gaps.map((g, i) => <li key={i}>{g}</li>)}</ul></div>
+              )}
+              {items.length === 0 && <p className="ss-empty-note">Nothing to report for this room from what was recorded.</p>}
+
+              {items.map((raw) => {
+                const f = effective(raw);
+                const a = f.assessment || {};
+                const flagKind = a.agreement === "disagree" ? "disagree" : a.agreement === "uncertain" ? "uncertain" : a.agreement === "agree" && f.surveyor_hypothesis ? "agree" : null;
+                const otherFlags = (f.review_flags || []).filter((x) => x !== "disagreement");
+                const isEditing = editing && editing.id === f.id;
+                return (
+                  <div key={f.id} className={`ss-finding-card ${f.status}`}>
+                    <div className="ss-finding-head">
+                      <span className="ss-finding-title">{f.title}</span>
+                      <span className={`ss-finding-status ${f.status}`}>{f.status}</span>
+                    </div>
+                    <div className="ss-chips">
+                      <span className={`ss-pill-conf ${f.confidence === "high" ? "ok" : "warn"}`}>{f.confidence} confidence</span>
+                      {otherFlags.map((x) => <span key={x} className="ss-chip warn"><AlertTriangle size={11} /> {FLAG_LABEL[x] || x}</span>)}
+                      {(f.photo_refs || []).length > 0 && <span className="ss-chip">Photos {f.photo_refs.join(", ")}</span>}
+                    </div>
+
+                    {flagKind && (
+                      <div className={`ss-flag ${flagKind}`}>
+                        {flagKind === "agree" ? <Check size={16} /> : <AlertTriangle size={16} />}
+                        <div>
+                          <b>{flagKind === "disagree" ? "The photos point elsewhere" : flagKind === "uncertain" ? "Could go either way" : "Photos support your read"}</b>
+                          <div className="kv">
+                            <span>Your read</span><span>{f.surveyor_hypothesis || "—"}</span>
+                            <span>Photos suggest</span><span>{a.likely_cause}</span>
+                          </div>
+                          {flagKind !== "agree" && a.reasoning && <p>{a.reasoning}</p>}
+                          {(a.alternative_causes || []).length > 0 && <p>Also open: {a.alternative_causes.join("; ")}.</p>}
+                        </div>
+                      </div>
+                    )}
+
+                    {isEditing ? (
+                      <div className="ss-edit-form">
+                        <label>Defect</label>
+                        <textarea rows={4} value={editing.defect} onChange={(e) => setEditing({ ...editing, defect: e.target.value })} />
+                        <label>Remedial works</label>
+                        <textarea rows={4} value={editing.works} onChange={(e) => setEditing({ ...editing, works: e.target.value })} />
+                        <label>Cost range (£)</label>
+                        <div className="row">
+                          <input type="number" inputMode="numeric" placeholder="low" value={editing.costLow} onChange={(e) => setEditing({ ...editing, costLow: e.target.value })} />
+                          <input type="number" inputMode="numeric" placeholder="high" value={editing.costHigh} onChange={(e) => setEditing({ ...editing, costHigh: e.target.value })} />
+                        </div>
+                        <div className="ss-finding-actions">
+                          <button className="ss-btn ss-btn-primary" onClick={() => saveEdit(raw)}><Check size={15} /> Save &amp; approve</button>
+                          <button className="ss-btn ss-btn-ghost" onClick={() => setEditing(null)}>Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="ss-finding-label">Defect</div>
+                        <p className="ss-finding-text">{f.defect}</p>
+                        {!flagKind && a.likely_cause && (
+                          <>
+                            <div className="ss-finding-label">Cause</div>
+                            <p className="ss-finding-text">{a.likely_cause}</p>
+                          </>
+                        )}
+                        <div className="ss-finding-label">Legislation</div>
+                        {f.legislation.length || f.hhsrs_hazard ? (
+                          <div className="ss-chips">
+                            {f.legislation.map((l) => <span key={l} className="ss-chip leg"><ShieldCheck size={11} /> {l}</span>)}
+                            {f.hhsrs_hazard && <span className="ss-chip leg">{f.hhsrs_hazard}</span>}
+                          </div>
+                        ) : <span className="ss-finding-leg-empty">Not clearly supported — left blank</span>}
+                        <div className="ss-finding-label">Remedial works</div>
+                        <div className="ss-scope"><FolderTree size={12} /> {SCOPE_LABEL[f.remedial.scope] || f.remedial.scope}</div>
+                        <p className="ss-finding-text">{f.remedial.works}</p>
+                        {f.remedial.scope_rationale && <p className="ss-scope-why">{f.remedial.scope_rationale}</p>}
+                        {(f.remedial.conditions || []).length > 0 && <div className="ss-chips">{f.remedial.conditions.map((c) => <span key={c} className="ss-chip warn">{c}</span>)}</div>}
+                        <div className="ss-finding-label">Estimated cost</div>
+                        {f.cost.unpriced
+                          ? <div className="ss-cost unpriced">Unpriced — {f.cost.basis || "no price book row fits"}</div>
+                          : <><div className="ss-cost">{money(f.cost.low)} – {money(f.cost.high)}</div><p className="ss-cost-basis">{f.cost.basis}{(f.cost.price_book_refs || []).length ? ` · ${f.cost.price_book_refs.join(", ")}` : ""}</p></>}
+                        <div className="ss-finding-actions">
+                          {f.status === "draft" && <button className="ss-btn ss-btn-primary" onClick={() => decide(raw, "approved")}><Check size={15} /> Approve</button>}
+                          {f.status !== "rejected" && <button className="ss-btn ss-btn-ghost" onClick={() => startEdit(raw)}><Pencil size={14} /> Edit</button>}
+                          {f.status === "draft" && <button className="ss-btn ss-btn-danger-ghost" onClick={() => decide(raw, "rejected")}><X size={15} /> Reject</button>}
+                          {f.status !== "draft" && <button className="ss-btn ss-btn-ghost" onClick={() => decide(raw, "draft", f.status === "edited" ? raw.reviewed : null)}><RotateCcw size={14} /> Back to draft</button>}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-            <div className="ss-finding-label">Defect</div>
-            <p className="ss-finding-text">{f.defect}</p>
-            <div className="ss-finding-label">Legislation</div>
-            {f.legislation_breached ? (
-              <span className="ss-finding-leg"><ShieldCheck size={13} /> {f.legislation_breached}</span>
-            ) : (
-              <span className="ss-finding-leg-empty">Not clear from the note — left blank</span>
-            )}
-            <div className="ss-finding-label">Remedial action</div>
-            <p className="ss-finding-text">{f.remedial_action}</p>
-            <button className={`ss-btn ${f.approved ? "ss-btn-primary" : "ss-btn-ghost"}`} style={{ marginTop: 10 }}
-              onClick={() => toggleApprove(ri, fi)}>
-              <Check size={15} /> {f.approved ? "Approved" : "Approve"}
-            </button>
-          </div>
-        )))}
+          );
+        })}
         <div style={{ height: 12 }} />
       </div>
       <div className="ss-footer">
         <div style={{ textAlign: "center", fontSize: 12.5, fontWeight: 700, color: "var(--muted)", marginBottom: 8 }}>
-          {approved} of {total} reviewed
+          {approved} of {total} approved{flagged ? ` · ${flagged} flagged for you` : ""}
         </div>
-        <button className="ss-btn ss-btn-primary" onClick={approveAll}><Check size={16} /> Approve all</button>
+        <div className="ss-finding-actions" style={{ marginTop: 0 }}>
+          <button className="ss-btn ss-btn-primary" onClick={approveUnflagged} disabled={!state.items.some((f) => f.status === "draft" && !needsAttention(f))}>
+            <Check size={16} /> Approve unflagged
+          </button>
+          <button className="ss-btn ss-btn-ghost" onClick={draftAll} disabled={(progress && progress.running) || aiOff || !candidates.length}>
+            {progress && progress.running ? <Loader2 size={15} className="ss-spin" /> : <Sparkles size={15} />} {draftLabel}
+          </button>
+        </div>
       </div>
     </>
   );

@@ -1,0 +1,27 @@
+{
+  "name": "Bathroom damp — condensation stated, a leak also in the evidence",
+  "why": "From the surveyor's voice note (6 Sep 2026): he called it condensation (4.5% readings, dead extractor, paper test) but described blistering and a defined stain opposite the bath that suggests a leak too. The draft must carry both causes or flag the second, not silently pick one. Corrections 6, 8, 10.",
+  "input": {
+    "context": { "address": "12 Example Road", "postcode": "E1 1AA", "reference": "HD-0042", "inspectedAt": "2026-09-01T10:30:00.000Z", "builtPre2000": false },
+    "room": {
+      "name": "Bathroom", "order": 2, "condition": "Poor",
+      "note": "Mould to wall adjacent to bath. Extractor not working. Readings 4.5%. Staining and blistering to the wall opposite the bath.",
+      "hypothesis": "Condensation"
+    },
+    "transcripts": [
+      "Right so we're in the bathroom, there's mould and damp there yeah. Damp and mould was observed to areas of the wall adjacent to the bathtub. On the balance of probabilities I'm thinking it's probably related to condensation because the readings were showing four point five percent and I've also checked the extractor fan, it's not working, really underpowered, checked it with the paper test and with the device. But also there is a bit of staining on the wall on the left hand side opposite the bathtub, not adjacent, opposite, and there's a bit of blistering of the paint, and that to me suggests there's an underlying leak, so there's a combination of two things potentially here."
+    ],
+    "photos": []
+  },
+  "expect": {
+    "findings_min": 1,
+    "agreement_in": ["agree", "uncertain"],
+    "alternatives_min": 1,
+    "legislation_includes": ["S9A"],
+    "flags_include": [],
+    "price_refs_include": ["EXTRACT-FAN-REPLACE"],
+    "works_must_contain": ["extract"],
+    "works_must_not_contain": ["entire", "throughout the property"],
+    "defect_must_contain": ["balance of probabilities"]
+  }
+}

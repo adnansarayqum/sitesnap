@@ -1,0 +1,28 @@
+{
+  "name": "Ceiling cracking under a textured coating — scope and asbestos",
+  "why": "From the surveyor's screen recording (6 Sep 2026): one AI draft priced asbestos sampling at £50 and recommended a patch; the next over-reached to 'remove the coating across the entire ceiling'. The approved wording made good 'the affected ceiling area' subject to the sample. Corrections 1, 2, 3, 9.",
+  "input": {
+    "context": { "address": "12 Example Road", "postcode": "E1 1AA", "reference": "HD-0042", "inspectedAt": "2026-09-01T10:30:00.000Z", "builtPre2000": true },
+    "room": {
+      "name": "Living Room", "order": 3, "condition": "Poor",
+      "note": "Cracking to the ceiling across most of it, textured artex finish. No live readings, historic staining near the light fitting.",
+      "hypothesis": "Old leak from the bathroom above that's since been fixed"
+    },
+    "transcripts": [
+      "So this ceiling, cracking observed pretty much across the whole thing, it's an artex finish so we'd need that sampled before anyone touches it. Readings are normal, there's some old staining round the rose, so on the balance of probabilities it's a previous leak that's been sorted. But you can see from the photo, it's not a patch job, if you just did that bit it'd look silly, the whole ceiling's going to need doing, disposal, skim, decorate. Don't want to go over the top in the wording though."
+    ],
+    "photos": []
+  },
+  "expect": {
+    "findings_min": 1,
+    "agreement_in": ["agree", "uncertain"],
+    "legislation_includes": ["S11"],
+    "scope": "whole_element",
+    "flags_include": ["asbestos"],
+    "price_refs_include": ["ASB-SAMPLE"],
+    "cost_min": 610,
+    "works_must_contain": ["affected ceiling"],
+    "works_must_not_contain": ["entire ceiling", "all ceilings", "throughout the property"],
+    "defect_must_contain": ["at the time of inspection"]
+  }
+}

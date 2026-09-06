@@ -53,7 +53,7 @@ function docFor(inspection, rooms) {
     ...rest,
     activity: (activity || []).slice(-40),
     rooms: rooms.map((r) => ({
-      id: r.id, name: r.name, condition: r.condition || null, note: r.note || "",
+      id: r.id, name: r.name, condition: r.condition || null, note: r.note || "", hypothesis: r.hypothesis || "",
       photoIds: r.photoIds, memos: (r.memos || []).map((m) => ({ id: m.id, secs: m.secs || null })),
     })),
   };

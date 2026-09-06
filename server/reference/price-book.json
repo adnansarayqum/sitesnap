@@ -1,0 +1,118 @@
+{
+  "version": 1,
+  "currency": "GBP",
+  "updated": "2026-09-06",
+  "note": "Every cost the model quotes must cite an id from this list. Rows marked status: example are placeholders until the firm's own rates replace them; rows marked status: confirmed came from the surveyor. Ranges are supply-and-fit, inc. access and making good, exc. VAT unless a row says otherwise.",
+  "items": [
+    {
+      "id": "ASB-SAMPLE",
+      "work": "Asbestos sampling and laboratory testing of a suspect textured coating or board — one location, including report",
+      "unit": "per sample",
+      "low": 160,
+      "high": 220,
+      "status": "confirmed",
+      "source": "surveyor, 6 Sep 2026 — corrected an AI draft from £50 to £160",
+      "notes": "Never below £160. Additional locations at a lower marginal rate."
+    },
+    {
+      "id": "CEIL-CRACK-LOCAL",
+      "work": "Localised ceiling crack repair: rake out, fill, sand, seal and redecorate the affected area to match",
+      "unit": "per area up to ~1 m²",
+      "low": 90,
+      "high": 160,
+      "status": "example",
+      "source": "placeholder — surveyor said an AI figure of £55 was too light",
+      "notes": "Only where a patch will leave a consistent finish. If the cracking extends across the element or a patch would be visibly odd, use CEIL-MAKE-GOOD."
+    },
+    {
+      "id": "CEIL-MAKE-GOOD",
+      "work": "Make good a defective ceiling finish across the affected ceiling area: preparation, treatment of cracking, skim/overboard as required, waste disposal, and sufficient redecoration for a consistent finish",
+      "unit": "per room ceiling (up to ~14 m²)",
+      "low": 450,
+      "high": 950,
+      "status": "example",
+      "source": "placeholder — replace with firm rates",
+      "notes": "Subject to asbestos results where a textured coating is present (add ASB-SAMPLE). Include disposal allowance."
+    },
+    {
+      "id": "MOULD-REVEAL",
+      "work": "Clean and fungicidally treat mould-affected window reveals; prepare, stain-block and redecorate with a moisture-resistant paint system",
+      "unit": "per window",
+      "low": 110,
+      "high": 160,
+      "status": "confirmed",
+      "source": "surveyor's schedule, 6 Sep 2026 (£110)",
+      "notes": ""
+    },
+    {
+      "id": "MOULD-WALL",
+      "work": "Clean and fungicidally treat mould to wall areas; prepare, stain-block and redecorate with a moisture-resistant paint system",
+      "unit": "per wall area up to ~4 m²",
+      "low": 140,
+      "high": 260,
+      "status": "example",
+      "source": "placeholder",
+      "notes": "Treats the symptom only — pair with the cause (ventilation, leak, fabric)."
+    },
+    {
+      "id": "EXTRACT-FAN-REPLACE",
+      "work": "Replace an under-performing or non-functioning bathroom/kitchen extractor fan with a humidistat/timer unit, including electrical connection and making good",
+      "unit": "per fan",
+      "low": 180,
+      "high": 320,
+      "status": "example",
+      "source": "placeholder",
+      "notes": "Where the paper test / anemometer shows inadequate extraction."
+    },
+    {
+      "id": "LEAK-TRACE",
+      "work": "Trace and repair a concealed plumbing leak (bath/shower/WC connection), including opening up and making good",
+      "unit": "per leak",
+      "low": 220,
+      "high": 480,
+      "status": "example",
+      "source": "placeholder",
+      "notes": "Use as investigation_first where the source is not established."
+    },
+    {
+      "id": "SEALANT-BATH",
+      "work": "Rake out and renew perimeter sealant to bath/shower enclosure",
+      "unit": "per bath or tray",
+      "low": 60,
+      "high": 110,
+      "status": "example",
+      "source": "placeholder",
+      "notes": ""
+    },
+    {
+      "id": "GUTTER-CLEAR-REPAIR",
+      "work": "Clear, realign and repair defective rainwater goods to one elevation",
+      "unit": "per elevation",
+      "low": 150,
+      "high": 350,
+      "status": "example",
+      "source": "placeholder",
+      "notes": "Penetrating damp to external walls below."
+    },
+    {
+      "id": "REPOINT-LOCAL",
+      "work": "Rake out and repoint defective brickwork joints, localised area",
+      "unit": "per m²",
+      "low": 45,
+      "high": 85,
+      "status": "example",
+      "source": "placeholder",
+      "notes": ""
+    },
+    {
+      "id": "REDEC-ROOM",
+      "work": "Redecorate walls and ceiling of one room following works, two coats emulsion, including preparation",
+      "unit": "per room",
+      "low": 280,
+      "high": 550,
+      "status": "example",
+      "source": "placeholder",
+      "notes": "Use where the remedial works leave more than the immediate area needing decoration."
+    }
+  ]
+}

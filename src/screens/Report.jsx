@@ -3,6 +3,9 @@ import {
   Camera, Printer, X,
 } from "lucide-react";
 import { pad } from "../lib/util.js";
+import { approvedByRoom } from "../ai.js";
+
+const money = (n) => `£${Math.round(n).toLocaleString("en-GB")}`;
 
 /* ---------------- printable report ---------------- */
 
@@ -18,6 +21,14 @@ export function ReportView({ inspection, rooms, photoCache, onClose }) {
   const date = new Date(inspection.startedAt).toLocaleDateString("en-GB", {
     weekday: "long", day: "numeric", month: "long", year: "numeric",
   });
+  // only what the surveyor approved reaches the report; numbered through the
+  // whole property so the schedule and the report agree on "Finding 4"
+  const approvedFindings = approvedByRoom(inspection.findings, rooms);
+  const findingIndex = new Map();
+  let fn = 0;
+  for (const r of approvedFindings) r.findings.forEach((f, i) => { fn += 1; findingIndex.set(`${r.roomId}:${i}`, fn); });
+  const findingNo = (roomId, i) => `Finding ${findingIndex.get(`${roomId}:${i}`)}`;
+  const totalFindings = fn;
   return createPortal((
     <div className="ss-report">
       <div className="ss-report-bar ss-noprint">
@@ -31,7 +42,7 @@ export function ReportView({ inspection, rooms, photoCache, onClose }) {
           <div className="ss-rep-meta">
             <span>Photo inspection report</span>
             <span>{date}</span>
-            <span>{totalPhotos} photo{totalPhotos === 1 ? "" : "s"} · {covered} of {rooms.length} areas</span>
+            <span>{totalPhotos} photo{totalPhotos === 1 ? "" : "s"} · {covered} of {rooms.length} areas{totalFindings ? ` · ${totalFindings} finding${totalFindings === 1 ? "" : "s"}` : ""}</span>
           </div>
           {(inspection.ref || inspection.client || inspection.occupier || inspection.solicitor) && (
             <dl className="ss-rep-case">
@@ -44,7 +55,8 @@ export function ReportView({ inspection, rooms, photoCache, onClose }) {
         </header>
         {rooms.map((room, i) => {
           const photos = room.photoIds.map((id) => photoCache[id]).filter(Boolean);
-          if (!photos.length && !room.condition && !(room.note && room.note.trim())) return null;
+          const findings = (approvedFindings.find((r) => r.roomId === room.id) || { findings: [] }).findings;
+          if (!photos.length && !room.condition && !(room.note && room.note.trim()) && !findings.length) return null;
           return (
             <section key={room.id} className="ss-rep-room">
               <div className="ss-rep-room-head">
@@ -53,6 +65,22 @@ export function ReportView({ inspection, rooms, photoCache, onClose }) {
                 <span className="ss-rep-count">{photos.length} photo{photos.length === 1 ? "" : "s"}</span>
               </div>
               {room.note && room.note.trim() && <p className="ss-rep-note">{room.note.trim()}</p>}
+              {findings.map((f, fi) => (
+                <div key={f.id || fi} className="ss-rep-finding">
+                  <div className="ss-rep-finding-head">
+                    <span className="ss-rep-finding-n">{findingNo(room.id, fi)}</span>
+                    <strong>{f.title}</strong>
+                    {f.legislation.length > 0 && <span className="ss-rep-finding-leg">{f.legislation.join(" · ")}{f.hhsrs_hazard ? ` · ${f.hhsrs_hazard}` : ""}</span>}
+                  </div>
+                  <p><em>Defect.</em> {f.defect}</p>
+                  {f.assessment.likely_cause && <p><em>Cause.</em> {f.assessment.likely_cause}</p>}
+                  <p><em>Remedial works.</em> {f.remedial.works}{(f.remedial.conditions || []).length ? ` (${f.remedial.conditions.join("; ")})` : ""}</p>
+                  <p className="ss-rep-finding-cost">
+                    <em>Estimated cost.</em> {f.cost.unpriced ? "To be confirmed" : `${money(f.cost.low)} – ${money(f.cost.high)}`}
+                    {f.photo_refs.length > 0 && <span> · Photos {f.photo_refs.join(", ")}</span>}
+                  </p>
+                </div>
+              ))}
               {photos.length > 0 && (
                 <div className="ss-rep-grid">
                   {photos.map((p) => (

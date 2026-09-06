@@ -90,6 +90,13 @@ export function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, 
             value={room.note || ""}
             onChange={(e) => onMeta({ note: e.target.value })}
           />
+          <input
+            className="ss-note-input ss-hyp-input"
+            placeholder="Your read on the cause, if you have one — the AI tests it against the photos"
+            title="Optional. Say what you think is causing it; the draft will say whether the photographs agree, and flag it if they don't."
+            value={room.hypothesis || ""}
+            onChange={(e) => onMeta({ hypothesis: e.target.value })}
+          />
           <VoiceMemo memos={room.memos || []} onAdd={onAddMemo} onDelete={onDeleteMemo} />
         </div>
 

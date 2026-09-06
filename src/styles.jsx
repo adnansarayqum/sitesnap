@@ -668,6 +668,75 @@ export function StyleBlock() {
       .ss-finding-leg { display: inline-flex; align-items: center; gap: 6px; background: var(--pine-tint); color: var(--pine-press); padding: 5px 10px; border-radius: 8px; font-size: 12px; font-weight: 700; }
       .ss-finding-leg-empty { font-size: 12px; font-weight: 600; color: var(--muted2); font-style: italic; }
 
+      /* ---- draft findings (AI step) ---- */
+      .ss-ai-bar { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-bottom: 12px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }
+      .ss-ai-bar b { color: var(--ink); }
+      .ss-ai-bar svg { color: var(--pine); flex-shrink: 0; }
+      .ss-draft-rooms { display: flex; flex-direction: column; gap: 6px; margin: 0 0 14px; }
+      .ss-draft-room { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; padding: 8px 12px; border-radius: 10px; background: var(--card); border: 1px solid var(--line); }
+      .ss-draft-room .st { margin-left: auto; font-size: 11.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--muted2); display: inline-flex; align-items: center; gap: 5px; }
+      .ss-draft-room .st.done { color: var(--pine); }
+      .ss-draft-room .st.failed { color: var(--red); }
+      .ss-draft-room .st.drafting, .ss-draft-room .st.transcribing { color: var(--amber); }
+      .ss-room-run { margin: 18px 0 8px; }
+      .ss-room-run-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+      .ss-room-run-head h3 { font-size: 15px; font-weight: 800; margin: 0; }
+      .ss-room-run-meta { font-size: 11.5px; color: var(--muted2); font-weight: 600; white-space: nowrap; }
+      .ss-room-summary { font-family: 'Libre Caslon Text', Georgia, serif; font-size: 14px; color: var(--muted); margin: 6px 0 10px; line-height: 1.5; }
+      .ss-gaps { margin: 0 0 12px; padding: 10px 12px; border-radius: 10px; background: var(--amber-tint); color: var(--amber); font-size: 12.5px; font-weight: 600; }
+      .ss-gaps ul { margin: 4px 0 0; padding-left: 18px; }
+      .ss-transcript-toggle { font-size: 12px; font-weight: 700; color: var(--pine); background: none; padding: 0; margin: 0 0 10px; display: inline-flex; align-items: center; gap: 5px; }
+      .ss-transcript { font-size: 13px; color: var(--muted); background: var(--paper-deep); border-radius: 10px; padding: 10px 12px; margin: 0 0 12px; white-space: pre-wrap; line-height: 1.5; }
+      .ss-finding-title { font-weight: 800; font-size: 15px; line-height: 1.3; }
+      .ss-finding-status { font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; padding: 4px 8px; border-radius: 999px; white-space: nowrap; }
+      .ss-finding-status.draft { background: var(--paper-deep); color: var(--muted); }
+      .ss-finding-status.approved, .ss-finding-status.edited { background: var(--pine-tint); color: var(--pine-press); }
+      .ss-finding-status.rejected { background: var(--red-tint); color: var(--red); }
+      .ss-finding-card.rejected { opacity: .6; }
+      .ss-flag { display: flex; gap: 10px; padding: 12px; border-radius: 12px; margin: 10px 0 4px; font-size: 13px; line-height: 1.45; }
+      .ss-flag svg { flex-shrink: 0; margin-top: 2px; }
+      .ss-flag.disagree { background: var(--red-tint); color: var(--red); border: 1px solid color-mix(in srgb, var(--red) 25%, transparent); }
+      .ss-flag.uncertain { background: var(--amber-tint); color: var(--amber); border: 1px solid color-mix(in srgb, var(--amber) 25%, transparent); }
+      .ss-flag.agree { background: var(--pine-tint); color: var(--pine-press); }
+      .ss-flag b { display: block; font-size: 12px; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 4px; }
+      .ss-flag .kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 4px 0; color: var(--ink); }
+      .ss-flag .kv span:nth-child(odd) { font-weight: 800; font-size: 12px; }
+      .ss-flag p { margin: 6px 0 0; color: var(--ink); }
+      .ss-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+      .ss-chip { font-size: 11.5px; font-weight: 700; padding: 4px 9px; border-radius: 999px; background: var(--paper-deep); color: var(--muted); display: inline-flex; align-items: center; gap: 4px; }
+      .ss-chip.warn { background: var(--amber-tint); color: var(--amber); }
+      .ss-chip.leg { background: var(--pine-tint); color: var(--pine-press); }
+      .ss-scope { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; color: var(--pine); margin: 2px 0 4px; }
+      .ss-scope-why { font-size: 12.5px; color: var(--muted); margin: 0; }
+      .ss-cost { font-family: 'Libre Caslon Text', Georgia, serif; font-size: 17px; font-weight: 700; }
+      .ss-cost.unpriced { color: var(--amber); font-size: 14px; }
+      .ss-cost-basis { font-size: 12px; color: var(--muted); margin: 2px 0 0; }
+      .ss-finding-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+      .ss-finding-actions .ss-btn { flex: 1; min-width: 96px; padding: 10px 12px; font-size: 13px; }
+      .ss-btn-danger-ghost { background: var(--red-tint); color: var(--red); }
+      .ss-edit-form { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+      .ss-edit-form label { font-size: 10.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--muted2); }
+      .ss-edit-form textarea, .ss-edit-form input { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 10px; font: inherit; font-size: 14px; background: var(--card); color: var(--ink); }
+      .ss-edit-form .row { display: flex; gap: 8px; }
+      .ss-hyp-input { margin-top: 6px; font-size: 14px; }
+      /* ID photo slot */
+      .ss-idphoto { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 13px; background: var(--card); border: 1px solid var(--line); margin-top: 14px; }
+      .ss-idphoto img { width: 54px; height: 54px; border-radius: 10px; object-fit: cover; border: 1px solid var(--line); }
+      .ss-idphoto .ph { width: 54px; height: 54px; border-radius: 10px; background: var(--paper-deep); display: flex; align-items: center; justify-content: center; color: var(--muted2); }
+      .ss-idphoto-main { flex: 1; min-width: 0; }
+      .ss-idphoto-main b { display: block; font-size: 14px; }
+      .ss-idphoto-main span { font-size: 12px; color: var(--muted); }
+      .ss-idphoto-actions { display: flex; gap: 6px; }
+      .ss-idphoto-actions button { width: 34px; height: 34px; border-radius: 9px; background: var(--paper-deep); color: var(--pine); display: flex; align-items: center; justify-content: center; }
+      /* report */
+      .ss-rep-finding { border-left: 3px solid var(--pine); padding: 6px 0 6px 12px; margin: 10px 0 12px; font-size: 13.5px; line-height: 1.5; break-inside: avoid; }
+      .ss-rep-finding p { margin: 4px 0; }
+      .ss-rep-finding em { font-style: normal; font-weight: 800; color: var(--muted); }
+      .ss-rep-finding-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+      .ss-rep-finding-n { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--pine); }
+      .ss-rep-finding-leg { font-size: 11.5px; font-weight: 700; color: var(--muted); margin-left: auto; }
+      .ss-rep-finding-cost { color: var(--ink); }
+
       /* ---- on-photo annotation ---- */
       .ss-annotate {
         position: fixed; inset: 0; z-index: 68; background: #0B0F0A;

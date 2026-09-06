@@ -133,6 +133,8 @@ export async function sweepOrphans(olderThan) {
     const live = new Set();
     for (const entry of index) {
       const rec = await loadInspection(entry.id);
+      // the ID photo belongs to the case, not to a room
+      if (rec && rec.inspection && rec.inspection.idPhotoId) live.add(`sitesnap:photo:${rec.inspection.idPhotoId}`);
       for (const r of (rec && rec.rooms) || []) {
         (r.photoIds || []).forEach((pid) => live.add(`sitesnap:photo:${pid}`));
         (r.memos || []).forEach((m) => live.add(`sitesnap:audio:${m.id}`));

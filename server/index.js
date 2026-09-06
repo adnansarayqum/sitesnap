@@ -24,6 +24,8 @@ import {
   rateLimit, clientIp, normEmail, validEmail, randomToken, sha256, audit,
 } from "./auth.js";
 import { sendEmail, emailConfigured, signInCodeEmail, inviteEmail } from "./email.js";
+import { mountAi } from "./ai-routes.js";
+import { aiEnabled, transcriptionEnabled, AI_MODEL } from "./ai.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.join(__dirname, "..", "dist");
@@ -189,19 +191,29 @@ app.use((req, res, next) => {
   res.set("Permissions-Policy", "camera=(self), microphone=(self), geolocation=()");
   next();
 });
-app.use(express.json({ limit: "4mb" }));
+// the AI routes carry photographs and raw audio and parse their own bodies
+// (ai-routes.js); everything else is small JSON
+// originalUrl, not path: inside app.use("/api", ...) the mount prefix is
+// stripped from req.path
+const isAi = (req) => String(req.originalUrl || req.url).split("?")[0].startsWith("/api/ai/");
+const jsonBody = express.json({ limit: "4mb" });
+app.use((req, res, next) => (isAi(req) ? next() : jsonBody(req, res, next)));
 // every mutating API call is JSON from our own page; a cross-site form
 // post can't set that content type, and SameSite=Lax keeps the cookie
 // off cross-site posts anyway. DELETE carries no body and can't be sent
 // by a form at all (a cross-site fetch DELETE needs a CORS preflight).
+// The one exception is a voice note posted as audio/* to the AI route —
+// still not a content type a form can produce.
 app.use("/api", (req, res, next) => {
   const mutating = !["GET", "HEAD", "DELETE"].includes(req.method);
-  if (mutating && !req.is("application/json")) return res.status(415).json({ error: "json_only" });
+  const audioOk = isAi(req) && /\/transcribe$/.test(String(req.originalUrl || "").split("?")[0]) && (req.is("audio/*") || req.is("video/webm") || req.is("application/octet-stream"));
+  if (mutating && !req.is("application/json") && !audioOk) return res.status(415).json({ error: "json_only" });
   res.set("Cache-Control", "no-store");
   next();
 });
 if (hasDb) app.use(attachSession);
 else app.use((req, res, next) => { req.session = null; req.membership = null; next(); });
+mountAi(app);
 
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
@@ -721,7 +733,7 @@ async function purge() {
   }
   const server = app.listen(PORT, "0.0.0.0", () => {
     const on = Object.keys(PROVIDERS).filter(enabled);
-    console.log(`SiteSnap on :${PORT} — mode: ${hasDb ? "accounts" : "local"}; cloud link: ${on.length ? on.join(", ") : "off (set TOKEN_KEY plus a provider's client ID and secret)"}; email: ${emailConfigured ? "resend" : "log only"}`);
+    console.log(`SiteSnap on :${PORT} — mode: ${hasDb ? "accounts" : "local"}; cloud link: ${on.length ? on.join(", ") : "off (set TOKEN_KEY plus a provider's client ID and secret)"}; email: ${emailConfigured ? "resend" : "log only"}; drafting: ${aiEnabled() ? AI_MODEL : "off (set ANTHROPIC_API_KEY)"}; transcription: ${transcriptionEnabled() ? "on" : "off (set OPENAI_API_KEY)"}`);
   });
   // Railway sends SIGTERM on redeploy: finish in-flight requests, then go
   const shutdown = () => {
