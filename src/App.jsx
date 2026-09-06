@@ -1956,7 +1956,13 @@ function LiveCamera({ label, count, lastThumb, resumeKey, onCapture, onClose, on
       const track = stream.getVideoTracks()[0];
       const settings = track.getSettings ? track.getSettings() : {};
       const devices = await navigator.mediaDevices.enumerateDevices();
-      const cams = devices.filter((d) => d.kind === "videoinput" && !/front/i.test(d.label));
+      let cams = devices.filter((d) => d.kind === "videoinput" && !/front/i.test(d.label));
+      // iOS (16.3+) lists each back lens on its own — "Back Camera", "Back
+      // Ultra Wide Camera", "Back Telephoto Camera" — plus fused "Dual Wide"
+      // / "Triple" virtual cameras that duplicate them and, on iOS 18, swap
+      // lens by themselves mid-shot. Keep the physical set when there is one.
+      const physical = cams.filter((d) => !/dual|triple/i.test(d.label));
+      if (physical.length) cams = physical;
       if (!alive.current) return;
       setLenses(cams);
       setActiveLensId(settings.deviceId || (cams[0] && cams[0].deviceId) || null);
@@ -1965,11 +1971,26 @@ function LiveCamera({ label, count, lastThumb, resumeKey, onCapture, onClose, on
     }
   }
 
+  const ultraLens = lenses.find((d) => /ultra/i.test(d.label)) || null;
+  const teleLens = lenses.find((d) => /tele/i.test(d.label)) || null;
+  const mainLens = lenses.find((d) => !/ultra|tele/i.test(d.label)) || null;
+  const activeLabel = (lenses.find((d) => d.deviceId === activeLensId) || {}).label || "";
+  const activeIsUltra = /ultra/i.test(activeLabel);
+  const activeIsTele = /tele/i.test(activeLabel);
+  // the slider reads in the lens's own units; shown relative to the main
+  // camera so 0.5× means what it means in the phone's camera app
+  const lensScale = activeIsUltra ? 0.5 : 1;
+
+  function pickLens(device) {
+    if (!device || device.deviceId === activeLensId) return;
+    stopStream();
+    startStream(device.deviceId);
+  }
+
   function switchLens() {
     if (lenses.length < 2) return;
     const idx = lenses.findIndex((d) => d.deviceId === activeLensId);
-    const next = lenses[(idx + 1) % lenses.length];
-    if (next) { stopStream(); startStream(next.deviceId); }
+    pickLens(lenses[(idx + 1) % lenses.length]);
   }
 
   // Where the browser can't reach the ultra-wide lens at all (Samsung keeps
@@ -2162,7 +2183,7 @@ function LiveCamera({ label, count, lastThumb, resumeKey, onCapture, onClose, on
       <div className="ss-livecam-top">
         <button className="ss-livecam-close" onClick={close}><X size={20} /></button>
         <span className="ss-livecam-label">{label}</span>
-        {state === "ready" && lenses.length > 1 && (
+        {state === "ready" && lenses.length > 1 && !ultraLens && (
           <button className="ss-livecam-lens" onClick={switchLens} title="Try the other camera lens">
             <SwitchCamera size={16} />
             <span>{Math.max(0, lenses.findIndex((d) => d.deviceId === activeLensId)) + 1}/{lenses.length}</span>
@@ -2191,13 +2212,21 @@ function LiveCamera({ label, count, lastThumb, resumeKey, onCapture, onClose, on
 
       {state === "ready" && (
         <div className="ss-livecam-zoom">
-          <button className="ss-livecam-wide" onClick={wideShot}
-            title="One wide-angle shot with the phone's own camera app, then straight back here">
-            <Expand size={14} /> Wide shot
-          </button>
+          {ultraLens ? (
+            <div className="ss-livecam-seg" role="group" aria-label="Lens">
+              <button className={activeIsUltra ? "on" : ""} onClick={() => pickLens(ultraLens)}>0.5×</button>
+              <button className={!activeIsUltra && !activeIsTele ? "on" : ""} onClick={() => pickLens(mainLens || ultraLens)}>1×</button>
+              {teleLens && <button className={activeIsTele ? "on" : ""} onClick={() => pickLens(teleLens)}>Tele</button>}
+            </div>
+          ) : (
+            <button className="ss-livecam-wide" onClick={wideShot}
+              title="One wide-angle shot with the phone's own camera app, then straight back here">
+              <Expand size={14} /> Wide shot
+            </button>
+          )}
           {zoomCaps && (
             <>
-              <span className="ss-livecam-zoom-label">{zoom.toFixed(1)}×</span>
+              <span className="ss-livecam-zoom-label">{(zoom * lensScale).toFixed(1)}×</span>
               <input
                 type="range"
                 className="ss-livecam-zoom-slider"
@@ -3865,7 +3894,13 @@ function StyleBlock() {
         display: flex; flex-direction: column;
         max-width: 430px; margin: 0 auto; overflow: hidden;
       }
-      .ss-livecam-video { flex: 1; width: 100%; height: 100%; object-fit: cover; background: #000; touch-action: none; }
+      /* contain, not cover: the saved photo is the whole frame, so the preview
+         must show the whole frame — cropping a 4:3 feed to fill a tall phone
+         hides ~40% of its width and reads as "zoomed in" next to the camera app */
+      .ss-livecam-video { flex: 1; width: 100%; height: 100%; object-fit: contain; background: #000; touch-action: none; }
+      .ss-livecam-seg { display: flex; gap: 2px; background: rgba(255,255,255,.14); border-radius: 999px; padding: 2px; flex-shrink: 0; }
+      .ss-livecam-seg button { color: #fff; font-weight: 800; font-size: 12.5px; border-radius: 999px; padding: 5px 10px; font-variant-numeric: tabular-nums; }
+      .ss-livecam-seg button.on { background: var(--hivis); color: var(--hivis-deep); }
       .ss-livecam-zoom {
         position: absolute; left: 50%; bottom: calc(112px + env(safe-area-inset-bottom));
         transform: translateX(-50%); z-index: 2;
