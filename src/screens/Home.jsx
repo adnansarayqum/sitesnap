@@ -28,21 +28,16 @@ export function TabBar({ active, onChange }) {
   );
 }
 
-const FIRST_RUN_KEY = "sitesnap:firstRunDismissed";
-
-// Until photos have somewhere to go, Home asks — once, dismissably.
-function FirstRunCard({ onTab }) {
-  const [dismissed, setDismissed] = useState(() => { try { return localStorage.getItem(FIRST_RUN_KEY) === "1"; } catch { return false; } });
-  if (dismissed) return null;
+// Until photos have somewhere to go, a slim status line says so — every
+// visit, not a one-time billboard, because "not now" on day one shouldn't
+// mean never being reminded again.
+function CloudStatusRow({ onTab }) {
   return (
-    <div className="ss-firstrun">
-      <div className="ss-firstrun-title"><CloudUpload size={15} /> Where should photos go?</div>
-      <p>Connect your OneDrive or Google Drive once and every photo files itself as you shoot — nothing to remember at the end. Or use a Make link.</p>
-      <div className="ss-firstrun-actions">
-        <button className="ss-btn ss-btn-primary" onClick={() => onTab("settings")}>Set up cloud filing</button>
-        <button className="ss-link" onClick={() => { try { localStorage.setItem(FIRST_RUN_KEY, "1"); } catch { /* ignore */ } setDismissed(true); }}>Not now</button>
-      </div>
-    </div>
+    <button className="ss-cloud-status" onClick={() => onTab("settings")}>
+      <CloudUpload size={14} />
+      <span>Photos file to <b>nowhere yet</b></span>
+      <span className="ss-cloud-status-cta">Set up <ArrowRight size={13} /></span>
+    </button>
   );
 }
 
@@ -88,7 +83,7 @@ export function HomeScreen({ index, onNew, onOpen, onTab, orgName, needsCloud })
             <div><span className="ss-step-n">2</span> Walk, shoot &amp; rate each room</div>
             <div><span className="ss-step-n">3</span> Export — Photos, ZIP, OneDrive, PDF report</div>
           </div>
-          {needsCloud && <FirstRunCard onTab={onTab} />}
+          {needsCloud && <CloudStatusRow onTab={onTab} />}
         </div>
         <div className="ss-footer">
           <button className="ss-btn ss-btn-primary ss-btn-big" onClick={onNew}>
@@ -110,7 +105,7 @@ export function HomeScreen({ index, onNew, onOpen, onTab, orgName, needsCloud })
       </div>
 
       <div className="ss-scroll">
-        {needsCloud && <FirstRunCard onTab={onTab} />}
+        {needsCloud && <CloudStatusRow onTab={onTab} />}
         <button className="ss-case-hero" onClick={() => onOpen(active.id)}>
           <div className="ss-case-hero-head">
             <span className="ss-stamp light">Case No. {active.caseNo || "—"}</span>

@@ -10,7 +10,8 @@ import { requestCode, verifyCode, oauthSignIn } from "../auth.js";
 export function SignInScreen({ config, invite, inviteToken, onSignedIn }) {
   const [step, setStep] = useState("email"); // email | code
   const [email, setEmail] = useState(invite ? invite.email : "");
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState(""); // digits only — the boxes below are its display
+  const [codeFocused, setCodeFocused] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [delivery, setDelivery] = useState(null);
@@ -84,19 +85,14 @@ export function SignInScreen({ config, invite, inviteToken, onSignedIn }) {
             </form>
             {(config.onedrive || config.google) && (
               <>
-                <div className="ss-or"><span>or</span></div>
-                {config.onedrive && (
-                  <button className="ss-btn ss-btn-ghost ss-btn-big" disabled={busy} onClick={() => oauth("onedrive")}>
-                    Continue with Microsoft
-                  </button>
-                )}
-                {config.google && (
-                  <button className="ss-btn ss-btn-ghost ss-btn-big" style={{ marginTop: 8 }} disabled={busy} onClick={() => oauth("google")}>
-                    Continue with Google
-                  </button>
-                )}
-                <p className="ss-fineprint" style={{ margin: "10px 2px 0" }}>
-                  Signing in with Microsoft or Google also connects your OneDrive or Drive, so photos file straight into it.
+                <div className="ss-signin-oauth">
+                  <span>Or continue with</span>
+                  {config.onedrive && <button type="button" className="ss-link" disabled={busy} onClick={() => oauth("onedrive")}>Microsoft</button>}
+                  {config.onedrive && config.google && <span className="ss-signin-dot">·</span>}
+                  {config.google && <button type="button" className="ss-link" disabled={busy} onClick={() => oauth("google")}>Google</button>}
+                </div>
+                <p className="ss-fineprint" style={{ margin: "6px 2px 0" }}>
+                  Microsoft or Google also connects your OneDrive or Drive.
                 </p>
               </>
             )}
@@ -107,12 +103,20 @@ export function SignInScreen({ config, invite, inviteToken, onSignedIn }) {
               We've sent a 6-digit code to <b>{email}</b>. It works for 10 minutes.
               {delivery === "log" && " This deployment has no email set up yet — the code is in the server log."}
             </p>
-            <input
-              ref={codeRef} className="ss-input ss-code" inputMode="numeric" autoComplete="one-time-code"
-              placeholder="000 000" value={code} maxLength={7} aria-label="Sign-in code"
-              onChange={(e) => setCode(e.target.value.replace(/[^\d ]/g, ""))}
-            />
-            <button className="ss-btn ss-btn-primary ss-btn-big" style={{ marginTop: 10 }} disabled={busy || code.replace(/\D/g, "").length !== 6}>
+            <div className="ss-code-boxes" onClick={() => codeRef.current && codeRef.current.focus()}>
+              {Array.from({ length: 6 }, (_, i) => (
+                <div key={i} className={`ss-code-box ${i < code.length ? "filled" : ""} ${codeFocused && i === code.length ? "active" : ""}`}>
+                  {code[i] || ""}
+                </div>
+              ))}
+              <input
+                ref={codeRef} className="ss-code-input" inputMode="numeric" autoComplete="one-time-code"
+                value={code} maxLength={6} aria-label="Sign-in code"
+                onFocus={() => setCodeFocused(true)} onBlur={() => setCodeFocused(false)}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              />
+            </div>
+            <button className="ss-btn ss-btn-primary ss-btn-big" style={{ marginTop: 14 }} disabled={busy || code.length !== 6}>
               {busy ? <Loader2 size={18} className="ss-spin" /> : <ArrowRight size={18} />} Sign in
             </button>
             <div className="ss-signin-links">

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import {
-  Aperture, Check, CircleCheck, CloudUpload, FileText, HardDrive, KeyRound, Loader2, Moon, Sun,
+  Aperture, Check, CircleCheck, CloudUpload, FileText, KeyRound, Loader2, Moon, Sun,
 } from "lucide-react";
 import {
   loadWebhook, saveWebhook, loadWebhookKey, saveWebhookKey, storageEstimate, loadMsClientId, saveMsClientId, loadGoogleClientId, saveGoogleClientId, hasBuiltInMsClientId, hasBuiltInGoogleClientId,
@@ -20,30 +20,36 @@ function AccountCard({ me, onSignOut, onChanged, flash }) {
   return (
     <>
       <div className="ss-section-label" style={{ marginTop: 4 }}>Account</div>
-      <div className="ss-storage-card">
-        <div className="ss-key-row">
-          <input className="ss-input" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} aria-label="Your name" />
-          <button className="ss-btn ss-btn-primary" disabled={busy || name.trim() === (me.user.name || "")}
-            onClick={async () => { setBusy(true); try { await updateName(name.trim()); onChanged(); flash("Name saved"); } finally { setBusy(false); } }}>Save</button>
-        </div>
-        <div className="ss-account-row" style={{ marginTop: 6 }}><span className="ss-muted">Signed in as</span><span style={{ fontWeight: 700 }}>{me.user.email}</span></div>
-        {me.org && (
-          <div className="ss-account-row">
-            <span className="ss-muted">Firm</span>
-            {me.orgs && me.orgs.length > 1 ? (
-              <select className="ss-role-select" value={me.org.id} aria-label="Firm"
-                onChange={async (e) => { await switchOrg(e.target.value); onChanged(); }}>
-                {me.orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-              </select>
-            ) : (
-              <span style={{ fontWeight: 700 }}>{me.org.name} <span className="ss-role-pill" style={{ marginLeft: 6 }}>{me.org.role}</span></span>
-            )}
+      <div className="ss-key-row">
+        <input className="ss-input" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} aria-label="Your name" />
+        <button className="ss-btn ss-btn-primary" disabled={busy || name.trim() === (me.user.name || "")}
+          onClick={async () => { setBusy(true); try { await updateName(name.trim()); onChanged(); flash("Name saved"); } finally { setBusy(false); } }}>Save</button>
+      </div>
+      <div className="ss-ledger-row">
+        <div className="ss-ledger-main"><div className="ss-ledger-title">Signed in as</div></div>
+        <span className="ss-ledger-status" style={{ color: "var(--ink)", fontWeight: 700 }}>{me.user.email}</span>
+      </div>
+      {me.org && (
+        <div className="ss-ledger-row">
+          <div className="ss-ledger-main">
+            <div className="ss-ledger-title">{me.org.name}</div>
+            <div className="ss-ledger-sub">Firm</div>
           </div>
-        )}
-        <button className="ss-btn ss-btn-ghost" style={{ marginTop: 10 }} onClick={onSignOut}>Sign out</button>
-        <p className="ss-fineprint" style={{ margin: "8px 2px 0" }}>
-          Signing out keeps this phone's photos where they are; they're shown again when you sign back in.
-        </p>
+          {me.orgs && me.orgs.length > 1 ? (
+            <select className="ss-role-select" value={me.org.id} aria-label="Firm"
+              onChange={async (e) => { await switchOrg(e.target.value); onChanged(); }}>
+              {me.orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+            </select>
+          ) : (
+            <span className="ss-role-pill">{me.org.role}</span>
+          )}
+        </div>
+      )}
+      <div className="ss-ledger-row ss-no-border">
+        <button className="ss-link" style={{ color: "var(--red)" }} onClick={onSignOut}>Sign out</button>
+        <span className="ss-fineprint" style={{ margin: 0, textAlign: "right", flex: 1 }}>
+          Photos on this phone stay put — sign back in to see them.
+        </span>
       </div>
       {isAdmin && <TeamSettings me={me} onChanged={onChanged} flash={flash} />}
     </>
@@ -54,35 +60,41 @@ function AccountCard({ me, onSignOut, onChanged, flash }) {
 
 export function CloudProviderCard({ label, icon, connected, connecting, account, clientId, onClientId, onConnect, onDisconnect, error, portalHint, builtIn }) {
   return (
-    <div className="ss-cloud-card">
-      <div className="ss-cloud-head">
-        <span className="ss-cloud-ic">{icon}</span>
-        <span className="ss-cloud-label">{label}</span>
-        {connected && <span className="ss-cloud-connected"><CircleCheck size={12} /> Connected{account ? ` — ${account}` : ""}</span>}
+    <div>
+      <div className="ss-ledger-row">
+        <span className="ss-ledger-ic">{icon}</span>
+        <div className="ss-ledger-main">
+          <div className="ss-ledger-title">{label}</div>
+          {connected && account && <div className="ss-ledger-sub">{account}</div>}
+        </div>
+        {connecting ? (
+          <Loader2 size={16} className="ss-spin" />
+        ) : connected ? (
+          <>
+            <span className="ss-cloud-connected"><CircleCheck size={12} /> Connected</span>
+            <button className="ss-link" onClick={onDisconnect}>Disconnect</button>
+          </>
+        ) : (
+          <button className="ss-link" disabled={!builtIn && !clientId.trim()} onClick={onConnect}>
+            Connect {label}
+          </button>
+        )}
       </div>
       {/* builtIn: whoever runs this deployment already registered an app and
           baked its client ID in — every surveyor using it just signs in,
           with no ID to find or paste. Falls back to manual entry when
           nobody's done that (e.g. someone running their own copy). */}
       {!connected && !builtIn && (
-        <>
+        <div style={{ padding: "0 0 12px" }}>
           <input
             className="ss-input" placeholder="App (client) ID"
             value={clientId} onChange={(e) => onClientId(e.target.value)}
             autoCapitalize="none" autoComplete="off"
           />
           <p className="ss-fineprint" style={{ margin: "6px 2px 0" }}>{portalHint}</p>
-        </>
+        </div>
       )}
-      {error && <p className="ss-fineprint" style={{ color: "var(--red)", margin: "6px 2px 0" }}>{error}</p>}
-      <button
-        className={`ss-btn ${connected ? "ss-btn-ghost" : "ss-btn-primary"}`}
-        style={{ marginTop: 10 }}
-        disabled={connecting || (!connected && !builtIn && !clientId.trim())}
-        onClick={connected ? onDisconnect : onConnect}
-      >
-        {connecting ? <Loader2 size={16} className="ss-spin" /> : connected ? "Disconnect" : `Connect ${label}`}
-      </button>
+      {error && <p className="ss-fineprint" style={{ color: "var(--red)", margin: "0 2px 10px" }}>{error}</p>}
     </div>
   );
 }
@@ -232,13 +244,8 @@ export function SettingsScreen({ fieldMode, onToggleFieldMode, onTab, me, onSign
         {me && me.mode === "accounts" && me.user && (
           <AccountCard me={me} onSignOut={onSignOut} onChanged={onMeChanged} flash={flash} />
         )}
-        <div className="ss-section-label" style={{ marginTop: me && me.mode === "accounts" ? 20 : 4 }}>Direct cloud link</div>
-        <p className="ss-fineprint" style={{ margin: "0 2px 10px" }}>
-          {serviceOn
-            ? "Sign in once with your own Microsoft or Google account. SiteSnap keeps the connection and files straight into your OneDrive or Drive — no sign-in prompts after that."
-            : "Sign in with your own Microsoft or Google account and SiteSnap writes straight into your OneDrive or Drive — no Make/n8n/Zapier scenario needed. Requires a free app registration in Azure or Google Cloud; see the setup guide in the repo's docs."}
-        </p>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div className="ss-section-label" style={{ marginTop: me && me.mode === "accounts" ? 20 : 4 }}>Photos file to</div>
+        <div>
           <CloudProviderCard
             label="OneDrive" icon={<CloudUpload size={16} />}
             connected={!!msAccountName} connecting={msBusy} account={msAccountName}
@@ -256,8 +263,11 @@ export function SettingsScreen({ fieldMode, onToggleFieldMode, onTab, me, onSign
             portalHint="From console.cloud.google.com → APIs & Services → Credentials → OAuth client ID (Web application)."
           />
         </div>
+        <p className="ss-fineprint" style={{ margin: "8px 2px 0" }}>
+          {serviceOn ? "One sign-in, then photos file themselves as you shoot." : "No sign-in prompts to remember at the end of the day."}
+        </p>
 
-        <div className="ss-section-label" style={{ marginTop: 20 }}>Cloud upload via Make / n8n / Zapier</div>
+        <div className="ss-section-label" style={{ marginTop: 20 }}>Make / n8n / Zapier link</div>
         <input
           className="ss-input" placeholder="https://your-n8n.app/webhook/inspections"
           value={hookUrl} onChange={(e) => setHookUrl(e.target.value)}
@@ -271,15 +281,9 @@ export function SettingsScreen({ fieldMode, onToggleFieldMode, onTab, me, onSign
             autoCapitalize="none" autoComplete="off"
           />
         </div>
-        <p className="ss-fineprint" style={{ margin: "8px 2px 0" }}>
-          Photos, voice notes and a site-notes file are POSTed with the address
-          and folder name, and your workflow files them into OneDrive or
-          Google Drive. Set an access key here and in your webhook so only
-          this phone can upload.
-        </p>
         <button className="ss-btn ss-btn-primary" style={{ marginTop: 10 }} onClick={saveHook}>Save link</button>
 
-        <div className="ss-section-label" style={{ marginTop: 20 }}>Display</div>
+        <div className="ss-section-label" style={{ marginTop: 24 }}>Display</div>
         <div className="ss-settings-row">
           <span className="ss-settings-ic">{fieldMode ? <Moon size={17} /> : <Sun size={17} />}</span>
           <div style={{ flex: 1 }}>
@@ -292,36 +296,28 @@ export function SettingsScreen({ fieldMode, onToggleFieldMode, onTab, me, onSign
           ><span /></button>
         </div>
 
-        <div className="ss-section-label" style={{ marginTop: 20 }}>Camera</div>
+        <div className="ss-section-label" style={{ marginTop: 20 }}>This phone</div>
         <CameraCheck />
-
-        <div className="ss-section-label" style={{ marginTop: 20 }}>Storage on this phone</div>
-        <div className="ss-storage-card">
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <HardDrive size={15} color={durable ? "var(--pine)" : "var(--amber)"} />
-            <span style={{ fontWeight: 700, fontSize: 13 }}>
-              {durable === null ? "Checking storage…" : durable ? "Durable storage granted" : "Durable storage not granted yet"}
-            </span>
+        <div className="ss-ledger-row">
+          <div className="ss-ledger-main">
+            <div className="ss-ledger-title">Storage</div>
+            <div className="ss-ledger-sub">
+              {durable === null ? "Checking…" : durable ? "Durable storage granted" : "Durable storage not granted yet"}
+            </div>
           </div>
-          {storage && storage.quota ? (
-            <>
-              <div className="ss-progress" style={{ marginTop: 10 }}>
-                <div style={{ width: `${Math.min(100, Math.round((storage.usage / storage.quota) * 100))}%` }} />
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>
-                <span>{Math.round(storage.usage / 1048576)} MB used</span>
-                <span>{storage.freeMB} MB free</span>
-              </div>
-            </>
-          ) : (
-            <p className="ss-fineprint" style={{ margin: "8px 2px 0" }}>This browser doesn't report storage usage.</p>
-          )}
+          <span className="ss-ledger-status">
+            {storage && storage.quota ? `${Math.round(storage.usage / 1048576)} MB used · ${storage.freeMB} MB free` : "—"}
+          </span>
         </div>
+        {storage && storage.quota && (
+          <div className="ss-progress" style={{ marginTop: -6, marginBottom: 14 }}>
+            <div style={{ width: `${Math.min(100, Math.round((storage.usage / storage.quota) * 100))}%` }} />
+          </div>
+        )}
 
-        <div className="ss-section-label" style={{ marginTop: 20 }}>About</div>
-        <div className="ss-storage-card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontWeight: 700, fontSize: 13 }}>SiteSnap</span>
-          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>Version 2.1.0</span>
+        <div className="ss-ledger-row ss-no-border" style={{ marginTop: 10, color: "var(--muted2)" }}>
+          <span className="ss-ledger-title" style={{ fontWeight: 600, color: "var(--muted2)" }}>SiteSnap</span>
+          <span className="ss-ledger-status">Version 2.1.0</span>
         </div>
 
         {savedNote && <div className="ss-note" style={{ marginTop: 10 }}>{savedNote}</div>}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Loader2, UserPlus, X, Copy, Check } from "lucide-react";
+import { Loader2, UserPlus, Copy, Check } from "lucide-react";
 import { listMembers, listInvites, listAudit, sendInvite, cancelInvite, setMemberRole, removeMember, renameOrg } from "../auth.js";
 
 /* ---------------- team (admins) ---------------- */
@@ -50,93 +50,90 @@ export function TeamSettings({ me, onChanged, flash }) {
   return (
     <>
       <div className="ss-section-label" style={{ marginTop: 20 }}>Firm</div>
-      <div className="ss-storage-card">
-        <div className="ss-key-row">
-          <input className="ss-input" value={orgName} onChange={(e) => setOrgName(e.target.value)} aria-label="Firm name" />
-          <button className="ss-btn ss-btn-primary" disabled={busy || orgName.trim().length < 2 || orgName.trim() === me.org.name}
-            onClick={() => act(async () => { await renameOrg(orgName.trim()); onChanged(); }, "Firm renamed")}>Save</button>
+      <div className="ss-key-row">
+        <input className="ss-input" value={orgName} onChange={(e) => setOrgName(e.target.value)} aria-label="Firm name" />
+        <button className="ss-btn ss-btn-primary" disabled={busy || orgName.trim().length < 2 || orgName.trim() === me.org.name}
+          onClick={() => act(async () => { await renameOrg(orgName.trim()); onChanged(); }, "Firm renamed")}>Save</button>
+      </div>
+
+      <div className="ss-section-label" style={{ marginTop: 22 }}>Invite by email</div>
+      <form onSubmit={invite} style={{ display: "flex", gap: 8 }}>
+        <input className="ss-input" type="email" inputMode="email" autoCapitalize="none" placeholder="their@email.co.uk"
+          value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <button className="ss-btn ss-btn-primary ss-btn-sq" disabled={busy || !email.trim()} aria-label="Send invite">
+          {busy ? <Loader2 size={15} className="ss-spin" /> : <UserPlus size={15} />}
+        </button>
+      </form>
+      <div className="ss-key-row" style={{ marginTop: 8 }}>
+        <select className="ss-role-select" value={role} onChange={(e) => setRole(e.target.value)} aria-label="Role">
+          <option value="surveyor">Surveyor — shoots and files cases</option>
+          <option value="admin">Admin — also manages the team</option>
+        </select>
+      </div>
+      {lastLink && (
+        <div className="ss-invite-result">
+          <div style={{ fontWeight: 700, fontSize: 13 }}>
+            {lastLink.delivered ? `Invitation emailed to ${lastLink.email}.` : `Invitation ready for ${lastLink.email}.`}
+          </div>
+          <p className="ss-fineprint" style={{ margin: "4px 0 8px" }}>
+            {lastLink.delivered ? "You can also send them this link directly:" : "Email isn't set up on this deployment — send them this link (WhatsApp is fine). It works for 14 days."}
+          </p>
+          <div className="ss-key-row">
+            <input className="ss-input" readOnly value={lastLink.link} onFocus={(e) => e.target.select()} aria-label="Invitation link" />
+            <button className="ss-btn ss-btn-ghost" onClick={() => copy(lastLink.link)}>{copied ? <Check size={15} /> : <Copy size={15} />}</button>
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="ss-section-label" style={{ marginTop: 20 }}>Team</div>
-      <div className="ss-storage-card">
-        {members === null ? (
-          <div style={{ display: "flex", justifyContent: "center", padding: 10 }}><Loader2 size={18} className="ss-spin" /></div>
-        ) : members.map((m) => {
-          const self = m.id === me.user.id;
-          const canEdit = !self && (isOwner || m.role !== "owner");
-          return (
-            <div key={m.id} className="ss-member-row">
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="ss-member-name">{m.name || m.email}{self ? " (you)" : ""}</div>
-                <div className="ss-member-sub">{m.name ? m.email + " · " : ""}{m.last_seen_at ? "active " + relative(m.last_seen_at) : "never signed in"}</div>
-              </div>
-              {canEdit ? (
-                <select className="ss-role-select" value={m.role} disabled={busy} aria-label={`Role for ${m.email}`}
-                  onChange={(e) => act(() => setMemberRole(m.id, e.target.value), "Role updated")}>
-                  {isOwner && <option value="owner">Owner</option>}
-                  <option value="admin">Admin</option>
-                  <option value="surveyor">Surveyor</option>
-                </select>
-              ) : (
-                <span className="ss-role-pill">{ROLE_LABEL[m.role]}</span>
-              )}
-              {canEdit && (
-                <button className="ss-icon-btn" disabled={busy} aria-label={`Remove ${m.email}`} title="Remove from the firm"
-                  onClick={() => { if (window.confirm(`Remove ${m.name || m.email} from ${me.org.name}? Their cases on their own phone are untouched.`)) act(() => removeMember(m.id), "Removed"); }}>
-                  <X size={15} />
-                </button>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="ss-section-label" style={{ marginTop: 20 }}>Invite someone</div>
-      <div className="ss-storage-card">
-        <form onSubmit={invite}>
-          <input className="ss-input" type="email" inputMode="email" autoCapitalize="none" placeholder="their@email.co.uk"
-            value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <div className="ss-key-row" style={{ marginTop: 8 }}>
-            <select className="ss-role-select" style={{ flex: 1 }} value={role} onChange={(e) => setRole(e.target.value)} aria-label="Role">
-              <option value="surveyor">Surveyor — shoots and files cases</option>
-              <option value="admin">Admin — also manages the team</option>
-            </select>
-            <button className="ss-btn ss-btn-primary" disabled={busy || !email.trim()}>
-              {busy ? <Loader2 size={15} className="ss-spin" /> : <UserPlus size={15} />} Invite
-            </button>
-          </div>
-        </form>
-        {lastLink && (
-          <div className="ss-invite-result">
-            <div style={{ fontWeight: 700, fontSize: 13 }}>
-              {lastLink.delivered ? `Invitation emailed to ${lastLink.email}.` : `Invitation ready for ${lastLink.email}.`}
-            </div>
-            <p className="ss-fineprint" style={{ margin: "4px 0 8px" }}>
-              {lastLink.delivered ? "You can also send them this link directly:" : "Email isn't set up on this deployment — send them this link (WhatsApp is fine). It works for 14 days."}
-            </p>
-            <div className="ss-key-row">
-              <input className="ss-input" readOnly value={lastLink.link} onFocus={(e) => e.target.select()} aria-label="Invitation link" />
-              <button className="ss-btn ss-btn-ghost" onClick={() => copy(lastLink.link)}>{copied ? <Check size={15} /> : <Copy size={15} />}</button>
-            </div>
-          </div>
-        )}
-        {invites.length > 0 && (
-          <>
-            <div className="ss-section-label" style={{ marginTop: 14 }}>Pending</div>
-            {invites.map((i) => (
-              <div key={i.id} className="ss-member-row">
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="ss-member-name">{i.email}</div>
-                  <div className="ss-member-sub">{ROLE_LABEL[i.role]} · expires {relative(i.expires_at)}</div>
+      <div className="ss-section-label" style={{ marginTop: 22 }}>Team</div>
+      {members === null ? (
+        <div style={{ display: "flex", justifyContent: "center", padding: 10 }}><Loader2 size={18} className="ss-spin" /></div>
+      ) : (
+        <div>
+          <div className="ss-team-head"><span>Name</span><span>Role</span><span>Active</span></div>
+          {members.map((m) => {
+            const self = m.id === me.user.id;
+            const canEdit = !self && (isOwner || m.role !== "owner");
+            return (
+              <div key={m.id} className="ss-team-row">
+                <div style={{ minWidth: 0 }}>
+                  <div className="ss-member-name">{m.name || m.email}{self ? " (you)" : ""}</div>
+                  <div className="ss-member-sub">{m.name ? m.email : ""}</div>
                 </div>
-                <button className="ss-icon-btn" disabled={busy} aria-label={`Cancel invitation for ${i.email}`}
-                  onClick={() => act(() => cancelInvite(i.id), "Invitation cancelled")}><X size={15} /></button>
+                {canEdit ? (
+                  <select className="ss-role-select" value={m.role} disabled={busy} aria-label={`Role for ${m.email}`}
+                    onChange={(e) => act(() => setMemberRole(m.id, e.target.value), "Role updated")}>
+                    {isOwner && <option value="owner">Owner</option>}
+                    <option value="admin">Admin</option>
+                    <option value="surveyor">Surveyor</option>
+                  </select>
+                ) : (
+                  <span style={{ fontSize: 13, fontWeight: 700 }}>{ROLE_LABEL[m.role]}</span>
+                )}
+                {canEdit ? (
+                  <button className="ss-team-cancel" disabled={busy} aria-label={`Remove ${m.email}`} title="Remove from the firm"
+                    onClick={() => { if (window.confirm(`Remove ${m.name || m.email} from ${me.org.name}? Their cases on their own phone are untouched.`)) act(() => removeMember(m.id), "Removed"); }}>
+                    Remove
+                  </button>
+                ) : (
+                  <span className="ss-team-active">{m.last_seen_at ? relative(m.last_seen_at) : "never"}</span>
+                )}
               </div>
-            ))}
-          </>
-        )}
-      </div>
+            );
+          })}
+          {invites.map((i) => (
+            <div key={i.id} className="ss-team-row">
+              <div style={{ minWidth: 0 }}>
+                <div className="ss-member-name">{i.email}</div>
+                <div className="ss-member-sub">expires {relative(i.expires_at)}</div>
+              </div>
+              <span className="ss-team-pending">Pending</span>
+              <button className="ss-team-cancel" disabled={busy} aria-label={`Cancel invitation for ${i.email}`}
+                onClick={() => act(() => cancelInvite(i.id), "Invitation cancelled")}>Cancel</button>
+            </div>
+          ))}
+        </div>
+      )}
       {error && <p className="ss-fineprint ss-error" role="alert" style={{ marginTop: 8 }}>{error}</p>}
 
       {events.length > 0 && (

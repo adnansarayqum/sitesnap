@@ -132,6 +132,19 @@ export function StyleBlock() {
         display: flex; align-items: center; justify-content: center; gap: 6px;
       }
 
+      /* ---- guided setup ---- */
+      .ss-wiz-progress { display: flex; gap: 4px; padding: 10px 16px 0; flex-shrink: 0; }
+      .ss-wiz-seg { flex: 1; height: 4px; border-radius: 999px; background: var(--line-soft); }
+      .ss-wiz-seg.on { background: var(--pine); }
+      .ss-wiz-step { display: flex; flex-direction: column; gap: 10px; }
+      .ss-wiz-title { font-family: 'Libre Caslon Text', Georgia, serif; font-style: italic; font-size: 28px; line-height: 1.1; font-weight: 700; letter-spacing: -0.01em; margin: 4px 0 4px; }
+      .ss-wiz-lede { font-size: 13px; color: var(--muted); margin: -6px 0 2px; }
+      .ss-wiz-footer { display: flex; align-items: center; gap: 12px; }
+      .ss-wiz-skip { padding: 8px 4px; }
+      .ss-wiz-summary { margin-top: 18px; padding: 14px 16px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
+      .ss-wiz-summary-address { font-family: 'Libre Caslon Text', Georgia, serif; font-size: 18px; font-weight: 700; margin-top: 4px; }
+      .ss-wiz-summary-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+
       /* ---- room chips ---- */
       .ss-chip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
       .ss-chip {
@@ -541,17 +554,24 @@ export function StyleBlock() {
       .ss-search-input::placeholder { color: var(--muted2); }
       .ss-search-clear { color: var(--muted); flex-shrink: 0; display: flex; }
 
-      .ss-cloud-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
-      .ss-cloud-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
-      .ss-cloud-ic { color: var(--pine); display: flex; }
-      .ss-cloud-label { font-weight: 800; font-size: 14px; flex: 1; }
       .ss-cloud-connected {
         display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 800;
         color: var(--pine-press); background: var(--pine-tint); padding: 3px 9px; border-radius: 999px;
-        max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0;
       }
 
-      .ss-settings-row { display: flex; align-items: center; gap: 12px; padding: 13px 0; }
+      /* A ledger row: icon, title + sub, a value or action on the right —
+         Settings and the account panel are a continuous list of these
+         rather than a stack of separately-bordered cards. */
+      .ss-ledger-row { display: flex; align-items: center; gap: 12px; min-height: 54px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+      .ss-ledger-ic { color: var(--pine); display: flex; flex-shrink: 0; }
+      .ss-ledger-main { flex: 1; min-width: 0; }
+      .ss-ledger-title { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .ss-ledger-sub { font-size: 12px; color: var(--muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .ss-ledger-status { font-size: 13px; color: var(--muted); font-weight: 600; flex-shrink: 0; }
+      .ss-ledger-row.ss-no-border { border-bottom: none; }
+
+      .ss-settings-row { display: flex; align-items: center; gap: 12px; padding: 13px 0; border-bottom: 1px solid var(--line); }
       .ss-settings-ic {
         width: 36px; height: 36px; border-radius: 10px; background: var(--pine-tint); color: var(--pine-press);
         display: flex; align-items: center; justify-content: center; flex-shrink: 0;
@@ -676,9 +696,12 @@ export function StyleBlock() {
       /* ---- accounts: sign-in, firm, team ---- */
       .ss-signin { padding-top: 40px; }
       .ss-signin form { display: flex; flex-direction: column; }
-      .ss-code { font: 800 30px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .18em; text-align: center; padding: 16px 12px; }
-      .ss-or { display: flex; align-items: center; gap: 12px; color: var(--muted2); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; margin: 18px 0 12px; }
-      .ss-or::before, .ss-or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+      .ss-code-boxes { position: relative; display: flex; gap: 8px; }
+      .ss-code-box { flex: 1; height: 56px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; display: flex; align-items: center; justify-content: center; font: 800 26px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink); }
+      .ss-code-box.active { border-color: var(--pine); border-width: 1.5px; }
+      .ss-code-input { position: absolute; inset: 0; opacity: 0; border: 0; width: 100%; height: 100%; padding: 0; margin: 0; font-size: 16px; }
+      .ss-signin-oauth { display: flex; align-items: center; gap: 8px; margin: 20px 0 0; padding-top: 18px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+      .ss-signin-dot { color: var(--muted2); }
       .ss-signin-links { display: flex; justify-content: space-between; margin-top: 14px; }
       .ss-signin-links .ss-link { padding: 6px 0; }
       .ss-error { color: var(--red); margin: 12px 2px 0; }
@@ -701,16 +724,32 @@ export function StyleBlock() {
          the page sideways */
       .ss-scroll { overflow-x: hidden; }
       .ss-key-row > * { min-width: 0; }
-      .ss-role-select { max-width: 100%; text-overflow: ellipsis; }
+      .ss-role-select { max-width: 100%; width: 100%; text-overflow: ellipsis; }
+
+      /* ---- team table ---- */
+      .ss-team-head {
+        display: grid; grid-template-columns: minmax(0, 1fr) 80px 56px; gap: 8px; align-items: baseline;
+        padding-bottom: 6px; border-bottom: 1px solid var(--ink);
+        font-size: 11px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; color: var(--muted);
+      }
+      .ss-team-head span:last-child { text-align: right; }
+      .ss-team-row {
+        display: grid; grid-template-columns: minmax(0, 1fr) 80px 56px; gap: 8px; align-items: center;
+        min-height: 52px; padding: 8px 0; border-bottom: 1px solid var(--line);
+      }
+      .ss-team-active { font-size: 12.5px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+      .ss-team-cancel { font-size: 12.5px; font-weight: 700; color: var(--muted); text-align: right; }
+      .ss-team-pending { font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--amber); }
 
       /* ---- first run + background filing ---- */
-      .ss-firstrun { background: var(--pine); color: #fff; border-radius: 16px; padding: 16px 16px 14px; margin: 0 0 14px; }
-      .ss-home-hero .ss-firstrun { margin-top: 22px; }
-      .ss-firstrun-title { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 15px; }
-      .ss-firstrun p { margin: 6px 0 12px; font-size: 13.5px; line-height: 1.45; color: rgba(255,255,255,.82); }
-      .ss-firstrun-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-      .ss-firstrun .ss-btn-primary { background: var(--hivis); color: var(--hivis-deep); width: auto; padding: 10px 16px; }
-      .ss-firstrun .ss-link { color: rgba(255,255,255,.85); }
+      .ss-cloud-status {
+        display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 16px;
+        padding: 9px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+        font-size: 12.5px; color: var(--muted); text-align: left;
+      }
+      .ss-cloud-status b { color: var(--ink); }
+      .ss-cloud-status-cta { margin-left: auto; display: flex; align-items: center; gap: 2px; color: var(--pine); font-weight: 700; white-space: nowrap; flex-shrink: 0; }
+      .ss-home-hero .ss-cloud-status { margin-top: 22px; }
       .ss-live-filing { display: block; margin-top: 8px; font-size: 12px; font-weight: 700; color: var(--hivis); opacity: .85; }
       .ss-filing-note { margin-top: 8px; }
 
