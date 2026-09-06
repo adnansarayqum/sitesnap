@@ -64,7 +64,7 @@ export default function SiteSnap() {
   const undoTimer = useRef(null);
   const originals = useRef({}); // id -> File/Blob (full quality, this session only)
   const audioCache = useRef({}); // memo id -> Blob
-  const photoSeq = useRef(0);
+  const photoSeq = useRef({}); // roomId -> running exhibit number, reset per room
 
   // --- persistence -----------------------------------------------------
   // Whatever React has committed is what gets written, a beat later. Writing
@@ -291,8 +291,11 @@ export default function SiteSnap() {
       if (b) audioCache.current[mid] = b;
     }));
     originals.current = {};
-    photoSeq.current = (data.rooms || []).flatMap((r) => r.photoIds)
-      .reduce((m, pid) => Math.max(m, (cache[pid] && cache[pid].no) || 0), 0);
+    photoSeq.current = {};
+    for (const r of data.rooms || []) {
+      photoSeq.current[r.id] = (r.photoIds || [])
+        .reduce((m, pid) => Math.max(m, (cache[pid] && cache[pid].no) || 0), 0);
+    }
     setScreen("casefile");
     // anything shot offline, or before a drive was linked, files now
     const p = await refreshAutoFiling();
@@ -313,7 +316,7 @@ export default function SiteSnap() {
     setPhotoCache({});
     originals.current = {};
     audioCache.current = {};
-    photoSeq.current = 0;
+    photoSeq.current = {};
     await refreshIndex();
     setScreen(target || returnTab);
   }
@@ -348,19 +351,20 @@ export default function SiteSnap() {
     setRooms(rms);
     setPhotoCache({});
     originals.current = {};
-    photoSeq.current = 0;
+    photoSeq.current = {};
     clearFilingQueue();
     setScreen("casefile");
   }
 
   async function addPhoto(roomId, dataUrl, originalFile, thumb) {
-    // a running number across the property; a counter rather than a recount so
-    // a fast burst of shots can't hand two photos the same number
-    photoSeq.current = Math.max(
-      photoSeq.current,
-      rooms.reduce((n, r) => n + r.photoIds.length, 0)
+    // a running number per room; a counter rather than a recount so a fast
+    // burst of shots can't hand two photos the same number
+    const room = rooms.find((r) => r.id === roomId);
+    photoSeq.current[roomId] = Math.max(
+      photoSeq.current[roomId] || 0,
+      room ? room.photoIds.length : 0
     ) + 1;
-    const no = photoSeq.current;
+    const no = photoSeq.current[roomId];
     const photo = { id: uid("ph"), roomId, no, caption: "", dataUrl, thumb: thumb || null, takenAt: Date.now() };
     if (originalFile) originals.current[photo.id] = originalFile;
     saveNow.current = true;

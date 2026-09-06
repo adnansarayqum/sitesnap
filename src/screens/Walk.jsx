@@ -392,7 +392,7 @@ export function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDel
   const lastId = room.photoIds[count - 1];
   const last = lastId ? photoCache[lastId] : null;
   const isLast = index === rooms.length - 1;
-  const nextExhibitNo = rooms.reduce((s, r) => s + r.photoIds.length, 0) + 1;
+  const nextExhibitNo = count + 1;
 
   useEffect(() => { setNoteOpen(false); setCameraOpen(false); }, [index]);
 
