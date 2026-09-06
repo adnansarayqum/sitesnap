@@ -70,27 +70,33 @@ export function HomeScreen({ index, onNew, onOpen, onTab, orgName, needsCloud })
     return (
       <div className="ss-col">
         <div className="ss-home-hero">
-          <div className="ss-mark"><Camera size={20} strokeWidth={2.4} /></div>
-          <div className="ss-eyebrow">{orgName || "Property inspections"}</div>
-          <h1 className="ss-h1">Every photo,<br />already filed.</h1>
-          <p className="ss-lede">
-            Walk the property, shoot as you go. Photos sort themselves into
-            numbered rooms while you rate, note and go — no filing later.
-          </p>
-          <div className="ss-home-features">
-            <span className="ss-home-feature"><CloudUpload size={13} /> Auto-files to your drive</span>
-            <span className="ss-home-feature"><Star size={13} /> Condition ratings</span>
-            <span className="ss-home-feature"><Mic size={13} /> Voice notes</span>
-            <span className="ss-home-feature"><WifiOff size={13} /> Works offline</span>
-            <span className="ss-home-feature"><FileText size={13} /> One-tap PDF export</span>
+          <div className="ss-home-orbs" aria-hidden="true">
+            <span className="ss-orb ss-orb-a" />
+            <span className="ss-orb ss-orb-b" />
           </div>
-          <div className="ss-home-steps-label">How it works</div>
-          <div className="ss-home-steps">
-            <div><span className="ss-step-n">1</span> Set up the property</div>
-            <div><span className="ss-step-n">2</span> Walk, shoot &amp; rate each room</div>
-            <div><span className="ss-step-n">3</span> Export — Photos, ZIP, OneDrive, PDF report</div>
+          <div className="ss-home-hero-content">
+            <div className="ss-mark"><Camera size={20} strokeWidth={2.4} /></div>
+            <div className="ss-eyebrow">{orgName || "Property inspections"}</div>
+            <h1 className="ss-h1">Every photo,<br />already filed.</h1>
+            <p className="ss-lede">
+              Walk the property, shoot as you go. Photos sort themselves into
+              numbered rooms while you rate, note and go — no filing later.
+            </p>
+            <div className="ss-home-features">
+              <span className="ss-home-feature"><CloudUpload size={13} /> Auto-files to your drive</span>
+              <span className="ss-home-feature"><Star size={13} /> Condition ratings</span>
+              <span className="ss-home-feature"><Mic size={13} /> Voice notes</span>
+              <span className="ss-home-feature"><WifiOff size={13} /> Works offline</span>
+              <span className="ss-home-feature"><FileText size={13} /> One-tap PDF export</span>
+            </div>
+            <div className="ss-home-steps-label">How it works</div>
+            <div className="ss-home-steps">
+              <div><span className="ss-step-n">1</span> Set up the property</div>
+              <div><span className="ss-step-n">2</span> Walk, shoot &amp; rate each room</div>
+              <div><span className="ss-step-n">3</span> Export — Photos, ZIP, OneDrive, PDF report</div>
+            </div>
+            {needsCloud && <CloudStatusRow onTab={onTab} />}
           </div>
-          {needsCloud && <CloudStatusRow onTab={onTab} />}
         </div>
         <div className="ss-footer">
           <button className="ss-btn ss-btn-primary ss-btn-big" onClick={onNew}>

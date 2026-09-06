@@ -108,40 +108,67 @@ export function StyleBlock() {
       .ss-btn-sq { padding: 0 16px; border-radius: 12px; }
 
       /* ---- home ---- */
-      .ss-home-hero { flex: 1; padding: 56px 26px 20px; display: flex; flex-direction: column; }
-      .ss-mark { width: 44px; height: 44px; border-radius: 13px; background: var(--pine); color: var(--hivis); display: flex; align-items: center; justify-content: center; margin-bottom: 22px; }
+      .ss-home-hero { flex: 1; padding: 56px 26px 20px; display: flex; flex-direction: column; position: relative; overflow: hidden; }
+      .ss-home-hero-content { position: relative; z-index: 1; display: flex; flex-direction: column; }
+      .ss-home-orbs { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+      .ss-orb { position: absolute; border-radius: 50%; filter: blur(38px); }
+      .ss-orb-a { width: 220px; height: 220px; top: -70px; right: -70px; background: radial-gradient(circle, var(--pine) 0%, transparent 72%); opacity: .28; }
+      .ss-orb-b { width: 180px; height: 180px; bottom: 30px; left: -80px; background: radial-gradient(circle, var(--hivis) 0%, transparent 72%); opacity: .18; }
+      .ss-mark {
+        width: 44px; height: 44px; border-radius: 13px; background: linear-gradient(155deg, var(--pine), var(--pine-press));
+        color: var(--hivis); display: flex; align-items: center; justify-content: center; margin-bottom: 22px;
+        box-shadow: 0 10px 22px -8px rgba(16,53,42,.55);
+      }
       .ss-eyebrow { font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--pine); margin-bottom: 10px; }
       .ss-h1 { font-family: 'Libre Caslon Text', Georgia, serif; font-style: italic; font-size: 38px; line-height: 1.04; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 14px; }
       .ss-lede { color: var(--muted); font-size: 15px; margin: 0 0 18px; max-width: 34ch; }
       .ss-home-features { display: flex; flex-wrap: wrap; gap: 7px; margin: 0 0 28px; }
       .ss-home-feature {
         display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px 6px 9px;
-        border-radius: 999px; background: var(--card); border: 1px solid var(--line);
+        border-radius: 999px; background: color-mix(in srgb, var(--card) 82%, transparent);
+        backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+        border: 1px solid var(--line); box-shadow: 0 1px 2px rgba(16,36,29,.05);
         font-size: 12px; font-weight: 700; color: var(--ink); white-space: nowrap;
+        transition: transform .15s ease, box-shadow .15s ease;
       }
+      .ss-home-feature:active { transform: scale(.95); }
       .ss-home-feature svg { color: var(--pine); flex-shrink: 0; }
       .ss-home-steps-label { font-size: 11px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; color: var(--muted2); margin: 0 0 12px; }
       .ss-home-steps { display: flex; flex-direction: column; gap: 10px; font-weight: 600; font-size: 14px; }
       .ss-home-steps > div { display: flex; align-items: center; gap: 10px; }
-      .ss-step-n { width: 24px; height: 24px; border-radius: 8px; background: var(--card); border: 1px solid var(--line); display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: var(--pine); }
+      .ss-step-n {
+        width: 24px; height: 24px; border-radius: 8px; background: var(--pine-tint); border: 1px solid var(--line);
+        display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: var(--pine);
+      }
 
       @keyframes ss-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+      @keyframes ss-orb-drift-a { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-16px, 20px) scale(1.08); } }
+      @keyframes ss-orb-drift-b { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(18px, -16px) scale(1.06); } }
+      @keyframes ss-shine { from { transform: translateX(-140%) skewX(-12deg); } to { transform: translateX(240%) skewX(-12deg); } }
       @media (prefers-reduced-motion: no-preference) {
-        .ss-home-hero > * { animation: ss-rise .5s cubic-bezier(.16,1,.3,1) both; }
-        .ss-home-hero > *:nth-child(1) { animation-delay: 0ms; }
-        .ss-home-hero > *:nth-child(2) { animation-delay: 40ms; }
-        .ss-home-hero > *:nth-child(3) { animation-delay: 80ms; }
-        .ss-home-hero > *:nth-child(4) { animation-delay: 120ms; }
-        .ss-home-hero > *:nth-child(5) { animation-delay: 160ms; }
-        .ss-home-hero > *:nth-child(6) { animation-delay: 200ms; }
-        .ss-home-hero > *:nth-child(7) { animation-delay: 240ms; }
-        .ss-home-hero > *:nth-child(8) { animation-delay: 280ms; }
+        .ss-orb-a { animation: ss-orb-drift-a 13s ease-in-out infinite; }
+        .ss-orb-b { animation: ss-orb-drift-b 16s ease-in-out infinite; }
+        .ss-home-hero-content > * { animation: ss-rise .5s cubic-bezier(.16,1,.3,1) both; }
+        .ss-home-hero-content > *:nth-child(1) { animation-delay: 0ms; }
+        .ss-home-hero-content > *:nth-child(2) { animation-delay: 40ms; }
+        .ss-home-hero-content > *:nth-child(3) { animation-delay: 80ms; }
+        .ss-home-hero-content > *:nth-child(4) { animation-delay: 120ms; }
+        .ss-home-hero-content > *:nth-child(5) { animation-delay: 160ms; }
+        .ss-home-hero-content > *:nth-child(6) { animation-delay: 200ms; }
+        .ss-home-hero-content > *:nth-child(7) { animation-delay: 240ms; }
+        .ss-home-hero-content > *:nth-child(8) { animation-delay: 280ms; }
         .ss-home-feature { animation: ss-rise .4s cubic-bezier(.16,1,.3,1) both; }
         .ss-home-features .ss-home-feature:nth-child(1) { animation-delay: 170ms; }
         .ss-home-features .ss-home-feature:nth-child(2) { animation-delay: 200ms; }
         .ss-home-features .ss-home-feature:nth-child(3) { animation-delay: 230ms; }
         .ss-home-features .ss-home-feature:nth-child(4) { animation-delay: 260ms; }
         .ss-home-features .ss-home-feature:nth-child(5) { animation-delay: 290ms; }
+        .ss-footer .ss-btn-primary.ss-btn-big { position: relative; overflow: hidden; }
+        .ss-footer .ss-btn-primary.ss-btn-big::after {
+          content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 40%;
+          background: linear-gradient(100deg, transparent, rgba(255,255,255,.28), transparent);
+          animation: ss-shine 1.6s ease-out .6s 1;
+        }
       }
 
       /* ---- inputs ---- */
@@ -556,8 +583,11 @@ export function StyleBlock() {
       .ss-rep-foot { margin-top: 30px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); font-weight: 600; }
 
       @media print {
-        .ss-noprint, .ss-col, .ss-toast, .ss-modal-back { display: none !important; }
-        .ss-root { background: #fff; }
+        .ss-noprint, .ss-toast, .ss-modal-back { display: none !important; }
+        /* the app shell (.ss-root, min-height: 100vh) sits before the
+           portaled .ss-report in the document; left visible it reserves a
+           blank leading page before the report content even starts */
+        .ss-root { display: none !important; }
         .ss-report { position: static; overflow: visible; }
         .ss-report-page { max-width: none; padding: 0; }
         .ss-rep-grid img { border: none; }

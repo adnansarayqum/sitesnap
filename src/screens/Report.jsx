@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import {
   Camera, Printer, X,
 } from "lucide-react";
@@ -5,13 +6,19 @@ import { pad } from "../lib/util.js";
 
 /* ---------------- printable report ---------------- */
 
+// Rendered through a portal straight onto <body>, not inside the case
+// file's own screen tree: that tree sits under a wrapper the print
+// stylesheet hides wholesale (`.ss-col { display: none }`) to keep the app
+// chrome off the page, and a `display: none` ancestor takes this report
+// down with it — the browser's "print" and "save as PDF" both end up
+// blank. Outside that tree, the report prints on its own.
 export function ReportView({ inspection, rooms, photoCache, onClose }) {
   const totalPhotos = rooms.reduce((s, r) => s + r.photoIds.length, 0);
   const covered = rooms.filter((r) => r.photoIds.length > 0).length;
   const date = new Date(inspection.startedAt).toLocaleDateString("en-GB", {
     weekday: "long", day: "numeric", month: "long", year: "numeric",
   });
-  return (
+  return createPortal((
     <div className="ss-report">
       <div className="ss-report-bar ss-noprint">
         <button className="close" onClick={onClose}><X size={16} /> Close</button>
@@ -64,5 +71,5 @@ export function ReportView({ inspection, rooms, photoCache, onClose }) {
         </footer>
       </div>
     </div>
-  );
+  ), document.body);
 }
