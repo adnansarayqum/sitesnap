@@ -2929,47 +2929,47 @@ function ReorderableList({ items, onReorder, renderRow, onRowTap }) {
 function StyleBlock() {
   return (
     <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Source+Serif+4:ital,wght@0,600;0,700;1,400&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@500;600;700;800&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&display=swap');
 
       :root {
-        --paper: #F3F5F0;
-        --paper-deep: #EAEEE5;
+        --paper: #F6F6F3;
+        --paper-deep: #EBEBE6;
         --card: #FFFFFF;
-        --ink: #16241D;
-        --muted: #64716A;
+        --ink: #14201B;
+        --muted: #5E6B64;
         --muted2: #93A099;
-        --line: #DFE5DD;
-        --line-soft: #EAEEE6;
-        --pine: #0E5C3F;
-        --pine-press: #0A4530;
-        --pine-tint: #E7F2EC;
-        --hivis: #D9F44F;
-        --hivis-deep: #1C2A08;
-        --red: #C43C2B;
-        --red-tint: #FBEAE7;
-        --amber: #A66A00;
-        --amber-tint: #FAF1DE;
-        --topbar-bg: rgba(243,245,240,.94);
+        --line: #E2E5DF;
+        --line-soft: #ECEEE9;
+        --pine: #10352A;
+        --pine-press: #0A2419;
+        --pine-tint: #E7ECE8;
+        --hivis: #E8B84B;
+        --hivis-deep: #241B08;
+        --red: #93321F;
+        --red-tint: #F3E4E0;
+        --amber: #8C6A28;
+        --amber-tint: #F6EFDC;
+        --topbar-bg: rgba(246,246,243,.94);
       }
       /* Field mode: a high-contrast dark theme for shooting in direct
          sunlight, where the default paper/ink pairing washes out. Every
          screen already reads off these variables, so this is the only
          place the swap happens. */
       .ss-root.ss-field {
-        --paper: #0F1811;
-        --paper-deep: #182419;
-        --card: #17221A;
-        --ink: #EFF3EC;
+        --paper: #12201B;
+        --paper-deep: #1A2A22;
+        --card: #182821;
+        --ink: #F1F3EF;
         --muted: #A9B7AB;
         --muted2: #6E7E70;
-        --line: #283427;
-        --line-soft: #202C22;
+        --line: #2A3A31;
+        --line-soft: #223026;
         --pine: #3FAE7C;
         --pine-press: #57C293;
         --pine-tint: #17301F;
         --red-tint: #3A1E19;
         --amber-tint: #362A10;
-        --topbar-bg: rgba(15,24,17,.92);
+        --topbar-bg: rgba(18,32,27,.92);
       }
       * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
       html, body { background: var(--paper); margin: 0; }
@@ -2979,11 +2979,11 @@ function StyleBlock() {
         min-height: 100vh; width: 100%;
         background: var(--paper); color: var(--ink);
         display: flex; justify-content: center;
-        font-family: 'Archivo', system-ui, sans-serif;
+        font-family: 'Public Sans', system-ui, sans-serif;
         font-size: 15px; line-height: 1.4;
         transition: background .2s ease, color .2s ease;
       }
-      .ss-serif { font-family: 'Source Serif 4', Georgia, serif; }
+      .ss-serif { font-family: 'Libre Caslon Text', Georgia, serif; }
       .ss-frame { width: 100%; max-width: 430px; min-height: 100vh; display: flex; flex-direction: column; position: relative; }
       .ss-col { flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
       .ss-center { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
@@ -3037,7 +3037,7 @@ function StyleBlock() {
       .ss-home-hero { flex: 1; padding: 56px 26px 20px; display: flex; flex-direction: column; }
       .ss-mark { width: 44px; height: 44px; border-radius: 13px; background: var(--pine); color: var(--hivis); display: flex; align-items: center; justify-content: center; margin-bottom: 22px; }
       .ss-eyebrow { font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--pine); margin-bottom: 10px; }
-      .ss-h1 { font-family: 'Source Serif 4', Georgia, serif; font-style: italic; font-size: 38px; line-height: 1.04; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 14px; }
+      .ss-h1 { font-family: 'Libre Caslon Text', Georgia, serif; font-style: italic; font-size: 38px; line-height: 1.04; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 14px; }
       .ss-lede { color: var(--muted); font-size: 15px; margin: 0 0 26px; max-width: 34ch; }
       .ss-home-steps { display: flex; flex-direction: column; gap: 10px; font-weight: 600; font-size: 14px; }
       .ss-home-steps > div { display: flex; align-items: center; gap: 10px; }
@@ -3150,7 +3150,7 @@ function StyleBlock() {
       /* ---- finish ---- */
       .ss-summary { display: flex; gap: 10px; align-items: flex-start; background: var(--card); border: 1px solid var(--line); border-radius: 13px; padding: 14px; margin-bottom: 16px; }
       .ss-summary svg { margin-top: 2px; color: var(--pine); flex-shrink: 0; }
-      .ss-summary-title { font-family: 'Source Serif 4', Georgia, serif; font-weight: 700; font-size: 16px; }
+      .ss-summary-title { font-family: 'Libre Caslon Text', Georgia, serif; font-weight: 700; font-size: 16px; }
       .ss-summary-sub { font-size: 13px; color: var(--muted); font-weight: 600; margin-top: 2px; }
       .ss-tree { background: var(--card); border: 1px solid var(--line); border-radius: 13px; overflow: hidden; margin-bottom: 4px; }
       .ss-tree-root { display: flex; align-items: center; gap: 8px; padding: 12px 14px; font-weight: 800; font-size: 14px; border-bottom: 1px solid var(--line); background: var(--paper-deep); }
@@ -3405,7 +3405,7 @@ function StyleBlock() {
       .ss-report-page { max-width: 720px; margin: 0 auto; padding: 28px 22px 48px; color: var(--ink); }
       .ss-rep-head { border-bottom: 3px solid var(--pine); padding-bottom: 18px; margin-bottom: 22px; }
       .ss-rep-brand { display: flex; align-items: center; gap: 6px; font-weight: 900; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--pine); margin-bottom: 10px; }
-      .ss-rep-head h1 { font-family: 'Source Serif 4', Georgia, serif; font-size: 26px; font-weight: 700; margin: 0 0 8px; line-height: 1.15; }
+      .ss-rep-head h1 { font-family: 'Libre Caslon Text', Georgia, serif; font-size: 26px; font-weight: 700; margin: 0 0 8px; line-height: 1.15; }
       .ss-rep-meta { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; font-weight: 600; color: var(--muted); }
       .ss-rep-room { margin-bottom: 24px; break-inside: avoid-page; }
       .ss-rep-room-head { display: flex; align-items: center; gap: 4px; margin-bottom: 8px; }
@@ -3488,7 +3488,7 @@ function StyleBlock() {
       .ss-pill-conf.warn { background: var(--amber-tint); color: var(--amber); }
       .ss-finding-label { font-size: 10.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--muted2); margin: 10px 0 3px; }
       .ss-finding-label:first-of-type { margin-top: 0; }
-      .ss-finding-text { font-family: 'Source Serif 4', Georgia, serif; font-size: 15px; line-height: 1.5; margin: 0; }
+      .ss-finding-text { font-family: 'Libre Caslon Text', Georgia, serif; font-size: 15px; line-height: 1.5; margin: 0; }
       .ss-finding-leg { display: inline-flex; align-items: center; gap: 6px; background: var(--pine-tint); color: var(--pine-press); padding: 5px 10px; border-radius: 8px; font-size: 12px; font-weight: 700; }
       .ss-finding-leg-empty { font-size: 12px; font-weight: 600; color: var(--muted2); font-style: italic; }
 
