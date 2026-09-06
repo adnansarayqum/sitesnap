@@ -4,7 +4,7 @@ import {
   CloudUpload, Check, X, Loader2, ImagePlus, ArrowRight, ArrowLeft,
   Undo2, FolderTree, CircleCheck, Image as ImageIcon, Download, Link2,
   StickyNote, FileText, Printer, AlertTriangle, Mic, MicOff, KeyRound, Briefcase, Smartphone, Pencil,
-  RefreshCw, Aperture, Settings as SettingsIcon, Search, SlidersHorizontal, Sun, Moon,
+  RefreshCw, Aperture, Settings as SettingsIcon, Search, SlidersHorizontal, Sun, Moon, SwitchCamera,
   Circle, MoveUpRight, ShieldCheck, Clock, HardDrive, ChevronRight, Tag, Home as HomeIcon,
 } from "lucide-react";
 
@@ -1818,6 +1818,12 @@ function LiveCamera({ label, count, onCapture, onClose, onFallback }) {
   // appear, same as before.
   const [zoomCaps, setZoomCaps] = useState(null); // {min, max, step} or null
   const [zoom, setZoom] = useState(1);
+  // Phones that keep the ultra-wide lens as a separate physical camera
+  // (rather than folding it into one continuous zoom range) need switching
+  // by device instead — this lets a wide shot still be reachable even when
+  // zoomCaps above doesn't go below 1x.
+  const [lenses, setLenses] = useState([]); // MediaDeviceInfo[], back-facing candidates
+  const [activeLensId, setActiveLensId] = useState(null);
   const capturing = useRef(false);
   const alive = useRef(true);
   const opening = useRef(false);
@@ -1825,6 +1831,8 @@ function LiveCamera({ label, count, onCapture, onClose, onFallback }) {
   stateRef.current = state;
   const zoomStateRef = useRef({ zoom: 1, caps: null });
   zoomStateRef.current = { zoom, caps: zoomCaps };
+  const activeLensIdRef = useRef(null);
+  activeLensIdRef.current = activeLensId;
 
   function stopStream() {
     if (streamRef.current) {
@@ -1860,6 +1868,32 @@ function LiveCamera({ label, count, onCapture, onClose, onFallback }) {
     setZoom(clamped);
     const track = streamRef.current && streamRef.current.getVideoTracks()[0];
     if (track) track.applyConstraints({ advanced: [{ zoom: clamped }] }).catch(() => {});
+  }
+
+  // Device labels only populate once camera permission is granted, so this
+  // can only run after a stream is already live. "front" is the one word
+  // reliably present across manufacturers' labelling; anything else (the
+  // main, ultra-wide, and tele back lenses) is left in the list for the
+  // surveyor to cycle through and see which one is actually wide.
+  async function refreshLenses(stream) {
+    try {
+      const track = stream.getVideoTracks()[0];
+      const settings = track.getSettings ? track.getSettings() : {};
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cams = devices.filter((d) => d.kind === "videoinput" && !/front/i.test(d.label));
+      if (!alive.current) return;
+      setLenses(cams);
+      setActiveLensId(settings.deviceId || (cams[0] && cams[0].deviceId) || null);
+    } catch {
+      if (alive.current) setLenses([]);
+    }
+  }
+
+  function switchLens() {
+    if (lenses.length < 2) return;
+    const idx = lenses.findIndex((d) => d.deviceId === activeLensId);
+    const next = lenses[(idx + 1) % lenses.length];
+    if (next) { stopStream(); startStream(next.deviceId); }
   }
 
   // Native (non-passive) touch listeners, so preventDefault actually stops
@@ -1900,7 +1934,7 @@ function LiveCamera({ label, count, onCapture, onClose, onFallback }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function startStream() {
+  async function startStream(deviceId) {
     if (opening.current) return;
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setState("unsupported");
@@ -1908,10 +1942,16 @@ function LiveCamera({ label, count, onCapture, onClose, onFallback }) {
     }
     opening.current = true;
     setState("starting");
-    const constraints = [
+    const defaultConstraints = [
       { video: { facingMode: { ideal: "environment" }, width: { ideal: PHOTO_DIM }, height: { ideal: PHOTO_DIM } }, audio: false },
       { video: true, audio: false }, // older devices reject exact/ideal facingMode
     ];
+    // a lens picked earlier that's since gone missing (unplugged USB cam,
+    // odd driver hiccup) falls through to the same default chain rather
+    // than leaving the surveyor stuck on "camera unsupported"
+    const constraints = deviceId
+      ? [{ video: { deviceId: { exact: deviceId }, width: { ideal: PHOTO_DIM }, height: { ideal: PHOTO_DIM } }, audio: false }, ...defaultConstraints]
+      : defaultConstraints;
     try {
       for (const c of constraints) {
         try {
@@ -1924,6 +1964,7 @@ function LiveCamera({ label, count, onCapture, onClose, onFallback }) {
             await videoRef.current.play().catch(() => {});
           }
           detectZoom(stream);
+          refreshLenses(stream);
           setState("ready");
           return;
         } catch (e) {
@@ -1957,7 +1998,7 @@ function LiveCamera({ label, count, onCapture, onClose, onFallback }) {
         stopStream();
         if (stateRef.current === "ready") setState("starting");
       } else if (!streamRef.current && stateRef.current === "starting") {
-        startStream();
+        startStream(activeLensIdRef.current);
       }
     }
     document.addEventListener("visibilitychange", onVis);
@@ -2014,6 +2055,11 @@ function LiveCamera({ label, count, onCapture, onClose, onFallback }) {
       <div className="ss-livecam-top">
         <button className="ss-livecam-close" onClick={close}><X size={20} /></button>
         <span className="ss-livecam-label">{label}</span>
+        {state === "ready" && lenses.length > 1 && (
+          <button className="ss-livecam-lens" onClick={switchLens} title="Try the other camera lens">
+            <SwitchCamera size={17} />
+          </button>
+        )}
         <span className="ss-livecam-count">{count}</span>
       </div>
 
@@ -3719,6 +3765,7 @@ function StyleBlock() {
       .ss-livecam-close { width: 36px; height: 36px; border-radius: 999px; background: rgba(0,0,0,.4); color: #fff; display: flex; align-items: center; justify-content: center; }
       .ss-livecam-label { flex: 1; color: #fff; font-weight: 800; font-size: 15px; text-shadow: 0 1px 3px rgba(0,0,0,.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .ss-livecam-count { min-width: 28px; text-align: center; background: var(--hivis); color: var(--hivis-ink); font-weight: 900; font-size: 14px; border-radius: 999px; padding: 4px 10px; font-variant-numeric: tabular-nums; }
+      .ss-livecam-lens { width: 34px; height: 34px; border-radius: 999px; background: rgba(0,0,0,.4); color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
       .ss-livecam-msg {
         position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
         gap: 14px; color: #fff; text-align: center; padding: 40px 32px; font-size: 14.5px; font-weight: 600;
