@@ -79,6 +79,7 @@ export function saveState(inspection, rooms) {
         address: inspection.address,
         postcode: inspection.postcode || "",
         startedAt: inspection.startedAt,
+        caseNo: inspection.caseNo || null,
         photos: rooms.reduce((n, r) => n + r.photoIds.length, 0),
         rooms: rooms.length,
         ref: inspection.ref || "",
@@ -244,4 +245,26 @@ export async function loadFieldMode() {
 }
 export async function saveFieldMode(on) {
   try { await set(FIELD_MODE_KEY, !!on); } catch {}
+}
+
+// Every case gets a real, permanent, sequential number — assigned once, at
+// creation, never reused even if that case is later discarded. Queued the
+// same way as the inspection index so two properties started back-to-back
+// can't race each other onto the same number.
+const CASE_NO_KEY = "sitesnap:nextCaseNo";
+let caseNoQueue = Promise.resolve();
+
+export function nextCaseNo() {
+  const run = caseNoQueue.then(async () => {
+    try {
+      const n = (await get(CASE_NO_KEY)) || 1; // starts at 1 on a fresh device — purely a local counter, not tied to any external case log
+      await set(CASE_NO_KEY, n + 1);
+      return n;
+    } catch (e) {
+      writeFailed("Assigning a case number", e);
+      return null;
+    }
+  });
+  caseNoQueue = run.catch(() => {});
+  return run;
 }

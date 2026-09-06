@@ -5,7 +5,7 @@ import {
   Undo2, FolderTree, CircleCheck, Image as ImageIcon, Download, Link2,
   StickyNote, FileText, Printer, AlertTriangle, Mic, MicOff, KeyRound, Briefcase, Smartphone, Pencil,
   RefreshCw, Aperture, Settings as SettingsIcon, Search, SlidersHorizontal, Sun, Moon,
-  Circle, MoveUpRight, ShieldCheck, Clock, HardDrive, ChevronRight, Tag,
+  Circle, MoveUpRight, ShieldCheck, Clock, HardDrive, ChevronRight, Tag, Home as HomeIcon,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -169,7 +169,7 @@ import {
   setStorageErrorHandler, requestDurableStorage, storageEstimate,
   loadMsClientId, saveMsClientId, loadGoogleClientId, saveGoogleClientId,
   hasBuiltInMsClientId, hasBuiltInGoogleClientId,
-  loadFieldMode, saveFieldMode,
+  loadFieldMode, saveFieldMode, nextCaseNo,
 } from "./storage.js";
 // Loaded on demand, not at startup: MSAL and Google's SDK are only weight
 // worth paying for a surveyor who actually connects a direct cloud link —
@@ -289,7 +289,13 @@ function VoiceMemo({ memos, onAdd, onDelete, dark }) {
 /* ================================================================== */
 
 export default function SiteSnap() {
-  const [screen, setScreen] = useState("loading"); // loading|home|setup|settings|board|walk|room|finish
+  // Three top-level tabs (home|cases|settings) carry the tab bar; opening a
+  // case, starting a new one, or shooting is a full-screen flow on top of
+  // them (setup|casefile|walk|evidence) with no tab bar of its own — it
+  // returns to whichever tab it was opened from.
+  const [screen, setScreen] = useState("loading");
+  const [returnTab, setReturnTab] = useState("home");
+  const [caseTab, setCaseTab] = useState("overview"); // overview|rooms|findings|export, while screen === "casefile"
   const [inspection, setInspection] = useState(null);
   const [index, setIndex] = useState([]);
   const [rooms, setRooms] = useState([]);
@@ -301,7 +307,6 @@ export default function SiteSnap() {
   const [durable, setDurable] = useState(true);
   const [archive, setArchive] = useState([]);
   const [fieldMode, setFieldMode] = useState(false);
-  const [settingsReturn, setSettingsReturn] = useState("home"); // where Settings' back button goes
   const undoTimer = useRef(null);
   const originals = useRef({}); // id -> File/Blob (full quality, this session only)
   const audioCache = useRef({}); // memo id -> Blob
@@ -407,11 +412,15 @@ export default function SiteSnap() {
   }
 
   // Photos and voice notes stay on disk until an inspection is closed, so
-  // opening one only pulls that property's media into memory.
-  async function openInspection(id) {
+  // opening one only pulls that property's media into memory. `fromTab` is
+  // remembered so the case file's back button returns to wherever it was
+  // opened from (Home's active case, or the full Cases ledger).
+  async function openInspection(id, fromTab = "home") {
     const data = await loadInspection(id);
     if (!data || !data.inspection) { await refreshIndex(); return; }
     suppressSaveId.current = null;
+    setReturnTab(fromTab);
+    setCaseTab("overview");
     setInspection(data.inspection);
     setRooms(data.rooms || []);
     const ids = (data.rooms || []).flatMap((r) => r.photoIds);
@@ -440,12 +449,16 @@ export default function SiteSnap() {
     originals.current = {};
     photoSeq.current = (data.rooms || []).flatMap((r) => r.photoIds)
       .reduce((m, pid) => Math.max(m, (cache[pid] && cache[pid].no) || 0), 0);
-    setScreen("board");
+    setScreen("casefile");
   }
 
   // Leaves the property loaded on disk — the surveyor is moving to the next
-  // job, not finishing this one.
-  async function backToHome() {
+  // job, not finishing this one. Lands on whichever tab the case was opened
+  // from by default, or `target` when a screen inside the case file (the
+  // Export tab's cloud-settings link) sends the surveyor somewhere specific —
+  // either way this is the ONLY path back to the top-level tabs, so it's the
+  // one place `index` gets refreshed with what just changed.
+  async function exitCase(target) {
     await flushAll();
     setInspection(null);
     setRooms([]);
@@ -454,19 +467,39 @@ export default function SiteSnap() {
     audioCache.current = {};
     photoSeq.current = 0;
     await refreshIndex();
-    setScreen("home");
+    setScreen(target || returnTab);
   }
 
-  function startInspection(address, postcode, roomList, caseDetails) {
-    const insp = { id: uid("insp"), address, postcode, startedAt: Date.now(), ...(caseDetails || {}) };
+  // A case's activity log is just another field on the inspection, so it
+  // rides along on the same debounced save as everything else — no separate
+  // store, no separate write path. Capped so a long job's log can't grow
+  // without bound.
+  function logActivity(text) {
+    setInspection((prev) => {
+      if (!prev) return prev;
+      const entry = { ts: Date.now(), text };
+      const activity = [...(prev.activity || []), entry].slice(-40);
+      return { ...prev, activity };
+    });
+  }
+
+  async function startInspection(address, postcode, roomList, caseDetails) {
+    const caseNo = await nextCaseNo();
+    const insp = {
+      id: uid("insp"), address, postcode, startedAt: Date.now(), caseNo,
+      activity: [{ ts: Date.now(), text: "Case opened" }],
+      ...(caseDetails || {}),
+    };
     const rms = roomList.map((r) => ({ id: r.id, name: r.name, photoIds: [] }));
     suppressSaveId.current = null;
+    setReturnTab("home");
+    setCaseTab("overview");
     setInspection(insp);
     setRooms(rms);
     setPhotoCache({});
     originals.current = {};
     photoSeq.current = 0;
-    setScreen("board");
+    setScreen("casefile");
   }
 
   async function addPhoto(roomId, dataUrl, originalFile, thumb) {
@@ -484,6 +517,8 @@ export default function SiteSnap() {
     setRooms((prev) => prev.map((r) =>
       r.id === roomId ? { ...r, photoIds: [...r.photoIds, photo.id] } : r
     ));
+    const roomName = (rooms.find((r) => r.id === roomId) || {}).name || "a room";
+    logActivity(`Photo added to ${roomName} — Exhibit ${no}`);
     // if the write fails the full image stays in memory so it can still be
     // exported before the app closes; once written, only the thumbnail stays
     savePhoto(photo)
@@ -542,6 +577,8 @@ export default function SiteSnap() {
     setRooms((prev) => prev.map((r) =>
       r.id === roomId ? { ...r, memos: [...(r.memos || []), { id, secs, type: blob.type }] } : r
     ));
+    const roomName = (rooms.find((r) => r.id === roomId) || {}).name || "a room";
+    logActivity(`Voice note added to ${roomName}`);
   }
 
   function deleteMemo(roomId, memoId) {
@@ -579,6 +616,12 @@ export default function SiteSnap() {
 
   function setRoomMeta(roomId, patch) {
     setRooms((prev) => prev.map((r) => (r.id === roomId ? { ...r, ...patch } : r)));
+    // only condition changes are worth a log line — logging every keystroke
+    // of a note would flood it
+    if ("condition" in patch) {
+      const roomName = (rooms.find((r) => r.id === roomId) || {}).name || "a room";
+      logActivity(patch.condition ? `${roomName} rated ${patch.condition}` : `${roomName} rating cleared`);
+    }
   }
 
   function addRoom(name) {
@@ -601,6 +644,7 @@ export default function SiteSnap() {
       address: inspection.address,
       postcode: inspection.postcode || "",
       ref: inspection.ref || "",
+      caseNo: inspection.caseNo || null,
       startedAt: inspection.startedAt,
       closedAt: Date.now(),
       photos: ids.length,
@@ -612,7 +656,7 @@ export default function SiteSnap() {
     await clearState(inspection.id);
     ids.forEach((id) => removePhoto(id));
     memoIds.forEach((id) => removeAudio(id));
-    await backToHome();
+    await exitCase();
   }
 
   // Discards a whole property from the list without opening it.
@@ -685,41 +729,61 @@ export default function SiteSnap() {
         {screen === "home" && (
           <HomeScreen
             index={index}
-            archive={archive}
-            durable={durable}
-            onNew={() => setScreen("setup")}
-            onOpen={openInspection}
-            onDiscard={discardInspection}
-            onSettings={() => { setSettingsReturn("home"); setScreen("settings"); }}
+            onNew={() => { setReturnTab("home"); setScreen("setup"); }}
+            onOpen={(id) => openInspection(id, "home")}
+            onTab={setScreen}
           />
         )}
 
-        {screen === "setup" && (
-          <SetupScreen onBack={() => setScreen("home")} onStart={startInspection} />
+        {screen === "cases" && (
+          <CasesScreen
+            index={index}
+            archive={archive}
+            durable={durable}
+            onNew={() => { setReturnTab("cases"); setScreen("setup"); }}
+            onOpen={(id) => openInspection(id, "cases")}
+            onDiscard={discardInspection}
+            onTab={setScreen}
+          />
         )}
 
         {screen === "settings" && (
           <SettingsScreen
-            onBack={() => setScreen(settingsReturn)}
             fieldMode={fieldMode}
             onToggleFieldMode={toggleFieldMode}
+            onTab={setScreen}
           />
         )}
 
-        {screen === "board" && inspection && (
-          <BoardScreen
+        {screen === "setup" && (
+          <SetupScreen onBack={() => setScreen(returnTab)} onStart={startInspection} />
+        )}
+
+        {screen === "casefile" && inspection && (
+          <CaseFileScreen
             inspection={inspection}
             rooms={rooms}
             photoCache={photoCache}
             totalPhotos={totalPhotos}
             doneRooms={doneRooms}
+            caseTab={caseTab}
+            onCaseTab={setCaseTab}
+            onExit={exitCase}
             onReorder={reorderRooms}
             onAddRoom={addRoom}
-            onHome={backToHome}
             onRename={(patch) => setInspectionMeta(patch)}
-            onOpenRoom={(id) => { setActiveRoomId(id); setScreen("room"); }}
+            onOpenRoom={(id) => { setActiveRoomId(id); setScreen("evidence"); }}
             onWalk={(startIdx) => { setWalkIndex(startIdx); setScreen("walk"); }}
-            onFinish={() => setScreen("finish")}
+            filesForRoom={(room) => filesFor(room)}
+            filesForUpload={(room) => filesFor(room, true)}
+            fullPhoto={fullPhoto}
+            audioCache={audioCache}
+            onUploadResult={(r) => { setInspectionMeta({ lastUpload: r }); logActivity(r.ok ? (r.confirmed ? "Filed in the cloud" : "Sent to the cloud") : "Upload didn't finish"); }}
+            onExportResult={(r) => setInspectionMeta({ lastExport: r })}
+            onFindings={(f) => setInspectionMeta({ draftFindings: f })}
+            onSaveAll={async () => shareFiles(await filesForAll(), "Inspection photos")}
+            onDone={finishAndReset}
+            onSettings={() => exitCase("settings")}
           />
         )}
 
@@ -739,18 +803,18 @@ export default function SiteSnap() {
             onMeta={(patch) => setRoomMeta(rooms[walkIndex].id, patch)}
             onAddMemo={(blob, secs) => addMemo(rooms[walkIndex].id, blob, secs)}
             onDeleteMemo={(mid) => deleteMemo(rooms[walkIndex].id, mid)}
-            onExit={() => setScreen("board")}
+            onExit={() => setScreen("casefile")}
           />
         )}
 
-        {screen === "room" && (() => {
+        {screen === "evidence" && (() => {
           const room = rooms.find((r) => r.id === activeRoomId);
-          if (!room) { setScreen("board"); return null; }
+          if (!room) { setScreen("casefile"); return null; }
           return (
             <RoomScreen
               room={room}
               photos={room.photoIds.map((id) => photoCache[id]).filter(Boolean)}
-              onBack={() => setScreen("board")}
+              onBack={() => setScreen("casefile")}
               onCapture={(dataUrl, file, thumb) => addPhoto(room.id, dataUrl, file, thumb)}
               onError={setStorageAlert}
               onDelete={(pid) => deletePhoto(room.id, pid)}
@@ -764,26 +828,6 @@ export default function SiteSnap() {
             />
           );
         })()}
-
-        {screen === "finish" && inspection && (
-          <FinishScreen
-            inspection={inspection}
-            rooms={rooms}
-            photoCache={photoCache}
-            totalPhotos={totalPhotos}
-            filesForRoom={(room) => filesFor(room)}
-            filesForUpload={(room) => filesFor(room, true)}
-            fullPhoto={fullPhoto}
-            audioCache={audioCache}
-            onUploadResult={(r) => setInspectionMeta({ lastUpload: r })}
-            onExportResult={(r) => setInspectionMeta({ lastExport: r })}
-            onFindings={(f) => setInspectionMeta({ draftFindings: f })}
-            onBack={() => setScreen("board")}
-            onSaveAll={async () => shareFiles(await filesForAll(), "Inspection photos")}
-            onDone={finishAndReset}
-            onSettings={() => { setSettingsReturn("finish"); setScreen("settings"); }}
-          />
-        )}
 
         {storageAlert && (
           <div className="ss-alert">
@@ -806,25 +850,54 @@ export default function SiteSnap() {
 
 /* ---------------- home ---------------- */
 
-function HomeScreen({ index, archive, durable, onNew, onOpen, onDiscard, onSettings }) {
-  const [confirmId, setConfirmId] = useState(null);
-  const [q, setQ] = useState("");
+/* ---------------- top-level tab bar ---------------- */
+
+function TabBar({ active, onChange }) {
+  const tabs = [
+    ["home", "Home", HomeIcon],
+    ["cases", "Cases", FolderTree],
+    ["settings", "Settings", SettingsIcon],
+  ];
+  return (
+    <div className="ss-tabbar">
+      {tabs.map(([key, label, Icon]) => (
+        <button key={key} className={`ss-tabbar-item ${active === key ? "on" : ""}`} onClick={() => onChange(key)}>
+          <Icon size={19} strokeWidth={active === key ? 2.2 : 1.8} />
+          <span>{label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function HomeScreen({ index, onNew, onOpen, onTab }) {
   const open = [...index].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-  const target = open.find((i) => i.id === confirmId);
+  const active = open[0] || null;
+  const others = open.slice(1, 5);
+  const [activity, setActivity] = useState([]);
+  const [thumbs, setThumbs] = useState([]);
 
-  const done = archive || [];
-  const needle = q.trim().toLowerCase();
-  const matches = (i) => !needle || [i.address, i.ref, i.postcode].filter(Boolean).join(" ").toLowerCase().includes(needle);
-  const openShown = open.filter(matches);
-  const doneShown = done.filter(matches);
+  useEffect(() => {
+    if (!active) { setActivity([]); setThumbs([]); return; }
+    let cancelled = false;
+    (async () => {
+      const data = await loadInspection(active.id);
+      if (cancelled || !data) return;
+      setActivity([...(data.inspection.activity || [])].reverse().slice(0, 4));
+      const ids = (data.rooms || []).flatMap((r) => r.photoIds).slice(-4).reverse();
+      const thumbList = await Promise.all(ids.map(async (pid) => {
+        const p = await loadPhoto(pid);
+        return p ? (p.thumb || p.dataUrl) : null;
+      }));
+      if (!cancelled) setThumbs(thumbList.filter(Boolean));
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active && active.id, active && active.updatedAt]);
 
-  if (open.length === 0 && done.length === 0) {
+  if (!active) {
     return (
       <div className="ss-col">
-        <div className="ss-home-top">
-          <span />
-          <button className="ss-icon-btn" onClick={onSettings} aria-label="Settings" title="Settings"><SettingsIcon size={17} /></button>
-        </div>
         <div className="ss-home-hero">
           <div className="ss-mark"><Camera size={20} strokeWidth={2.4} /></div>
           <div className="ss-eyebrow">Property inspections</div>
@@ -845,6 +918,111 @@ function HomeScreen({ index, archive, durable, onNew, onOpen, onDiscard, onSetti
             <Plus size={20} strokeWidth={2.6} /> New inspection
           </button>
         </div>
+        <TabBar active="home" onChange={onTab} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="ss-col">
+      <div className="ss-home-top">
+        <div>
+          <div className="ss-eyebrow-sm">SiteSnap</div>
+          <div className="ss-title-lg">Dashboard</div>
+        </div>
+      </div>
+
+      <div className="ss-scroll">
+        <button className="ss-case-hero" onClick={() => onOpen(active.id)}>
+          <div className="ss-case-hero-head">
+            <span className="ss-stamp light">Case No. {active.caseNo || "—"}</span>
+            <span className="ss-case-hero-time">{relativeDay(active.updatedAt)}</span>
+          </div>
+          <div className="ss-case-hero-title">{active.address}</div>
+          <div className="ss-case-hero-sub">
+            {active.postcode ? active.postcode + " · " : ""}{active.photos} photo{active.photos === 1 ? "" : "s"} · {active.rooms} area{active.rooms === 1 ? "" : "s"}
+          </div>
+          {thumbs.length > 0 && (
+            <div className="ss-case-hero-collage">
+              {thumbs.map((t, i) => <img key={i} src={t} alt="" />)}
+            </div>
+          )}
+          <div className="ss-case-hero-cta"><span>Resume case</span><ArrowRight size={15} /></div>
+        </button>
+
+        {activity.length > 0 && (
+          <>
+            <div className="ss-section-label" style={{ marginTop: 20 }}>Recent activity</div>
+            <div className="ss-activity">
+              {activity.map((a, i) => (
+                <div key={i} className="ss-activity-row">
+                  <span className="ss-activity-time">
+                    {new Date(a.ts).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                  <span className="ss-activity-dot" />
+                  <span className="ss-activity-text">{a.text}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {others.length > 0 && (
+          <>
+            <div className="ss-section-label" style={{ marginTop: 20 }}>Also in progress</div>
+            <div className="ss-list">
+              {others.map((i) => (
+                <button key={i.id} className="ss-row ss-row-tap-full" onClick={() => onOpen(i.id)}>
+                  <span className="ss-row-name">{i.address}</span>
+                  <span className="ss-pill done">{i.photos}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+        <div style={{ height: 16 }} />
+      </div>
+
+      <div className="ss-footer">
+        <button className="ss-btn ss-btn-primary ss-btn-big" onClick={onNew}>
+          <Plus size={20} strokeWidth={2.6} /> New inspection
+        </button>
+      </div>
+      <TabBar active="home" onChange={onTab} />
+    </div>
+  );
+}
+
+function CasesScreen({ index, archive, durable, onNew, onOpen, onDiscard, onTab }) {
+  const [confirmId, setConfirmId] = useState(null);
+  const [q, setQ] = useState("");
+  const open = [...index].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  const target = open.find((i) => i.id === confirmId);
+
+  const done = archive || [];
+  const needle = q.trim().toLowerCase();
+  const matches = (i) => !needle || [i.address, i.ref, i.postcode].filter(Boolean).join(" ").toLowerCase().includes(needle);
+  const openShown = open.filter(matches);
+  const doneShown = done.filter(matches);
+
+  if (open.length === 0 && done.length === 0) {
+    return (
+      <div className="ss-col">
+        <div className="ss-home-top">
+          <div>
+            <div className="ss-eyebrow-sm">Register</div>
+            <div className="ss-title-lg">All cases</div>
+          </div>
+        </div>
+        <div className="ss-scroll">
+          <p className="ss-empty-note">No cases yet. Start your first inspection below.</p>
+        </div>
+        <div className="ss-footer">
+          <button className="ss-btn ss-btn-primary ss-btn-big" onClick={onNew}>
+            <Plus size={20} strokeWidth={2.6} /> New inspection
+          </button>
+        </div>
+        <TabBar active="cases" onChange={onTab} />
       </div>
     );
   }
@@ -854,11 +1032,10 @@ function HomeScreen({ index, archive, durable, onNew, onOpen, onDiscard, onSetti
       <div className="ss-topbar">
         <span className="ss-tick" />
         <div className="ss-topbar-text">
-          <div className="ss-eyebrow-sm">SiteSnap</div>
-          <div className="ss-title">In progress</div>
+          <div className="ss-eyebrow-sm">Register</div>
+          <div className="ss-title">All cases</div>
         </div>
         <span className="ss-badge">{open.length}</span>
-        <button className="ss-icon-btn" onClick={onSettings} aria-label="Settings" title="Settings"><SettingsIcon size={16} /></button>
       </div>
 
       <div className="ss-search-row">
@@ -975,6 +1152,7 @@ function HomeScreen({ index, archive, durable, onNew, onOpen, onDiscard, onSetti
           </div>
         </div>
       )}
+      <TabBar active="cases" onChange={onTab} />
     </div>
   );
 }
@@ -1027,7 +1205,7 @@ function CloudProviderCard({ label, icon, connected, connecting, account, client
   );
 }
 
-function SettingsScreen({ onBack, fieldMode, onToggleFieldMode }) {
+function SettingsScreen({ fieldMode, onToggleFieldMode, onTab }) {
   const [hookUrl, setHookUrl] = useState("");
   const [hookKey, setHookKey] = useState("");
   const [savedNote, setSavedNote] = useState(null);
@@ -1120,7 +1298,12 @@ function SettingsScreen({ onBack, fieldMode, onToggleFieldMode }) {
 
   return (
     <div className="ss-col">
-      <TopBar title="Settings" eyebrow="SiteSnap" onBack={onBack} />
+      <div className="ss-home-top">
+        <div>
+          <div className="ss-eyebrow-sm">SiteSnap</div>
+          <div className="ss-title-lg">Settings</div>
+        </div>
+      </div>
       <div className="ss-scroll">
         <div className="ss-section-label" style={{ marginTop: 4 }}>Direct cloud link</div>
         <p className="ss-fineprint" style={{ margin: "0 2px 10px" }}>
@@ -1215,6 +1398,7 @@ function SettingsScreen({ onBack, fieldMode, onToggleFieldMode }) {
         {savedNote && <div className="ss-note" style={{ marginTop: 10 }}>{savedNote}</div>}
         <div style={{ height: 16 }} />
       </div>
+      <TabBar active="settings" onChange={onTab} />
     </div>
   );
 }
@@ -1384,20 +1568,33 @@ function SetupScreen({ onBack, onStart }) {
 
 /* ---------------- board (overview) ---------------- */
 
-function BoardScreen({ inspection, rooms, photoCache, totalPhotos, doneRooms, onReorder, onAddRoom, onRename, onHome, onOpenRoom, onWalk, onFinish }) {
-  const [adding, setAdding] = useState(false);
+// The screen for an opened property. One shared header (address, case
+// number, rename) plus a tab strip — Overview / Rooms / Findings / Export —
+// standing in for what used to be four separate full-screen pushes. Walk and
+// Evidence (the live camera and a room's photos) still push on top of this,
+// same as before; only the finished-case wizard collapsed into tabs.
+function CaseFileScreen({
+  inspection, rooms, photoCache, totalPhotos, doneRooms,
+  caseTab, onCaseTab, onExit, onReorder, onAddRoom, onRename, onOpenRoom, onWalk,
+  filesForRoom, filesForUpload, fullPhoto, audioCache,
+  onUploadResult, onExportResult, onFindings, onSaveAll, onDone, onSettings,
+}) {
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState({ address: "", postcode: "" });
-  const [name, setName] = useState("");
-  const firstEmpty = Math.max(0, rooms.findIndex((r) => r.photoIds.length === 0));
-  const pct = rooms.length ? Math.round((doneRooms / rooms.length) * 100) : 0;
+
+  const tabs = [
+    ["overview", "Overview"],
+    ["rooms", "Rooms"],
+    ["findings", "Findings"],
+    ["export", "Export"],
+  ];
 
   return (
     <div className="ss-col">
       <TopBar
         title={inspection.address}
-        eyebrow={inspection.postcode || "Inspection in progress"}
-        onBack={onHome}
+        eyebrow={inspection.caseNo ? `Case No. ${inspection.caseNo}` : (inspection.postcode || "Inspection in progress")}
+        onBack={() => onExit()}
         right={
           <button className="ss-link" title="Edit the address or postcode" onClick={() => {
             setDraft({ address: inspection.address, postcode: inspection.postcode || "" });
@@ -1430,6 +1627,111 @@ function BoardScreen({ inspection, rooms, photoCache, totalPhotos, doneRooms, on
         </div>
       )}
 
+      <div className="ss-case-tabs">
+        {tabs.map(([key, label]) => (
+          <button key={key} className={`ss-case-tab ${caseTab === key ? "on" : ""}`} onClick={() => onCaseTab(key)}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {caseTab === "overview" && (
+        <OverviewTab inspection={inspection} rooms={rooms} totalPhotos={totalPhotos} doneRooms={doneRooms} onWalk={onWalk} />
+      )}
+      {caseTab === "rooms" && (
+        <RoomsTab
+          rooms={rooms} photoCache={photoCache} doneRooms={doneRooms} totalPhotos={totalPhotos}
+          onReorder={onReorder} onAddRoom={onAddRoom} onOpenRoom={onOpenRoom} onWalk={onWalk}
+        />
+      )}
+      {caseTab === "findings" && (
+        <FindingsTab draft={inspection.draftFindings} onChange={onFindings} />
+      )}
+      {caseTab === "export" && (
+        <FinishScreen
+          inspection={inspection} rooms={rooms} photoCache={photoCache} totalPhotos={totalPhotos}
+          filesForRoom={filesForRoom} filesForUpload={filesForUpload} fullPhoto={fullPhoto} audioCache={audioCache}
+          onUploadResult={onUploadResult} onExportResult={onExportResult} onFindings={onFindings}
+          onSaveAll={onSaveAll} onDone={onDone} onSettings={onSettings}
+        />
+      )}
+    </div>
+  );
+}
+
+function OverviewTab({ inspection, rooms, totalPhotos, doneRooms, onWalk }) {
+  const firstEmpty = Math.max(0, rooms.findIndex((r) => r.photoIds.length === 0));
+  const rank = { Poor: 3, Fair: 2, Good: 1 };
+  const worst = rooms.reduce((w, r) => ((rank[r.condition] || 0) > (rank[w] || 0) ? r.condition : w), null);
+  const details = [
+    ["Reference", inspection.ref],
+    ["Client", inspection.client],
+    ["Occupier", inspection.occupier],
+    ["Solicitor", inspection.solicitor],
+  ].filter(([, v]) => v);
+
+  return (
+    <>
+      <div className="ss-scroll">
+        <div className="ss-case-cover">
+          <div className="ss-case-cover-head">
+            <span className="ss-stamp">Case No. {inspection.caseNo || "—"}</span>
+            {worst && <span className={`ss-cbadge ${worst.toLowerCase()}`}>{worst}</span>}
+          </div>
+          <div className="ss-case-kv-grid">
+            {details.map(([label, value]) => (
+              <div key={label}>
+                <div className="ss-kv-label">{label}</div>
+                <div className="ss-kv-value">{value}</div>
+              </div>
+            ))}
+            <div>
+              <div className="ss-kv-label">Started</div>
+              <div className="ss-kv-value">{relativeDay(inspection.startedAt)}</div>
+            </div>
+            <div>
+              <div className="ss-kv-label">Areas</div>
+              <div className="ss-kv-value">{doneRooms} of {rooms.length} covered</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="ss-section-label" style={{ marginTop: 20 }}>Case activity</div>
+        {(inspection.activity && inspection.activity.length) ? (
+          <div className="ss-activity">
+            {[...inspection.activity].reverse().slice(0, 15).map((a, i) => (
+              <div key={i} className="ss-activity-row">
+                <span className="ss-activity-time">
+                  {new Date(a.ts).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                </span>
+                <span className="ss-activity-dot" />
+                <span className="ss-activity-text">{a.text}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="ss-empty-note">No activity yet.</p>
+        )}
+        <div style={{ height: 12 }} />
+      </div>
+      <div className="ss-footer">
+        <button className="ss-btn ss-btn-live ss-btn-big" onClick={() => onWalk(firstEmpty)}>
+          <Camera size={20} strokeWidth={2.4} />
+          {totalPhotos === 0 ? "Start walkthrough" : "Continue walkthrough"}
+        </button>
+      </div>
+    </>
+  );
+}
+
+function RoomsTab({ rooms, photoCache, doneRooms, totalPhotos, onReorder, onAddRoom, onOpenRoom, onWalk }) {
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState("");
+  const firstEmpty = Math.max(0, rooms.findIndex((r) => r.photoIds.length === 0));
+  const pct = rooms.length ? Math.round((doneRooms / rooms.length) * 100) : 0;
+
+  return (
+    <>
       <div className="ss-progress-wrap">
         <div className="ss-progress"><div style={{ width: `${pct}%` }} /></div>
         <span>{doneRooms}/{rooms.length} rooms covered</span>
@@ -1482,16 +1784,13 @@ function BoardScreen({ inspection, rooms, photoCache, totalPhotos, doneRooms, on
         <div style={{ height: 12 }} />
       </div>
 
-      <div className="ss-footer ss-footer-stack">
+      <div className="ss-footer">
         <button className="ss-btn ss-btn-live ss-btn-big" onClick={() => onWalk(firstEmpty)}>
           <Camera size={20} strokeWidth={2.4} />
           {totalPhotos === 0 ? "Start walkthrough" : "Continue walkthrough"}
         </button>
-        <button className="ss-btn ss-btn-ghost" onClick={onFinish}>
-          <FolderTree size={17} /> Finish &amp; export
-        </button>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -1683,6 +1982,7 @@ function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDeleteLast
   const lastId = room.photoIds[count - 1];
   const last = lastId ? photoCache[lastId] : null;
   const isLast = index === rooms.length - 1;
+  const nextExhibitNo = rooms.reduce((s, r) => s + r.photoIds.length, 0) + 1;
 
   useEffect(() => { setNoteOpen(false); setCameraOpen(false); }, [index]);
 
@@ -1729,6 +2029,7 @@ function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDeleteLast
       <div className="ss-live-body">
         <div className="ss-live-eyebrow">Room {pad(index + 1)} of {pad(rooms.length)}</div>
         <div className="ss-live-room">{room.name}</div>
+        <span className="ss-live-stamp">Next: Exhibit {nextExhibitNo}</span>
         <div className="ss-tally">{count}</div>
         <div className="ss-live-sub">photo{count === 1 ? "" : "s"} in this room</div>
 
@@ -1910,7 +2211,7 @@ function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, onCapti
           </div>
           <img src={viewPhoto.dataUrl || viewPhoto.thumb} alt="Full view" />
           <div className="ss-lightbox-bottom">
-            {viewPhoto.no ? <div className="ss-lb-no">Photo {viewPhoto.no}</div> : null}
+            {viewPhoto.no ? <div className="ss-lb-no">Exhibit {viewPhoto.no}</div> : null}
             {viewPhoto.takenAt && (
               <div className="ss-lb-time">
                 {new Date(viewPhoto.takenAt).toLocaleString("en-GB", {
@@ -2113,12 +2414,11 @@ function parseDraftFindings(body) {
 
 /* ---------------- finish / export ---------------- */
 
-function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom, filesForUpload, fullPhoto, audioCache, onUploadResult, onExportResult, onFindings, onBack, onSaveAll, onDone, onSettings }) {
+function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom, filesForUpload, fullPhoto, audioCache, onUploadResult, onExportResult, onFindings, onSaveAll, onDone, onSettings }) {
   const [note, setNote] = useState(null);
   const [direct, setDirect] = useState({ ms: null, google: false }); // account name / connected flags
   const [directUpload, setDirectUpload] = useState(null); // { provider, statuses, running, sent, total }
   const [directError, setDirectError] = useState(null);
-  const [findingsOpen, setFindingsOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -2480,9 +2780,7 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
   }
 
   return (
-    <div className="ss-col">
-      <TopBar title="Finish & export" eyebrow={inspection.address} onBack={onBack} />
-
+    <>
       <div className="ss-scroll">
         <div className="ss-summary">
           <MapPin size={15} />
@@ -2603,9 +2901,7 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
         </button>
 
         {inspection.draftFindings && (
-          <button className="ss-btn ss-btn-primary ss-btn-big" style={{ marginTop: 14 }} onClick={() => setFindingsOpen(true)}>
-            <ShieldCheck size={19} /> Draft findings ready — review
-          </button>
+          <p className="ss-fineprint" style={{ textAlign: "center" }}>Draft findings are ready — see the Findings tab.</p>
         )}
 
         {note && <div className="ss-note" style={{ marginTop: 10 }}>{note}</div>}
@@ -2687,15 +2983,7 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
       {reportOpen && (
         <ReportView inspection={inspection} rooms={rooms} photoCache={reportCache || photoCache} onClose={closeReport} />
       )}
-
-      {findingsOpen && (
-        <FindingsView
-          draft={inspection.draftFindings}
-          onClose={() => setFindingsOpen(false)}
-          onChange={(next) => onFindings && onFindings(next)}
-        />
-      )}
-    </div>
+    </>
   );
 }
 
@@ -2705,8 +2993,23 @@ function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom
 // reviews and approves each finding here before any of it reaches the
 // report. Nothing here sends or files anything; "Approve" only remembers
 // that a human looked at it.
-function FindingsView({ draft, onClose, onChange }) {
-  if (!draft || !Array.isArray(draft.rooms)) return null;
+// Lives as the Findings tab of an open case, not a modal — always visible,
+// empty until the cloud workflow's AI drafting step actually replies to an
+// upload (see parseDraftFindings). Nothing here sends or files anything;
+// "Approve" only remembers that a human looked at it.
+function FindingsTab({ draft, onChange }) {
+  const total = draft ? draft.rooms.reduce((n, r) => n + (r.findings || []).length, 0) : 0;
+
+  if (!total) {
+    return (
+      <div className="ss-scroll">
+        <div className="ss-empty">
+          <ShieldCheck size={22} />
+          <p>No draft findings yet.<br />These appear automatically once your cloud workflow's AI drafting step replies to an upload.</p>
+        </div>
+      </div>
+    );
+  }
 
   function toggleApprove(roomIdx, findingIdx) {
     const rooms = draft.rooms.map((r, ri) => {
@@ -2716,17 +3019,15 @@ function FindingsView({ draft, onClose, onChange }) {
     });
     onChange({ ...draft, rooms });
   }
+  function approveAll() {
+    onChange({ ...draft, rooms: draft.rooms.map((r) => ({ ...r, findings: (r.findings || []).map((f) => ({ ...f, approved: true })) })) });
+  }
 
-  const total = draft.rooms.reduce((n, r) => n + r.findings.length, 0);
-  const approved = draft.rooms.reduce((n, r) => n + r.findings.filter((f) => f.approved).length, 0);
+  const approved = draft.rooms.reduce((n, r) => n + (r.findings || []).filter((f) => f.approved).length, 0);
 
   return (
-    <div className="ss-report">
-      <div className="ss-report-bar ss-noprint">
-        <button className="close" onClick={onClose}><X size={16} /> Close</button>
-        <span className="ss-findings-count">{approved} of {total} reviewed</span>
-      </div>
-      <div className="ss-report-page ss-findings-page">
+    <>
+      <div className="ss-scroll">
         <div className="ss-findings-banner">
           <ShieldCheck size={16} />
           <span>Draft only. Nothing here is added to the report or sent anywhere — edit anything that doesn't read right in your workbook, this is just a first pass.</span>
@@ -2755,8 +3056,15 @@ function FindingsView({ draft, onClose, onChange }) {
             </button>
           </div>
         )))}
+        <div style={{ height: 12 }} />
       </div>
-    </div>
+      <div className="ss-footer">
+        <div style={{ textAlign: "center", fontSize: 12.5, fontWeight: 700, color: "var(--muted)", marginBottom: 8 }}>
+          {approved} of {total} reviewed
+        </div>
+        <button className="ss-btn ss-btn-primary" onClick={approveAll}><Check size={16} /> Approve all</button>
+      </div>
+    </>
   );
 }
 
@@ -3509,6 +3817,70 @@ function StyleBlock() {
       .ss-annotate-tools { display: flex; align-items: center; gap: 10px; padding: 14px 18px calc(14px + env(safe-area-inset-bottom)); }
       .ss-annotate-tool { width: 44px; height: 44px; border-radius: 12px; background: rgba(255,255,255,.10); display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0; }
       .ss-annotate-tool.on { background: var(--hivis); color: var(--hivis-deep); }
+
+      /* ---- top-level tab bar (Home / Cases / Settings) ---- */
+      .ss-tabbar {
+        display: flex; border-top: 1px solid var(--line); background: var(--card);
+        padding-bottom: env(safe-area-inset-bottom); flex-shrink: 0;
+      }
+      .ss-tabbar-item {
+        flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+        padding: 9px 0 7px; color: var(--muted2); font-size: 10.5px; font-weight: 700;
+      }
+      .ss-tabbar-item.on { color: var(--pine); }
+      .ss-title-lg { font-family: 'Libre Caslon Text', Georgia, serif; font-size: 22px; font-weight: 700; }
+
+      /* ---- case file: shared tab strip ---- */
+      .ss-case-tabs { display: flex; gap: 20px; padding: 0 18px; border-bottom: 1px solid var(--line); background: var(--card); flex-shrink: 0; overflow-x: auto; }
+      .ss-case-tab { padding: 12px 2px; font-size: 13px; font-weight: 700; color: var(--muted); border-bottom: 2px solid transparent; white-space: nowrap; }
+      .ss-case-tab.on { color: var(--pine); border-bottom-color: var(--pine); }
+
+      /* ---- case file: overview tab ---- */
+      .ss-case-cover { margin: 16px 18px 0; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+      .ss-case-cover-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+      .ss-stamp {
+        display: inline-flex; align-items: center; justify-content: center; padding: 4px 11px;
+        border: 1.5px solid var(--pine); border-radius: 4px; color: var(--pine);
+        font-family: 'Libre Caslon Text', Georgia, serif; font-size: 11px; font-weight: 700;
+        letter-spacing: .06em; text-transform: uppercase; transform: rotate(-3deg); white-space: nowrap;
+      }
+      .ss-stamp.light { border-color: rgba(255,255,255,.6); color: #fff; }
+      .ss-case-kv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 12px; }
+      .ss-kv-label { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted2); margin-bottom: 2px; }
+      .ss-kv-value { font-size: 13.5px; font-weight: 700; color: var(--ink); }
+
+      .ss-activity { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 4px 14px; }
+      .ss-activity-row { display: flex; align-items: flex-start; gap: 11px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+      .ss-activity-row:last-child { border-bottom: none; }
+      .ss-activity-time { width: 42px; flex-shrink: 0; font-size: 10.5px; font-weight: 700; color: var(--muted2); padding-top: 1px; }
+      .ss-activity-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--pine); margin-top: 6px; flex-shrink: 0; }
+      .ss-activity-text { flex: 1; font-size: 12.5px; font-weight: 600; color: var(--ink); line-height: 1.4; }
+
+      /* ---- home dashboard: active case hero ---- */
+      .ss-case-hero {
+        display: block; width: 100%; text-align: left; margin: 16px 18px 0; padding: 18px;
+        background: var(--pine); color: #fff; border-radius: 16px; box-shadow: 0 16px 36px rgba(16,53,42,.22);
+      }
+      .ss-case-hero-head { display: flex; align-items: center; justify-content: space-between; }
+      .ss-case-hero-time { font-size: 10.5px; font-weight: 600; color: rgba(255,255,255,.6); }
+      .ss-case-hero-title { font-family: 'Libre Caslon Text', Georgia, serif; font-size: 19px; font-weight: 700; margin-top: 13px; }
+      .ss-case-hero-sub { font-size: 12px; font-weight: 500; color: rgba(255,255,255,.65); margin-top: 2px; }
+      .ss-case-hero-collage { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-top: 14px; }
+      .ss-case-hero-collage img { width: 100%; aspect-ratio: 1; border-radius: 5px; object-fit: cover; display: block; }
+      .ss-case-hero-cta {
+        display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 16px;
+        background: var(--hivis); color: var(--hivis-deep); padding: 11px 0; border-radius: 10px; font-size: 13px; font-weight: 800;
+      }
+      .ss-row-tap-full {
+        display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; text-align: left;
+        background: var(--card); border: 1px solid var(--line); border-radius: 13px; padding: 13px 14px; font-size: 13.5px; font-weight: 700;
+      }
+
+      /* ---- walk: exhibit stamp ---- */
+      .ss-live-stamp {
+        display: inline-block; margin-top: 10px; padding: 4px 10px; border: 1.5px solid rgba(217,244,79,.5);
+        border-radius: 4px; color: var(--hivis); font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+      }
     `}</style>
   );
 }
