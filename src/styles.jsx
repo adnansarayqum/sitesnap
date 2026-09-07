@@ -81,6 +81,10 @@ export function StyleBlock() {
       .ss-title { font-size: 17px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .ss-badge { font-size: 12px; font-weight: 700; background: var(--ink); color: var(--paper); padding: 4px 9px; border-radius: 999px; white-space: nowrap; }
       .ss-link { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: var(--pine); white-space: nowrap; }
+      /* same visual size as .ss-link, but a taller invisible hit area — for
+         text links standing in for a real action in a cramped top bar,
+         where a 20px-tall label would otherwise be a hard tap on the move */
+      .ss-topbar .ss-link { padding: 12px 2px; margin: -12px -2px; }
 
       /* ---- layout ---- */
       .ss-scroll { flex: 1; overflow-y: auto; padding: 16px; }
@@ -104,8 +108,18 @@ export function StyleBlock() {
       .ss-btn-primary { background: var(--pine); color: #fff; }
       .ss-btn-primary:active { background: var(--pine-press); }
       .ss-btn-ghost { width: 100%; background: var(--card); border: 1px solid var(--line); color: var(--ink); }
+      .ss-btn-secondary { background: none; border: 1.5px dashed var(--line); color: var(--muted); }
+      .ss-btn-secondary:active { background: var(--line-soft); }
       .ss-btn-danger { background: var(--red); color: #fff; width: 100%; }
       .ss-btn-sq { padding: 0 16px; border-radius: 12px; }
+
+      /* ---- screen transitions ---- */
+      /* Every top-level screen and case-file tab swap runs through this so
+         navigation reads as movement rather than a hard cut — cheap in CSS,
+         but it's the single biggest "does this feel premium" signal. */
+      @keyframes ss-screen-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+      .ss-screen-in { animation: ss-screen-in .22s cubic-bezier(.16,1,.3,1) both; }
+      @media (prefers-reduced-motion: reduce) { .ss-screen-in { animation: none; } }
 
       /* ---- home ---- */
       .ss-home-hero { flex: 1; padding: 56px 26px 20px; display: flex; flex-direction: column; position: relative; overflow: hidden; }
@@ -203,12 +217,15 @@ export function StyleBlock() {
       .ss-chip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
       .ss-chip {
         display: flex; align-items: center; justify-content: space-between;
-        background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+        background: var(--card); border: 1.5px solid var(--line); border-radius: 12px;
         padding: 4px 8px 4px 0; min-height: 46px;
+        transition: transform .1s ease, background .1s ease, border-color .1s ease;
       }
-      .ss-chip.on { border-color: var(--pine); background: var(--pine-tint); }
+      .ss-chip:active { transform: scale(.97); }
+      .ss-chip.on { border-color: var(--pine); background: var(--pine); box-shadow: 0 3px 10px -4px rgba(16,53,42,.5); }
+      .ss-chip.on .ss-chip-main { color: #fff; }
       .ss-chip-main { flex: 1; text-align: left; padding: 10px 12px; font-weight: 700; font-size: 14px; }
-      .ss-chip-check { color: var(--pine); margin-right: 4px; }
+      .ss-chip-check { color: #fff; margin-right: 4px; flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%; background: rgba(255,255,255,.22); display: inline-flex; align-items: center; justify-content: center; }
       .ss-stepper { display: flex; gap: 4px; }
       .ss-stepper button {
         width: 28px; height: 28px; border-radius: 8px; background: var(--card);
@@ -222,8 +239,11 @@ export function StyleBlock() {
         display: flex; align-items: center; gap: 4px;
         background: var(--card); border: 1px solid var(--line); border-radius: 13px;
         padding: 6px 12px 6px 4px; position: relative; z-index: 1;
+        transition: transform .1s ease;
       }
       .ss-row.dragging { border-color: var(--pine); box-shadow: 0 8px 24px rgba(16,36,29,.16); z-index: 10; }
+      .ss-row-tap:active, .ss-row-tap-full:active { transform: scale(.98); }
+      .ss-row-tap, .ss-row-tap-full { transition: transform .1s ease; }
       .ss-grip { width: 36px; height: 40px; display: flex; align-items: center; justify-content: center; color: var(--muted2); touch-action: none; cursor: grab; }
       .ss-row-tap { flex: 1; display: flex; align-items: center; justify-content: space-between; min-width: 0; text-align: left; padding: 6px 0; }
       .ss-row-main { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -276,17 +296,29 @@ export function StyleBlock() {
 
       /* ---- photo grid ---- */
       .ss-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-      .ss-cell { aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: var(--card); border: 1px solid var(--line); }
+      .ss-cell { aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: var(--card); border: 1px solid var(--line); transition: transform .1s ease, opacity .1s ease; }
+      .ss-cell:active { transform: scale(.96); opacity: .85; }
       .ss-cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
       .ss-empty { text-align: center; color: var(--muted); padding: 48px 20px; display: flex; flex-direction: column; align-items: center; gap: 10px; font-size: 14px; }
       .ss-note { text-align: center; font-size: 12.5px; font-weight: 700; color: var(--pine); padding: 8px 16px 0; }
 
       /* ---- lightbox ---- */
-      .ss-lightbox { position: fixed; inset: 0; z-index: 40; background: rgba(10,14,11,.96); display: flex; flex-direction: column; max-width: 430px; margin: 0 auto; }
-      .ss-lightbox-top { display: flex; justify-content: flex-end; padding: 14px; }
-      .ss-lightbox-top button { width: 36px; height: 36px; border-radius: 999px; background: rgba(255,255,255,.12); color: #fff; display: flex; align-items: center; justify-content: center; }
-      .ss-lightbox img { flex: 1; min-height: 0; width: 100%; object-fit: contain; padding: 0 10px; }
-      .ss-lightbox-bottom { padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); }
+      .ss-lightbox { position: fixed; inset: 0; z-index: 40; background: #0A0E0B; display: flex; flex-direction: column; max-width: 430px; margin: 0 auto; animation: ss-fade-in .18s ease both; }
+      @keyframes ss-fade-in { from { opacity: 0; } to { opacity: 1; } }
+      .ss-lightbox-top { display: flex; align-items: center; justify-content: space-between; padding: 14px; flex-shrink: 0; }
+      .ss-lightbox-top button { width: 40px; height: 40px; border-radius: 999px; background: rgba(255,255,255,.12); color: #fff; display: flex; align-items: center; justify-content: center; }
+      .ss-lightbox-count { color: rgba(255,255,255,.7); font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+      .ss-lightbox-stage { flex: 1; min-height: 0; position: relative; display: flex; align-items: center; }
+      .ss-lightbox img { flex: 1; min-height: 0; width: 100%; height: 100%; object-fit: contain; padding: 0 10px; user-select: none; }
+      .ss-lightbox-arrow {
+        position: absolute; top: 50%; transform: translateY(-50%); z-index: 2;
+        width: 40px; height: 40px; border-radius: 999px; background: rgba(255,255,255,.10); color: #fff;
+        display: flex; align-items: center; justify-content: center;
+      }
+      .ss-lightbox-arrow:disabled { opacity: 0; pointer-events: none; }
+      .ss-lightbox-arrow.prev { left: 8px; }
+      .ss-lightbox-arrow.next { right: 8px; }
+      .ss-lightbox-bottom { padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); flex-shrink: 0; }
 
       /* ---- finish ---- */
       .ss-summary { display: flex; gap: 10px; align-items: flex-start; background: var(--card); border: 1px solid var(--line); border-radius: 13px; padding: 14px; margin-bottom: 16px; }
@@ -348,10 +380,11 @@ export function StyleBlock() {
       .ss-meta { background: var(--card); border: 1px solid var(--line); border-radius: 13px; padding: 12px; margin-bottom: 14px; }
       .ss-cond-row { display: flex; align-items: center; gap: 6px; }
       .ss-cond-label { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-right: auto; }
-      .ss-cond { padding: 8px 14px; border-radius: 999px; font-weight: 800; font-size: 13px; border: 1.5px solid var(--line); color: var(--muted); background: var(--paper); }
-      .ss-cond.good.on { background: var(--pine-tint); border-color: var(--pine); color: var(--pine); }
-      .ss-cond.fair.on { background: var(--amber-tint); border-color: var(--amber); color: var(--amber); }
-      .ss-cond.poor.on { background: var(--red-tint); border-color: var(--red); color: var(--red); }
+      .ss-cond { padding: 8px 14px; border-radius: 999px; font-weight: 800; font-size: 13px; border: 1.5px solid var(--line); color: var(--muted); background: var(--paper); transition: transform .1s ease; }
+      .ss-cond:active { transform: scale(.94); }
+      .ss-cond.good.on { background: var(--pine); border-color: var(--pine); color: #fff; box-shadow: 0 3px 10px -4px rgba(16,53,42,.5); }
+      .ss-cond.fair.on { background: #B4842A; border-color: #B4842A; color: #fff; box-shadow: 0 3px 10px -4px rgba(140,106,40,.5); }
+      .ss-cond.poor.on { background: var(--red); border-color: var(--red); color: #fff; box-shadow: 0 3px 10px -4px rgba(147,50,31,.5); }
       .ss-note-input {
         width: 100%; margin-top: 10px; background: var(--paper); border: 1px solid var(--line);
         border-radius: 10px; padding: 10px 12px; font-size: 15px; font-family: inherit;
@@ -406,6 +439,7 @@ export function StyleBlock() {
 
       .ss-tip { display: flex; gap: 9px; align-items: flex-start; background: var(--amber-tint); color: var(--amber); border-radius: 12px; padding: 11px 13px; margin-top: 14px; font-size: 12.5px; font-weight: 600; line-height: 1.45; }
       .ss-tip svg { flex-shrink: 0; margin-top: 1px; }
+      .ss-tip.info { background: var(--pine-tint); color: var(--pine-press); }
 
       .ss-filter { margin-bottom: 12px; font-size: 15px; padding: 11px 13px; }
       .ss-group-label { font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 14px 2px 7px; }
@@ -763,8 +797,10 @@ export function StyleBlock() {
       .ss-tabbar-item {
         flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
         padding: 9px 0 7px; color: var(--muted2); font-size: 10.5px; font-weight: 700;
+        transition: transform .1s ease, color .1s ease;
       }
       .ss-tabbar-item.on { color: var(--pine); }
+      .ss-tabbar-item:active { transform: scale(.92); }
       .ss-title-lg { font-family: 'Libre Caslon Text', Georgia, serif; font-size: 22px; font-weight: 700; }
 
       /* ---- case file: shared tab strip ---- */
@@ -797,7 +833,9 @@ export function StyleBlock() {
       .ss-case-hero {
         display: block; width: 100%; text-align: left; margin: 16px 18px 0; padding: 18px;
         background: var(--pine); color: #fff; border-radius: 16px; box-shadow: 0 16px 36px rgba(16,53,42,.22);
+        transition: transform .1s ease;
       }
+      .ss-case-hero:active { transform: scale(.985); }
       .ss-case-hero-head { display: flex; align-items: center; justify-content: space-between; }
       .ss-case-hero-time { font-size: 10.5px; font-weight: 600; color: rgba(255,255,255,.6); }
       .ss-case-hero-title { font-family: 'Libre Caslon Text', Georgia, serif; font-size: 19px; font-weight: 700; margin-top: 13px; }

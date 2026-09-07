@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useRef } from "react";
 import {
-  Camera, Check, Image as ImageIcon, Pencil, Plus, StickyNote, CloudUpload, CloudOff, Loader2, AlertTriangle, Share2, Trash2, User,
+  Camera, Check, Image as ImageIcon, Pencil, Plus, Sparkles, StickyNote, CloudUpload, CloudOff, Loader2, AlertTriangle, Share2, Trash2, User,
 } from "lucide-react";
 import { ReorderableList, TopBar } from "../components/shared.jsx";
 import { pad } from "../lib/util.js";
@@ -9,6 +9,12 @@ import { FindingsTab, FinishScreen } from "./Finish.jsx";
 import { relativeDay } from "./Home.jsx";
 
 /* ---------------- board (overview) ---------------- */
+
+// Each tab's content already returns a <ss-scroll>+<ss-footer> pair meant to
+// fill the space below the tab strip — this wrapper is what used to be
+// implicit via .ss-col, kept explicit so switching tabs remounts a fresh
+// element and replays the entrance animation.
+const TAB_STYLE = { display: "flex", flexDirection: "column", flex: 1, minHeight: 0 };
 
 // The screen for an opened property. One shared header (address, case
 // number, rename) plus a tab strip — Overview / Rooms / Findings / Export —
@@ -79,26 +85,34 @@ export function CaseFileScreen({
       </div>
 
       {caseTab === "overview" && (
-        <OverviewTab inspection={inspection} sync={sync} rooms={rooms} totalPhotos={totalPhotos} doneRooms={doneRooms} onWalk={onWalk}
-          idPhoto={idPhoto} onIdPhoto={onIdPhoto} onRemoveIdPhoto={onRemoveIdPhoto} onShareIdPhoto={onShareIdPhoto} />
+        <div className="ss-screen-in" style={TAB_STYLE}>
+          <OverviewTab inspection={inspection} sync={sync} rooms={rooms} totalPhotos={totalPhotos} doneRooms={doneRooms} onWalk={onWalk}
+            idPhoto={idPhoto} onIdPhoto={onIdPhoto} onRemoveIdPhoto={onRemoveIdPhoto} onShareIdPhoto={onShareIdPhoto} />
+        </div>
       )}
       {caseTab === "rooms" && (
-        <RoomsTab
-          rooms={rooms} photoCache={photoCache} doneRooms={doneRooms} totalPhotos={totalPhotos}
-          onReorder={onReorder} onAddRoom={onAddRoom} onOpenRoom={onOpenRoom} onWalk={onWalk}
-        />
+        <div className="ss-screen-in" style={TAB_STYLE}>
+          <RoomsTab
+            rooms={rooms} photoCache={photoCache} doneRooms={doneRooms} totalPhotos={totalPhotos}
+            onReorder={onReorder} onAddRoom={onAddRoom} onOpenRoom={onOpenRoom} onWalk={onWalk}
+          />
+        </div>
       )}
       {caseTab === "findings" && (
-        <FindingsTab inspection={inspection} rooms={rooms} photoCache={photoCache} fullPhoto={fullPhoto} audioCache={audioCache}
-          onFindings={onFindings} onTranscripts={onTranscripts} onActivity={onActivity} />
+        <div className="ss-screen-in" style={TAB_STYLE}>
+          <FindingsTab inspection={inspection} rooms={rooms} photoCache={photoCache} fullPhoto={fullPhoto} audioCache={audioCache}
+            onFindings={onFindings} onTranscripts={onTranscripts} onActivity={onActivity} />
+        </div>
       )}
       {caseTab === "export" && (
-        <FinishScreen filing={filing} onFiled={onFiled}
-          inspection={inspection} rooms={rooms} photoCache={photoCache} totalPhotos={totalPhotos}
-          filesForRoom={filesForRoom} filesForUpload={filesForUpload} fullPhoto={fullPhoto} audioCache={audioCache}
-          onUploadResult={onUploadResult} onExportResult={onExportResult} onFindings={onFindings}
-          onSaveAll={onSaveAll} onDone={onDone} onSettings={onSettings}
-        />
+        <div className="ss-screen-in" style={TAB_STYLE}>
+          <FinishScreen filing={filing} onFiled={onFiled}
+            inspection={inspection} rooms={rooms} photoCache={photoCache} totalPhotos={totalPhotos}
+            filesForRoom={filesForRoom} filesForUpload={filesForUpload} fullPhoto={fullPhoto} audioCache={audioCache}
+            onUploadResult={onUploadResult} onExportResult={onExportResult} onFindings={onFindings}
+            onSaveAll={onSaveAll} onDone={onDone} onSettings={onSettings}
+          />
+        </div>
       )}
     </div>
   );
@@ -186,6 +200,13 @@ export function OverviewTab({ inspection, sync, rooms, totalPhotos, doneRooms, o
         ) : (
           <p className="ss-empty-note">No activity yet.</p>
         )}
+
+        {totalPhotos === 0 && (
+          <div className="ss-tip info">
+            <Sparkles size={14} />
+            <span>Once every room's covered, the Findings tab can draft a first pass from your notes and photos — review and edit before it goes in the report.</span>
+          </div>
+        )}
         <div style={{ height: 12 }} />
       </div>
       <div className="ss-footer">
@@ -254,6 +275,13 @@ export function RoomsTab({ rooms, photoCache, doneRooms, totalPhotos, onReorder,
           </div>
         ) : (
           <button className="ss-dashed" onClick={() => setAdding(true)}><Plus size={15} /> Add room</button>
+        )}
+
+        {totalPhotos === 0 && (
+          <div className="ss-tip info">
+            <ImageIcon size={14} />
+            <span>Drag the grip on the left to reorder rooms — that order sets the numbering used in the report and cloud folders.</span>
+          </div>
         )}
         <div style={{ height: 12 }} />
       </div>

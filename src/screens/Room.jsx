@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  Camera, Check, Circle, ImagePlus, Loader2, MoveUpRight, Sparkles, Tag, Trash2, Undo2, X,
+  Camera, Check, ChevronLeft, ChevronRight, Circle, ImagePlus, Loader2, MoveUpRight, Sparkles, Tag, Trash2, Undo2, X,
 } from "lucide-react";
 import { VoiceMemo } from "../components/VoiceMemo.jsx";
 import { TopBar } from "../components/shared.jsx";
@@ -13,21 +13,68 @@ import { BAD_IMAGE_MSG, LiveCamera } from "./Walk.jsx";
 
 export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, onMeta, onCaption, onFull, onAnnotate, onAddMemo, onDeleteMemo, onSaveToPhotos, onError }) {
   const inputRef = useRef(null);
-  const [viewPhoto, setViewPhoto] = useState(null);
+  // newest-first — the order the grid shows, so the lightbox's next/prev
+  // matches what a swipe or tap visually promises
+  const ordered = [...photos].reverse();
+  const [viewIndex, setViewIndex] = useState(null);
+  const viewPhoto = viewIndex == null ? null : ordered[viewIndex] || null;
+  const [viewFull, setViewFull] = useState(null); // {id, dataUrl} once loaded, separate from viewIndex so a slow load can't show the wrong photo
   const [annotating, setAnnotating] = useState(false);
   const [aiCfg, setAiCfg] = useState({ enabled: false });
   const [captioning, setCaptioning] = useState(false);
   useEffect(() => { aiConfig().then(setAiCfg); }, []);
 
   // the grid shows thumbnails; the lightbox swaps in the stored copy once read
-  function openPhoto(p) {
-    setViewPhoto(p);
-    if (!p.dataUrl && onFull) {
+  function openPhoto(idx) {
+    setViewIndex(idx);
+    const p = ordered[idx];
+    if (p && !p.dataUrl && onFull) {
       onFull(p.id).then((full) => {
-        if (full && full.dataUrl) setViewPhoto((v) => (v && v.id === p.id ? { ...v, dataUrl: full.dataUrl } : v));
+        if (full && full.dataUrl) setViewFull((v) => (p.id === (ordered[idx] || {}).id ? { id: p.id, dataUrl: full.dataUrl } : v));
       });
     }
   }
+  function closePhoto() { setViewIndex(null); setViewFull(null); }
+  function stepPhoto(delta) {
+    setViewIndex((i) => {
+      if (i == null) return i;
+      const next = i + delta;
+      if (next < 0 || next >= ordered.length) return i;
+      const p = ordered[next];
+      if (p && !p.dataUrl && onFull) {
+        onFull(p.id).then((full) => {
+          if (full && full.dataUrl) setViewFull((v) => (p.id === (ordered[next] || {}).id ? { id: p.id, dataUrl: full.dataUrl } : v));
+        });
+      } else { setViewFull(null); }
+      return next;
+    });
+  }
+  const shownPhoto = viewPhoto && viewFull && viewFull.id === viewPhoto.id ? { ...viewPhoto, dataUrl: viewFull.dataUrl } : viewPhoto;
+
+  // keyboard left/right while the lightbox is open
+  useEffect(() => {
+    if (viewIndex == null) return;
+    function onKey(e) {
+      if (e.key === "ArrowLeft") stepPhoto(-1);
+      else if (e.key === "ArrowRight") stepPhoto(1);
+      else if (e.key === "Escape") closePhoto();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewIndex, ordered.length]);
+
+  // a light swipe left/right steps photos; a small deliberate horizontal
+  // drag, not an accidental brush while scrolling the (non-scrolling) stage
+  const touchStart = useRef(null);
+  function onStageTouchStart(e) { touchStart.current = e.touches[0].clientX; }
+  function onStageTouchEnd(e) {
+    if (touchStart.current == null) return;
+    const dx = e.changedTouches[0].clientX - touchStart.current;
+    touchStart.current = null;
+    if (Math.abs(dx) > 50) stepPhoto(dx > 0 ? -1 : 1);
+  }
+
   const [note, setNote] = useState(null);
   const [cameraOpen, setCameraOpen] = useState(false);
 
@@ -154,15 +201,23 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
         </div>
 
         {photos.length === 0 ? (
-          <div className="ss-empty">
-            <Camera size={22} />
-            <p>No photos in {room.name} yet.<br />Open the camera below to start.</p>
-          </div>
+          <>
+            <div className="ss-empty">
+              <Camera size={22} />
+              <p>No photos in {room.name} yet.<br />Open the camera below to start.</p>
+            </div>
+            <div className="ss-tip info">
+              <Sparkles size={14} />
+              <span>{aiCfg.enabled
+                ? "Once you've shot a few, AI captions can fill these in for you — still yours to edit."
+                : "Exhibit numbers start fresh in each room, so photo 1 here won't clash with photo 1 elsewhere."}</span>
+            </div>
+          </>
         ) : (
           <div className="ss-shots">
-            {[...photos].reverse().map((p) => (
+            {ordered.map((p, i) => (
               <div key={p.id} className="ss-shot">
-                <button className="ss-cell" onClick={() => openPhoto(p)}>
+                <button className="ss-cell" onClick={() => openPhoto(i)}>
                   <img src={p.thumb || p.dataUrl} alt="Inspection" loading="lazy" decoding="async" />
                   {p.no ? <span className="ss-cell-no">{p.no}</span> : null}
                 </button>
@@ -186,29 +241,38 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
         </button>
       </div>
 
-      {viewPhoto && (
-        <div className="ss-lightbox" onClick={() => setViewPhoto(null)}>
+      {shownPhoto && (
+        <div className="ss-lightbox" onClick={closePhoto}>
           <div className="ss-lightbox-top">
-            <button onClick={() => setViewPhoto(null)}><X size={18} /></button>
+            <button onClick={closePhoto} aria-label="Close"><X size={18} /></button>
+            <span className="ss-lightbox-count">{viewIndex + 1} of {ordered.length}</span>
+            <span style={{ width: 40 }} />
           </div>
-          <img src={viewPhoto.dataUrl || viewPhoto.thumb} alt="Full view" />
-          <div className="ss-lightbox-bottom">
-            {viewPhoto.no ? <div className="ss-lb-no">Exhibit {viewPhoto.no}</div> : null}
-            {viewPhoto.takenAt && (
+          <div className="ss-lightbox-stage" onClick={(e) => e.stopPropagation()}
+            onTouchStart={onStageTouchStart} onTouchEnd={onStageTouchEnd}>
+            <button className="ss-lightbox-arrow prev" disabled={viewIndex === 0}
+              onClick={() => stepPhoto(-1)} aria-label="Previous photo"><ChevronLeft size={22} /></button>
+            <img src={shownPhoto.dataUrl || shownPhoto.thumb} alt="Full view" />
+            <button className="ss-lightbox-arrow next" disabled={viewIndex === ordered.length - 1}
+              onClick={() => stepPhoto(1)} aria-label="Next photo"><ChevronRight size={22} /></button>
+          </div>
+          <div className="ss-lightbox-bottom" onClick={(e) => e.stopPropagation()}>
+            {shownPhoto.no ? <div className="ss-lb-no">Exhibit {shownPhoto.no}</div> : null}
+            {shownPhoto.takenAt && (
               <div className="ss-lb-time">
-                {new Date(viewPhoto.takenAt).toLocaleString("en-GB", {
+                {new Date(shownPhoto.takenAt).toLocaleString("en-GB", {
                   weekday: "short", day: "numeric", month: "short",
                   hour: "2-digit", minute: "2-digit",
                 })}
               </div>
             )}
             <div style={{ display: "flex", gap: 8 }}>
-              <button className="ss-btn ss-btn-ghost" disabled={!viewPhoto.dataUrl}
-                onClick={(e) => { e.stopPropagation(); if (viewPhoto.dataUrl) setAnnotating(true); }}>
+              <button className="ss-btn ss-btn-ghost" disabled={!shownPhoto.dataUrl}
+                onClick={() => { if (shownPhoto.dataUrl) setAnnotating(true); }}>
                 <Tag size={16} /> Annotate
               </button>
               <button className="ss-btn ss-btn-danger"
-                onClick={(e) => { e.stopPropagation(); onDelete(viewPhoto.id); setViewPhoto(null); }}>
+                onClick={() => { onDelete(shownPhoto.id); closePhoto(); }}>
                 <Trash2 size={16} /> Delete photo
               </button>
             </div>
@@ -216,13 +280,13 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
         </div>
       )}
 
-      {annotating && viewPhoto && (
+      {annotating && shownPhoto && (
         <PhotoAnnotator
-          photo={viewPhoto}
+          photo={shownPhoto}
           onClose={() => setAnnotating(false)}
           onDone={(dataUrl, thumb) => {
-            onAnnotate(viewPhoto.id, dataUrl, thumb);
-            setViewPhoto((v) => (v ? { ...v, dataUrl, thumb } : v));
+            onAnnotate(shownPhoto.id, dataUrl, thumb);
+            setViewFull({ id: shownPhoto.id, dataUrl });
             setAnnotating(false);
           }}
         />

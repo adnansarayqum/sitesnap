@@ -28,6 +28,16 @@ import { linkedAccount } from "./cloud/service.js";
 // routes between the top-level tabs and the screens inside a case file.
 // Everything else lives in screens/, components/ and lib/.
 
+// Every top-level screen swap goes through this — switching which `view ===`
+// branch is true unmounts one screen and mounts another, so a fresh element
+// with this class replays its entrance animation on every navigation, not
+// just the very first paint. Cheap, but it's what makes switching screens
+// read as movement instead of a hard cut.
+const SCREEN_STYLE = { display: "flex", flexDirection: "column", flex: 1, minHeight: 0 };
+function Screen({ children }) {
+  return <div className="ss-screen-in" style={SCREEN_STYLE}>{children}</div>;
+}
+
 export default function SiteSnap() {
   // Three top-level tabs (home|cases|settings) carry the tab bar; opening a
   // case, starting a new one, or shooting is a full-screen flow on top of
@@ -694,18 +704,18 @@ export default function SiteSnap() {
         )}
 
         {view === "home" && (
-          <HomeScreen
+          <Screen><HomeScreen
             index={index}
             orgName={accounts && me.org ? me.org.name : null}
             needsCloud={needsCloud}
             onNew={() => { setReturnTab("home"); setScreen("setup"); }}
             onOpen={(id) => openInspection(id, "home")}
             onTab={setScreen}
-          />
+          /></Screen>
         )}
 
         {view === "cases" && (
-          <CasesScreen
+          <Screen><CasesScreen
             index={index}
             archive={archive}
             durable={durable}
@@ -715,30 +725,30 @@ export default function SiteSnap() {
             onTab={setScreen}
             register={register}
             onOpenRemote={(id) => { setRemoteCaseId(id); setScreen("remotecase"); }}
-          />
+          /></Screen>
         )}
 
         {view === "settings" && (
-          <SettingsScreen
+          <Screen><SettingsScreen
             fieldMode={fieldMode}
             onToggleFieldMode={toggleFieldMode}
             onTab={setScreen}
             me={me}
             onSignOut={doSignOut}
             onMeChanged={reloadMe}
-          />
+          /></Screen>
         )}
 
         {view === "remotecase" && remoteCaseId && (
-          <RemoteCaseScreen id={remoteCaseId} onBack={() => setScreen("cases")} />
+          <Screen><RemoteCaseScreen id={remoteCaseId} onBack={() => setScreen("cases")} /></Screen>
         )}
 
         {view === "setup" && (
-          <SetupScreen onBack={() => setScreen(returnTab)} onStart={startInspection} />
+          <Screen><SetupScreen onBack={() => setScreen(returnTab)} onStart={startInspection} /></Screen>
         )}
 
         {view === "casefile" && inspection && (
-          <CaseFileScreen
+          <Screen><CaseFileScreen
             inspection={inspection}
             sync={accounts && me.org ? sync : null}
             rooms={rooms}
@@ -771,11 +781,11 @@ export default function SiteSnap() {
             onSaveAll={async () => shareFiles(await filesForAll(), "Inspection photos")}
             onDone={finishAndReset}
             onSettings={() => exitCase("settings")}
-          />
+          /></Screen>
         )}
 
         {view === "walk" && inspection && rooms[walkIndex] && (
-          <WalkScreen
+          <Screen><WalkScreen
             rooms={rooms}
             index={walkIndex}
             photoCache={photoCache}
@@ -792,14 +802,14 @@ export default function SiteSnap() {
             onDeleteMemo={(mid) => deleteMemo(rooms[walkIndex].id, mid)}
             onExit={() => setScreen("casefile")}
             filing={filing}
-          />
+          /></Screen>
         )}
 
         {view === "evidence" && (() => {
           const room = rooms.find((r) => r.id === activeRoomId);
           if (!room) { setScreen("casefile"); return null; }
           return (
-            <RoomScreen
+            <Screen><RoomScreen
               room={room}
               caseId={inspection.id}
               photos={room.photoIds.map((id) => photoCache[id]).filter(Boolean)}
@@ -814,7 +824,7 @@ export default function SiteSnap() {
               onAddMemo={(blob, secs) => addMemo(room.id, blob, secs)}
               onDeleteMemo={(mid) => deleteMemo(room.id, mid)}
               onSaveToPhotos={async () => shareFiles(await filesFor(room), `${room.name} photos`)}
-            />
+            /></Screen>
           );
         })()}
 

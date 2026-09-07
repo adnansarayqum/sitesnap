@@ -166,12 +166,19 @@ export function HomeScreen({ index, onNew, onOpen, onTab, orgName, needsCloud })
             </div>
           </>
         )}
+
+        {active.photos === 0 && (
+          <div className="ss-tip info">
+            <Star size={14} />
+            <span>Rate each room Good, Fair or Poor as you shoot — it feeds straight into the AI draft later.</span>
+          </div>
+        )}
         <div style={{ height: 16 }} />
       </div>
 
       <div className="ss-footer">
-        <button className="ss-btn ss-btn-primary ss-btn-big" onClick={onNew}>
-          <Plus size={20} strokeWidth={2.6} /> New inspection
+        <button className="ss-btn ss-btn-secondary" style={{ width: "100%" }} onClick={onNew}>
+          <Plus size={16} strokeWidth={2.6} /> Start a different inspection
         </button>
       </div>
       <TabBar active="home" onChange={onTab} />
