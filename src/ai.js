@@ -17,6 +17,11 @@ import { drawScaled, loadImage } from "./lib/image.js";
 // same evidence.
 export const AI_DIM = 1568;
 
+// Must match MAX_PHOTOS in server/ai-routes.js — the server silently caps
+// at this count too, so capping here first keeps the exhibit numbers a
+// surveyor sees in sync with what the model actually looked at.
+export const AI_MAX_PHOTOS = 24;
+
 let cfgCache = null;
 export async function aiConfig(force = false) {
   if (cfgCache && !force) return cfgCache;
@@ -41,17 +46,17 @@ async function readError(r, fallback) {
   return e;
 }
 
-export async function transcribeMemo(caseId, roomId, memo, blob) {
+export async function transcribeMemo(caseId, roomId, memo, blob, signal) {
   const r = await fetch(`/api/ai/cases/${encodeURIComponent(caseId)}/rooms/${encodeURIComponent(roomId)}/transcribe`, {
     method: "POST",
     headers: { "Content-Type": blob.type || memo.type || "audio/webm", "x-memo-id": memo.id, "x-filename": `note.${(memo.type || "audio/webm").split("/")[1].split(";")[0]}` },
-    body: blob,
+    body: blob, signal,
   });
   if (!r.ok) throw await readError(r, "Couldn't transcribe this voice note.");
   return (await r.json()).text || "";
 }
 
-export async function draftRoom({ inspection, room, order, transcripts, photos }) {
+export async function draftRoom({ inspection, room, order, transcripts, photos, signal }) {
   const r = await fetch(`/api/ai/cases/${encodeURIComponent(inspection.id)}/rooms/${encodeURIComponent(room.id)}/draft`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -63,6 +68,7 @@ export async function draftRoom({ inspection, room, order, transcripts, photos }
       room: { name: room.name, order, condition: room.condition || "", note: room.note || "", hypothesis: room.hypothesis || "" },
       transcripts, photos,
     }),
+    signal,
   });
   if (!r.ok) throw await readError(r, "Drafting failed for this room.");
   return r.json();

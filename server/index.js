@@ -713,7 +713,12 @@ app.get("*", (req, res) => {
 app.use((err, req, res, next) => {
   console.error(`${req.method} ${req.path}:`, err && err.stack ? err.stack.split("\n").slice(0, 3).join(" | ") : err);
   if (res.headersSent) return;
-  res.status(err && err.status ? err.status : 500).json({ error: err && err.status ? err.message : "server_error" });
+  // `error` is the short code callers can branch on; `message` is the
+  // human sentence — src/ai.js's readError() reads the latter, so a
+  // thrown Error's actual guidance (e.g. "try fewer photos for this
+  // room") reaches the UI instead of degrading to a generic fallback.
+  const msg = err && err.status ? err.message : "Something went wrong on the server.";
+  res.status(err && err.status ? err.status : 500).json({ error: (err && err.code) || msg, message: msg });
 });
 
 // expired sessions, spent codes and stale invitations are dropped on boot

@@ -21,7 +21,10 @@ import { aiEnabled, transcriptionEnabled, draftRoomFindings, transcribeAudio, lo
 const CASE_ID = /^insp_[\w-]{4,60}$/;
 const ROOM_ID = /^room_[\w-]{4,60}$/;
 const MAX_PHOTOS = 24;
-const MAX_PHOTO_B64 = 3 * 1024 * 1024; // ~2.2 MB of JPEG — the AI copy is 1568px, well under
+// 24 × 1.5MB stays well inside the route's 64mb JSON body cap (with room for
+// the request's other fields); a 1568px/0.8-quality JPEG from aiPhotoCopy()
+// normally lands far under this anyway
+const MAX_PHOTO_B64 = 1.5 * 1024 * 1024;
 const MAX_TRANSCRIPTS = 40;
 
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -33,6 +36,17 @@ const who = (req) => (req.session ? `u:${req.session.user_id}` : `ip:${clientIp(
 async function ownedCase(req, id) {
   if (!hasDb) return null;
   return one("select id, org_id from cases where id = $1 and org_id = $2", [id, req.session.org_id]);
+}
+
+// Aborts the upstream call (Claude or the transcription provider) if the
+// surveyor's own connection drops mid-request — a closed tab or a dead
+// mobile connection shouldn't leave a multi-minute draft burning tokens
+// for a response nobody will read.
+function abortOnClose(req) {
+  const controller = new AbortController();
+  let done = false;
+  req.on("close", () => { if (!done) controller.abort(); });
+  return { signal: controller.signal, finish: () => { done = true; } };
 }
 
 export function mountAi(app) {
@@ -49,7 +63,9 @@ export function mountAi(app) {
       if (!Buffer.isBuffer(req.body) || req.body.length < 200) return res.status(400).json({ error: "no_audio" });
       if (!rateLimit(`ai:transcribe:${who(req)}`, 120, 60 * 60 * 1000)) return res.status(429).json({ error: "slow_down" });
       const memoId = String(req.get("x-memo-id") || "").slice(0, 80);
-      const text = await transcribeAudio({ buffer: req.body, mime: req.get("content-type"), filename: String(req.get("x-filename") || "note.webm").slice(0, 120) });
+      const { signal, finish } = abortOnClose(req);
+      const text = await transcribeAudio({ buffer: req.body, mime: req.get("content-type"), filename: String(req.get("x-filename") || "note.webm").slice(0, 120), signal });
+      finish();
       const owned = await ownedCase(req, req.params.id);
       if (owned && memoId) {
         await q(`insert into transcripts (memo_id, case_id, org_id, room_id, text, provider) values ($1, $2, $3, $4, $5, $6)
@@ -69,9 +85,11 @@ export function mountAi(app) {
       const b = req.body || {};
       const room = b.room && typeof b.room === "object" ? b.room : {};
       if (!room.name) return res.status(400).json({ error: "no_room" });
-      const photos = (Array.isArray(b.photos) ? b.photos : []).slice(0, MAX_PHOTOS)
+      const sentPhotos = Array.isArray(b.photos) ? b.photos : [];
+      const photos = sentPhotos.slice(0, MAX_PHOTOS)
         .filter((p) => p && typeof p.dataUrl === "string" && p.dataUrl.length <= MAX_PHOTO_B64 && p.dataUrl.startsWith("data:image/"))
         .map((p) => ({ id: String(p.id || ""), no: Number.isFinite(p.no) ? p.no : null, caption: String(p.caption || "").slice(0, 300), dataUrl: p.dataUrl }));
+      const droppedPhotos = sentPhotos.length - photos.length;
       const transcripts = (Array.isArray(b.transcripts) ? b.transcripts : []).slice(0, MAX_TRANSCRIPTS).map((t) => String(t).slice(0, 20000)).filter(Boolean);
       const input = {
         context: {
@@ -90,7 +108,9 @@ export function mountAi(app) {
         transcripts, photos,
       };
 
-      const result = await draftRoomFindings(input);
+      const { signal, finish } = abortOnClose(req);
+      const result = await draftRoomFindings(input, { signal });
+      finish();
       const runId = crypto.randomUUID();
       const findings = (result.output.findings || []).map((f, i) => ({ id: crypto.randomUUID(), seq: i + 1, status: "draft", ...f }));
 
@@ -110,7 +130,7 @@ export function mountAi(app) {
       }
 
       res.json({
-        run: { id: runId, model: result.model, servedByFallback: result.servedByFallback, reference: result.reference, usage: result.usage, persisted: !!owned },
+        run: { id: runId, model: result.model, servedByFallback: result.servedByFallback, reference: result.reference, usage: result.usage, persisted: !!owned, droppedPhotos },
         room_summary: result.output.room_summary || "",
         evidence_gaps: result.output.evidence_gaps || [],
         findings,

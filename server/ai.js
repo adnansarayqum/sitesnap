@@ -171,12 +171,15 @@ function userContent(input) {
 }
 
 // ---- the call -----------------------------------------------------------------
-export async function draftRoomFindings(input) {
+export async function draftRoomFindings(input, { signal } = {}) {
   if (MOCK) return mockDraft(input);
   const ref = loadReference();
   const c = getClient();
   // streaming so a long-thinking request can't hit an HTTP timeout; the
-  // final message is all we need
+  // final message is all we need. `signal` lets the caller abort the
+  // Anthropic call itself when the surveyor's own connection drops —
+  // otherwise a multi-minute high-effort draft nobody will read keeps
+  // burning tokens and wall-clock time after they've given up on it.
   const stream = c.beta.messages.stream({
     model: AI_MODEL,
     max_tokens: 16000,
@@ -188,7 +191,7 @@ export async function draftRoomFindings(input) {
     system: systemBlocks(ref),
     messages: [{ role: "user", content: userContent(input) }],
     output_config: { effort: AI_EFFORT, format: { type: "json_schema", schema: ROOM_SCHEMA } },
-  });
+  }, signal ? { signal } : undefined);
   const msg = await stream.finalMessage();
   if (msg.stop_reason === "refusal") {
     const e = new Error(`The model declined this request${msg.stop_details && msg.stop_details.category ? ` (${msg.stop_details.category})` : ""}.`);
@@ -268,7 +271,7 @@ function mockDraft(input) {
 // a speech-to-text provider first. OpenAI's transcription endpoint when
 // OPENAI_API_KEY is set; nothing otherwise (the app then drafts from typed
 // notes and says the voice notes were not transcribed).
-export async function transcribeAudio({ buffer, mime, filename }) {
+export async function transcribeAudio({ buffer, mime, filename, signal }) {
   if (MOCK) return `[mock transcript of ${filename || "voice note"}, ${Math.round(buffer.length / 1024)} KB]`;
   const key = process.env.OPENAI_API_KEY;
   if (!key) { const e = new Error("Transcription is not configured (set OPENAI_API_KEY)."); e.status = 501; throw e; }
@@ -277,7 +280,7 @@ export async function transcribeAudio({ buffer, mime, filename }) {
   form.append("model", process.env.OPENAI_TRANSCRIBE_MODEL || "whisper-1");
   form.append("language", "en");
   form.append("prompt", "Housing disrepair site inspection. Terms: damp, mould, condensation, penetrating damp, extractor fan, moisture readings, on the balance of probabilities, Artex, asbestos, skirting, reveal, tide mark.");
-  const r = await fetch("https://api.openai.com/v1/audio/transcriptions", { method: "POST", headers: { Authorization: `Bearer ${key}` }, body: form });
+  const r = await fetch("https://api.openai.com/v1/audio/transcriptions", { method: "POST", headers: { Authorization: `Bearer ${key}` }, body: form, signal });
   const json = await r.json().catch(() => ({}));
   if (!r.ok) { const e = new Error(json.error && json.error.message || `transcription failed (${r.status})`); e.status = 502; throw e; }
   return String(json.text || "").trim();

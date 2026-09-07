@@ -676,7 +676,7 @@ export function StyleBlock() {
       .ss-draft-room { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; padding: 8px 12px; border-radius: 10px; background: var(--card); border: 1px solid var(--line); }
       .ss-draft-room .st { margin-left: auto; font-size: 11.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--muted2); display: inline-flex; align-items: center; gap: 5px; }
       .ss-draft-room .st.done { color: var(--pine); }
-      .ss-draft-room .st.failed { color: var(--red); }
+      .ss-draft-room .st.failed, .ss-draft-room .st.cancelled { color: var(--red); }
       .ss-draft-room .st.drafting, .ss-draft-room .st.transcribing { color: var(--amber); }
       .ss-room-run { margin: 18px 0 8px; }
       .ss-room-run-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }

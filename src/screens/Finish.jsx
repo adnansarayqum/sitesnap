@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AlertTriangle, Check, CircleCheck, Clock, CloudUpload, Download, FileText, FolderTree, ImagePlus, Link2, Loader2, MapPin, Mic, Pencil, RotateCcw, ShieldCheck, Sparkles, StickyNote, Trash2, X,
 } from "lucide-react";
@@ -14,7 +14,7 @@ import { pad, safeFileName } from "../lib/util.js";
 import { ReportView } from "./Report.jsx";
 import {
   aiConfig, aiPhotoCopy, transcribeMemo, draftRoom, reviewFinding, emptyFindings, mergeRun, setFindingStatus,
-  effective, isApproved, needsAttention, approvedByRoom, findingsFiles, fromLegacyDraft,
+  effective, isApproved, needsAttention, approvedByRoom, findingsFiles, fromLegacyDraft, AI_MAX_PHOTOS,
 } from "../ai.js";
 
 // the ID photo files beside the inspection metadata, never in a room folder
@@ -707,7 +707,9 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
   const [progress, setProgress] = useState(null); // { statuses: {roomId: queued|transcribing|drafting|done|failed}, running, error }
   const [editing, setEditing] = useState(null);   // { id, defect, works, costLow, costHigh }
   const [openTranscript, setOpenTranscript] = useState({});
+  const abortRef = useRef(null);
   useEffect(() => { aiConfig().then(setCfg); }, []);
+  useEffect(() => () => { if (abortRef.current) abortRef.current.abort(); }, []); // leaving the tab cancels any run in flight
 
   const eligible = (r) => !!((r.note && r.note.trim()) || (r.hypothesis && r.hypothesis.trim()) || (r.memos || []).length || r.condition === "Poor" || r.condition === "Fair");
   const candidates = rooms.filter(eligible);
@@ -715,16 +717,23 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
   const approved = state.items.filter(isApproved).length;
   const flagged = state.items.filter((f) => f.status === "draft" && needsAttention(f)).length;
 
+  function cancelDraft() {
+    if (abortRef.current) abortRef.current.abort();
+  }
+
   async function draftAll() {
     if (progress && progress.running) return;
     if (!candidates.length) return;
+    const controller = new AbortController();
+    abortRef.current = controller;
     const statuses = {};
     candidates.forEach((r) => { statuses[r.id] = "queued"; });
     setProgress({ statuses, running: true, error: null });
     let working = state;
     let words = { ...transcripts };
-    let drafted = 0, failed = 0;
+    let drafted = 0, failed = 0, cancelled = false;
     for (const room of candidates) {
+      if (controller.signal.aborted) { cancelled = true; break; }
       const order = rooms.indexOf(room) + 1;
       try {
         // voice notes first: anything not yet transcribed goes up now, and the
@@ -734,31 +743,45 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
         if (pending.length && cfg && cfg.transcription) {
           setProgress((p) => p && ({ ...p, statuses: { ...p.statuses, [room.id]: "transcribing" } }));
           for (const m of pending) {
-            try { words[m.id] = await transcribeMemo(inspection.id, room.id, m, audioCache.current[m.id]); }
-            catch (e) { words[m.id] = ""; console.error("transcribe", e); }
+            try { words[m.id] = await transcribeMemo(inspection.id, room.id, m, audioCache.current[m.id], controller.signal); }
+            catch (e) { if (e.name === "AbortError") throw e; words[m.id] = ""; console.error("transcribe", e); }
           }
           onTranscripts(words);
         }
         setProgress((p) => p && ({ ...p, statuses: { ...p.statuses, [room.id]: "drafting" } }));
         const photos = [];
-        for (const pid of room.photoIds) {
+        // cap client-side too (must match the server's MAX_PHOTOS) so the
+        // exhibit numbers shown here are exactly what the model saw, not a
+        // longer list silently truncated on arrival
+        for (const pid of room.photoIds.slice(0, AI_MAX_PHOTOS)) {
           const p = await fullPhoto(pid);
           if (!p || !p.dataUrl) continue;
           photos.push({ id: pid, no: p.no || null, caption: p.caption || "", dataUrl: await aiPhotoCopy(p.dataUrl) });
         }
-        const res = await draftRoom({ inspection, room, order, transcripts: memos.map((m) => words[m.id]).filter(Boolean), photos });
+        const res = await draftRoom({ inspection, room, order, transcripts: memos.map((m) => words[m.id]).filter(Boolean), photos, signal: controller.signal });
         working = mergeRun(working, room, res);
         onFindings(working);
         drafted += res.findings.length;
+        const dropped = (room.photoIds.length - AI_MAX_PHOTOS) + (res.run.droppedPhotos || 0);
+        if (dropped > 0 && onActivity) onActivity(`${room.name}: only the first ${AI_MAX_PHOTOS} photos were used for drafting (${dropped} left out)`);
         setProgress((p) => p && ({ ...p, statuses: { ...p.statuses, [room.id]: "done" } }));
       } catch (e) {
+        if (e.name === "AbortError") {
+          cancelled = true;
+          setProgress((p) => p && ({ ...p, statuses: { ...p.statuses, [room.id]: "cancelled" } }));
+          break;
+        }
         failed += 1;
         console.error("draft", e);
         setProgress((p) => p && ({ ...p, statuses: { ...p.statuses, [room.id]: "failed" }, error: e.message }));
       }
     }
-    if (onActivity) onActivity(`Drafted ${drafted} finding${drafted === 1 ? "" : "s"} across ${candidates.length - failed} room${candidates.length - failed === 1 ? "" : "s"}${failed ? ` — ${failed} failed` : ""}`);
-    setProgress((p) => p && ({ ...p, running: false }));
+    abortRef.current = null;
+    if (onActivity) {
+      if (cancelled) onActivity(`Drafting cancelled — ${drafted} finding${drafted === 1 ? "" : "s"} kept from ${candidates.length - failed} room${candidates.length - failed === 1 ? "" : "s"} drafted before stopping`);
+      else onActivity(`Drafted ${drafted} finding${drafted === 1 ? "" : "s"} across ${candidates.length - failed} room${candidates.length - failed === 1 ? "" : "s"}${failed ? ` — ${failed} failed` : ""}`);
+    }
+    setProgress((p) => p && ({ ...p, running: false, cancelled }));
   }
 
   function decide(f, status, reviewed) {
@@ -805,7 +828,7 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
             <span className={`st ${st}`}>
               {(st === "drafting" || st === "transcribing") && <Loader2 size={12} className="ss-spin" />}
               {st === "done" && <Check size={12} />}
-              {st === "failed" && <X size={12} />}
+              {(st === "failed" || st === "cancelled") && <X size={12} />}
               {st === "queued" ? "queued" : st === "transcribing" ? "transcribing" : st === "drafting" ? "reading photos" : st}
             </span>
           </div>
@@ -832,10 +855,14 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
           </div>
         </div>
         <div className="ss-footer">
-          <button className="ss-btn ss-btn-primary ss-btn-big" onClick={draftAll} disabled={!candidates.length || aiOff || !cfg}
-            title={aiOff ? "Set ANTHROPIC_API_KEY on the server" : undefined}>
-            <Sparkles size={18} /> {draftLabel}
-          </button>
+          {progress && progress.running ? (
+            <button className="ss-btn ss-btn-danger-ghost ss-btn-big" onClick={cancelDraft}><X size={18} /> Cancel</button>
+          ) : (
+            <button className="ss-btn ss-btn-primary ss-btn-big" onClick={draftAll} disabled={!candidates.length || aiOff || !cfg}
+              title={aiOff ? "Set ANTHROPIC_API_KEY on the server" : undefined}>
+              <Sparkles size={18} /> {draftLabel}
+            </button>
+          )}
         </div>
       </>
     );
@@ -975,9 +1002,13 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
           <button className="ss-btn ss-btn-primary" onClick={approveUnflagged} disabled={!state.items.some((f) => f.status === "draft" && !needsAttention(f))}>
             <Check size={16} /> Approve unflagged
           </button>
-          <button className="ss-btn ss-btn-ghost" onClick={draftAll} disabled={(progress && progress.running) || aiOff || !candidates.length}>
-            {progress && progress.running ? <Loader2 size={15} className="ss-spin" /> : <Sparkles size={15} />} {draftLabel}
-          </button>
+          {progress && progress.running ? (
+            <button className="ss-btn ss-btn-danger-ghost" onClick={cancelDraft}><X size={15} /> Cancel</button>
+          ) : (
+            <button className="ss-btn ss-btn-ghost" onClick={draftAll} disabled={aiOff || !candidates.length}>
+              <Sparkles size={15} /> {draftLabel}
+            </button>
+          )}
         </div>
       </div>
     </>
