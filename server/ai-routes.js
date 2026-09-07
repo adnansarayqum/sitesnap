@@ -16,7 +16,7 @@ import express from "express";
 import crypto from "node:crypto";
 import { hasDb, q, one } from "./db.js";
 import { requireOrg, rateLimit, clientIp, audit } from "./auth.js";
-import { aiEnabled, transcriptionEnabled, draftRoomFindings, transcribeAudio, loadReference, AI_MODEL, AI_EFFORT } from "./ai.js";
+import { aiEnabled, transcriptionEnabled, draftRoomFindings, captionRoomPhotos, transcribeAudio, loadReference, AI_MODEL, AI_EFFORT } from "./ai.js";
 
 const CASE_ID = /^insp_[\w-]{4,60}$/;
 const ROOM_ID = /^room_[\w-]{4,60}$/;
@@ -135,6 +135,31 @@ export function mountAi(app) {
         evidence_gaps: result.output.evidence_gaps || [],
         findings,
       });
+    }));
+
+  // --- captions: a room's photos -> a short caption each + a suggested note ----
+  app.post("/api/ai/cases/:id/rooms/:roomId/caption", guard,
+    express.json({ limit: "40mb" }),
+    wrap(async (req, res) => {
+      if (!aiEnabled()) return res.status(501).json({ error: "ai_off", message: "Captioning isn't switched on for this server — set ANTHROPIC_API_KEY." });
+      if (!CASE_ID.test(req.params.id) || !ROOM_ID.test(req.params.roomId)) return res.status(400).json({ error: "bad_id" });
+      if (!rateLimit(`ai:caption:${who(req)}`, 120, 60 * 60 * 1000)) return res.status(429).json({ error: "slow_down" });
+      const b = req.body || {};
+      const room = b.room && typeof b.room === "object" ? b.room : {};
+      if (!room.name) return res.status(400).json({ error: "no_room" });
+      const sentPhotos = Array.isArray(b.photos) ? b.photos : [];
+      const photos = sentPhotos.slice(0, MAX_PHOTOS)
+        .filter((p) => p && typeof p.id === "string" && p.id && typeof p.dataUrl === "string" && p.dataUrl.length <= MAX_PHOTO_B64 && p.dataUrl.startsWith("data:image/"))
+        .map((p) => ({ id: p.id, caption: String(p.caption || "").slice(0, 300), dataUrl: p.dataUrl }));
+      if (!photos.length) return res.status(400).json({ error: "no_photos" });
+      const input = {
+        room: { name: String(room.name).slice(0, 120), condition: String(room.condition || "").slice(0, 20), note: String(room.note || "").slice(0, 4000) },
+        photos,
+      };
+      const { signal, finish } = abortOnClose(req);
+      const result = await captionRoomPhotos(input, { signal });
+      finish();
+      res.json({ model: result.model, photos: result.output.photos || [], room_note: result.output.room_note || "" });
     }));
 
   if (!hasDb) return;

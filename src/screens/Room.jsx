@@ -1,19 +1,23 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  Camera, Check, Circle, ImagePlus, Loader2, MoveUpRight, Tag, Trash2, Undo2, X,
+  Camera, Check, Circle, ImagePlus, Loader2, MoveUpRight, Sparkles, Tag, Trash2, Undo2, X,
 } from "lucide-react";
 import { VoiceMemo } from "../components/VoiceMemo.jsx";
 import { TopBar } from "../components/shared.jsx";
 import { THUMB_DIM, drawScaled, processCapture } from "../lib/image.js";
 import { CONDITIONS } from "../lib/presets.js";
+import { aiConfig, aiPhotoCopy, captionRoom, AI_MAX_PHOTOS } from "../ai.js";
 import { BAD_IMAGE_MSG, LiveCamera } from "./Walk.jsx";
 
 /* ---------------- room review ---------------- */
 
-export function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, onCaption, onFull, onAnnotate, onAddMemo, onDeleteMemo, onSaveToPhotos, onError }) {
+export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, onMeta, onCaption, onFull, onAnnotate, onAddMemo, onDeleteMemo, onSaveToPhotos, onError }) {
   const inputRef = useRef(null);
   const [viewPhoto, setViewPhoto] = useState(null);
   const [annotating, setAnnotating] = useState(false);
+  const [aiCfg, setAiCfg] = useState({ enabled: false });
+  const [captioning, setCaptioning] = useState(false);
+  useEffect(() => { aiConfig().then(setAiCfg); }, []);
 
   // the grid shows thumbnails; the lightbox swaps in the stored copy once read
   function openPhoto(p) {
@@ -49,11 +53,60 @@ export function RoomScreen({ room, photos, onBack, onCapture, onDelete, onMeta, 
     setTimeout(() => setNote(null), 3000);
   }
 
+  // Fills in what's blank — captions the model can read straight off the
+  // photos, and a starting-point room note from the set as a whole. Never
+  // overwrites a caption or note the surveyor already typed; everything it
+  // does add stays in the normal editable fields, same as if typed by hand.
+  async function aiCaption() {
+    if (captioning || !photos.length) return;
+    setCaptioning(true);
+    try {
+      const targets = photos.slice(0, AI_MAX_PHOTOS);
+      const payload = [];
+      for (const p of targets) {
+        const full = p.dataUrl ? p : (onFull ? await onFull(p.id) : null);
+        if (!full || !full.dataUrl) continue;
+        payload.push({ id: p.id, caption: p.caption || "", dataUrl: await aiPhotoCopy(full.dataUrl) });
+      }
+      if (!payload.length) { onError && onError("No photos could be loaded for captioning."); return; }
+      const res = await captionRoom({
+        caseId, roomId: room.id,
+        room: { name: room.name, condition: room.condition || "", note: room.note || "" },
+        photos: payload,
+      });
+      let filled = 0;
+      for (const c of res.photos || []) {
+        const p = photos.find((x) => x.id === c.id);
+        if (p && !(p.caption || "").trim() && c.caption && c.caption.trim()) { onCaption(c.id, c.caption.trim()); filled += 1; }
+      }
+      const notedRoom = !!(res.room_note && !(room.note || "").trim());
+      if (notedRoom) onMeta({ note: res.room_note });
+      const dropped = photos.length - targets.length;
+      const bits = [];
+      if (filled) bits.push(`captioned ${filled} photo${filled === 1 ? "" : "s"}`);
+      if (notedRoom) bits.push("added a room note");
+      if (dropped > 0) bits.push(`${dropped} left out (${AI_MAX_PHOTOS} photo limit)`);
+      setNote(bits.length ? `AI: ${bits.join(", ")} — check and edit before moving on` : "AI: nothing to add — already captioned");
+      setTimeout(() => setNote(null), 4000);
+    } catch (e) {
+      onError && onError(e && e.message ? e.message : "Couldn't caption these photos.");
+    } finally {
+      setCaptioning(false);
+    }
+  }
+
   return (
     <div className="ss-col">
       <TopBar title={room.name} eyebrow={`${photos.length} photo${photos.length === 1 ? "" : "s"}`} onBack={onBack}
         right={photos.length > 0 && (
-          <button className="ss-link" onClick={handleSave}><ImagePlus size={14} /> Save to Photos</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {aiCfg.enabled && (
+              <button className="ss-link" disabled={captioning} onClick={aiCaption}>
+                {captioning ? <Loader2 size={14} className="ss-spin" /> : <Sparkles size={14} />} {captioning ? "Captioning…" : "AI captions"}
+              </button>
+            )}
+            <button className="ss-link" onClick={handleSave}><ImagePlus size={14} /> Save to Photos</button>
+          </div>
         )} />
 
       <input ref={inputRef} type="file" accept="image/*" capture="environment" multiple

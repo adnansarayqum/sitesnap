@@ -74,6 +74,17 @@ export async function draftRoom({ inspection, room, order, transcripts, photos, 
   return r.json();
 }
 
+export async function captionRoom({ caseId, roomId, room, photos, signal }) {
+  const r = await fetch(`/api/ai/cases/${encodeURIComponent(caseId)}/rooms/${encodeURIComponent(roomId)}/caption`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ room, photos }),
+    signal,
+  });
+  if (!r.ok) throw await readError(r, "Couldn't caption these photos.");
+  return r.json();
+}
+
 // best effort: in local mode there is nothing server-side to update
 export async function reviewFinding(id, status, reviewed) {
   try {

@@ -801,6 +801,7 @@ export default function SiteSnap() {
           return (
             <RoomScreen
               room={room}
+              caseId={inspection.id}
               photos={room.photoIds.map((id) => photoCache[id]).filter(Boolean)}
               onBack={() => setScreen("casefile")}
               onCapture={(dataUrl, file, thumb) => addPhoto(room.id, dataUrl, file, thumb)}

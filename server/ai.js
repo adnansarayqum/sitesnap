@@ -24,6 +24,10 @@ export const AI_MODEL = process.env.AI_MODEL || "claude-fable-5-1";
 // "high" by default: this is a court-facing document and correctness matters
 // more than latency. Set AI_EFFORT=medium for a quicker interactive pass.
 export const AI_EFFORT = process.env.AI_EFFORT || "high";
+// Captioning is a much lighter task than drafting a finding — describing
+// what's visible, not weighing evidence — so it defaults to a quicker,
+// cheaper effort than the main draft.
+export const AI_CAPTION_EFFORT = process.env.AI_CAPTION_EFFORT || "low";
 const MOCK = process.env.AI_MOCK === "1";
 
 export const aiEnabled = () => MOCK || !!process.env.ANTHROPIC_API_KEY;
@@ -102,6 +106,17 @@ export const ROOM_SCHEMA = obj({
   room_summary: str("One or two sentences: what was observed in this room. No conclusions."),
   findings: arr(FINDING_SCHEMA),
   evidence_gaps: arr(str(), "What would settle an open question: a reading, a photo of an extent, a sample, a second visit."),
+});
+
+// A quick per-photo caption plus a starting-point room note — not a legal
+// finding, just what's visible, so the surveyor isn't typing every caption
+// by hand and can edit or clear anything the model gets wrong.
+export const CAPTION_SCHEMA = obj({
+  photos: arr(obj({
+    id: str("The photo id exactly as supplied."),
+    caption: str("Short factual caption, surveyor's plain field style — what is visible, not a diagnosis."),
+  }), "One entry per photo supplied, same id and order."),
+  room_note: str("A short suggested room note the surveyor can edit — overall condition and anything visible across several photos. Empty string if there is nothing worth adding."),
 });
 
 // ---- prompt -----------------------------------------------------------------
@@ -262,6 +277,85 @@ function mockDraft(input) {
       evidence_gaps: photos.length ? [] : ["Photographs of the affected area showing its full extent."],
     },
     model: "mock", servedByFallback: null, reference: loadReference().version,
+    usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+  };
+}
+
+// ---- photo captions & room note ------------------------------------------------
+// A fast, low-effort pass over a room's photos: what's visible in each, and
+// one suggested room note from the set as a whole. This is a convenience for
+// the surveyor typing on site, not part of the evidential chain — the
+// surveyor can edit or clear anything before it's relied on, same as their
+// own typed captions always could be.
+const CAPTION_CORE = `You caption photographs from a UK housing-disrepair site inspection, for a chartered surveyor who will review and edit every caption before it's used. For each photo, write a short factual caption in the surveyor's plain field style — a few words on what is visible (e.g. "mould growth to ceiling above shower", "cracked render below sill") — not a full sentence, and no cause, diagnosis or legal conclusion; that is a separate step done later from the finished captions. If a photo already has a caption and you have nothing to add, return it unchanged rather than rewording it for its own sake.
+
+Then, from the photos together, suggest one short room note as a starting point for the surveyor's own note — the overall condition and anything visible across more than one photo worth flagging on site. Keep it brief and plain; it exists to save typing, not to be the final wording. Return an empty string if the photos don't suggest anything worth adding.`;
+
+function captionSystemBlocks(ref) {
+  return [
+    { type: "text", text: CAPTION_CORE },
+    { type: "text", text: "# Style examples\n\n" + ref.style, cache_control: { type: "ephemeral", ttl: "1h" } },
+  ];
+}
+
+function captionUserContent(input) {
+  const { room, photos } = input;
+  const content = [{
+    type: "text",
+    text: `Room: ${room.name}${room.condition ? ` (condition: ${room.condition})` : ""}${room.note ? `\nSurveyor's note so far: ${room.note}` : ""}`,
+  }];
+  for (const p of photos) {
+    const img = parseDataUrl(p.dataUrl);
+    if (!img) continue;
+    content.push({ type: "text", text: `Photo id ${p.id}${p.caption ? ` — existing caption: "${p.caption}"` : ""}` });
+    content.push({ type: "image", source: { type: "base64", media_type: img.media_type, data: img.data } });
+  }
+  content.push({ type: "text", text: "Caption each photo by id, in the same order, and suggest a room note." });
+  return content;
+}
+
+export async function captionRoomPhotos(input, { signal } = {}) {
+  if (MOCK) return mockCaption(input);
+  const ref = loadReference();
+  const c = getClient();
+  const stream = c.beta.messages.stream({
+    model: AI_MODEL,
+    max_tokens: 4000,
+    betas: ["server-side-fallback-2026-07-01"],
+    fallbacks: "default",
+    system: captionSystemBlocks(ref),
+    messages: [{ role: "user", content: captionUserContent(input) }],
+    output_config: { effort: AI_CAPTION_EFFORT, format: { type: "json_schema", schema: CAPTION_SCHEMA } },
+  }, signal ? { signal } : undefined);
+  const msg = await stream.finalMessage();
+  if (msg.stop_reason === "refusal") {
+    const e = new Error(`The model declined this request${msg.stop_details && msg.stop_details.category ? ` (${msg.stop_details.category})` : ""}.`);
+    e.status = 422; e.code = "refusal";
+    throw e;
+  }
+  if (msg.stop_reason === "max_tokens") {
+    const e = new Error("The caption pass ran past the output limit; try fewer photos."); e.status = 502; throw e;
+  }
+  const text = msg.content.filter((b) => b.type === "text").map((b) => b.text).join("");
+  let output;
+  try { output = JSON.parse(text); } catch { const e = new Error("The model's reply was not valid JSON."); e.status = 502; throw e; }
+  return {
+    output, model: msg.model,
+    usage: {
+      input: msg.usage.input_tokens, output: msg.usage.output_tokens,
+      cacheRead: msg.usage.cache_read_input_tokens || 0, cacheWrite: msg.usage.cache_creation_input_tokens || 0,
+    },
+  };
+}
+
+function mockCaption(input) {
+  const { room, photos = [] } = input;
+  return {
+    output: {
+      photos: photos.map((p, i) => ({ id: p.id, caption: p.caption || `[MOCK] Photo ${i + 1} in ${room.name.toLowerCase()}` })),
+      room_note: room.note ? "" : `[MOCK] General condition noted in ${room.name.toLowerCase()} — review photos.`,
+    },
+    model: "mock",
     usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
   };
 }
