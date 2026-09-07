@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import {
-  Aperture, Check, CircleCheck, CloudUpload, FileText, KeyRound, Loader2, Moon, Sun,
+  Aperture, Check, CircleCheck, CloudUpload, FileText, Loader2, Moon, Sun,
 } from "lucide-react";
 import {
-  loadWebhook, saveWebhook, loadWebhookKey, saveWebhookKey, storageEstimate, loadMsClientId, saveMsClientId, loadGoogleClientId, saveGoogleClientId, hasBuiltInMsClientId, hasBuiltInGoogleClientId,
+  storageEstimate, loadMsClientId, saveMsClientId, hasBuiltInMsClientId,
 } from "../storage.js";
-import { loadGoogleDrive, loadMsGraph } from "../cloud/lazy.js";
+import { loadMsGraph } from "../cloud/lazy.js";
 import { cloudServiceConfig, linkedAccount, beginLink, unlink } from "../cloud/service.js";
 import { updateName, switchOrg } from "../auth.js";
 import { TabBar } from "./Home.jsx";
@@ -100,8 +100,6 @@ export function CloudProviderCard({ label, icon, connected, connecting, account,
 }
 
 export function SettingsScreen({ fieldMode, onToggleFieldMode, onTab, me, onSignOut, onMeChanged }) {
-  const [hookUrl, setHookUrl] = useState("");
-  const [hookKey, setHookKey] = useState("");
   const [savedNote, setSavedNote] = useState(null);
 
   const [msClientId, setMsClientId] = useState("");
@@ -109,23 +107,15 @@ export function SettingsScreen({ fieldMode, onToggleFieldMode, onTab, me, onSign
   const [msBusy, setMsBusy] = useState(false);
   const [msError, setMsError] = useState(null);
 
-  const [googleClientId, setGoogleClientId] = useState("");
-  const [googleOn, setGoogleOn] = useState(false);
-  const [googleAccount, setGoogleAccount] = useState(null);
-  const [googleBusy, setGoogleBusy] = useState(false);
-  const [googleError, setGoogleError] = useState(null);
-
-  // which providers this deployment's cloud-link service can sign in for
-  // (server/index.js) — when one can, the in-browser client-ID flow below
-  // is bypassed for it entirely
+  // whether this deployment's cloud-link service can sign in for OneDrive
+  // (server/index.js) — when it can, the in-browser client-ID flow below
+  // is bypassed entirely
   const [svc, setSvc] = useState({ onedrive: false, google: false });
 
   const [storage, setStorage] = useState(null);
   const [durable, setDurable] = useState(null);
 
   useEffect(() => {
-    loadWebhook().then((u) => setHookUrl(u || ""));
-    loadWebhookKey().then((k) => setHookKey(k || ""));
     cloudServiceConfig().then(setSvc);
     (async () => {
       const link = await linkedAccount("onedrive");
@@ -140,30 +130,11 @@ export function SettingsScreen({ fieldMode, onToggleFieldMode, onTab, me, onSign
       const acc = await msAccount(id);
       if (acc) setMsAccountName(acc.username);
     })();
-    (async () => {
-      const link = await linkedAccount("google");
-      const id = await loadGoogleClientId();
-      setGoogleClientId(id || "");
-      if (link) { setGoogleOn(true); setGoogleAccount(link.account || null); return; }
-      // Google's access token is memory-only (see cloud/googleDrive.js) and
-      // doesn't survive a reload on its own — but if the browser still has a
-      // live Google session, a silent (no-popup) request usually gets a new
-      // one without asking the surveyor to sign in again every time.
-      if (!id) return;
-      const { trySilentGoogleReconnect } = await loadGoogleDrive();
-      setGoogleOn(await trySilentGoogleReconnect(id));
-    })();
     storageEstimate().then(setStorage);
     if (navigator.storage && navigator.storage.persisted) navigator.storage.persisted().then(setDurable);
   }, []);
 
   function flash(msg) { setSavedNote(msg); setTimeout(() => setSavedNote(null), 2500); }
-
-  async function saveHook() {
-    await saveWebhook(hookUrl.trim());
-    await saveWebhookKey(hookKey.trim());
-    flash("Cloud upload link saved");
-  }
 
   async function connectMs() {
     setMsBusy(true); setMsError(null);
@@ -199,38 +170,7 @@ export function SettingsScreen({ fieldMode, onToggleFieldMode, onTab, me, onSign
     setMsBusy(false);
   }
 
-  async function connectGoogle() {
-    setGoogleBusy(true); setGoogleError(null);
-    const win = svc.google ? window.open("about:blank", "_blank") : null;
-    try {
-      if (svc.google) {
-        const acct = await beginLink("google", win);
-        if (acct === null && !win) return;
-        setGoogleAccount(acct || null);
-      } else {
-        await saveGoogleClientId(googleClientId.trim());
-        const { connectGoogleDrive } = await loadGoogleDrive();
-        await connectGoogleDrive(googleClientId.trim());
-      }
-      setGoogleOn(true);
-      flash("Google Drive connected");
-    } catch (e) {
-      try { win && win.close(); } catch { /* already gone */ }
-      setGoogleError(e && e.message ? e.message : "Couldn't connect to Google Drive.");
-    } finally { setGoogleBusy(false); }
-  }
-  async function disconnectGoogle() {
-    if (await linkedAccount("google")) {
-      await unlink("google");
-    } else {
-      const { disconnectGoogleDrive } = await loadGoogleDrive();
-      disconnectGoogleDrive();
-    }
-    setGoogleOn(false);
-    setGoogleAccount(null);
-  }
-
-  const serviceOn = svc.onedrive || svc.google;
+  const serviceOn = svc.onedrive;
 
   return (
     <div className="ss-col">
@@ -254,34 +194,10 @@ export function SettingsScreen({ fieldMode, onToggleFieldMode, onTab, me, onSign
             builtIn={svc.onedrive || hasBuiltInMsClientId()}
             portalHint="From portal.azure.com → App registrations → New registration (SPA, redirect URI = this app's URL)."
           />
-          <CloudProviderCard
-            label="Google Drive" icon={<CloudUpload size={16} />}
-            connected={googleOn} connecting={googleBusy} account={googleAccount}
-            clientId={googleClientId} onClientId={setGoogleClientId}
-            onConnect={connectGoogle} onDisconnect={disconnectGoogle} error={googleError}
-            builtIn={svc.google || hasBuiltInGoogleClientId()}
-            portalHint="From console.cloud.google.com → APIs & Services → Credentials → OAuth client ID (Web application)."
-          />
         </div>
         <p className="ss-fineprint" style={{ margin: "8px 2px 0" }}>
           {serviceOn ? "One sign-in, then photos file themselves as you shoot." : "No sign-in prompts to remember at the end of the day."}
         </p>
-
-        <div className="ss-section-label" style={{ marginTop: 20 }}>Make / n8n / Zapier link</div>
-        <input
-          className="ss-input" placeholder="https://your-n8n.app/webhook/inspections"
-          value={hookUrl} onChange={(e) => setHookUrl(e.target.value)}
-          inputMode="url" autoCapitalize="none"
-        />
-        <div className="ss-key-row" style={{ marginTop: 8 }}>
-          <KeyRound size={14} />
-          <input
-            className="ss-input" placeholder="Access key (optional)"
-            value={hookKey} onChange={(e) => setHookKey(e.target.value)}
-            autoCapitalize="none" autoComplete="off"
-          />
-        </div>
-        <button className="ss-btn ss-btn-primary" style={{ marginTop: 10 }} onClick={saveHook}>Save link</button>
 
         <div className="ss-section-label" style={{ marginTop: 24 }}>Display</div>
         <div className="ss-settings-row">
