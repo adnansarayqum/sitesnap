@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  AlertTriangle, Loader2, Undo2, X,
+  AlertTriangle, CloudUpload, Loader2, Undo2, X,
 } from "lucide-react";
 import {
   loadIndex, loadInspection, migrateLegacy, saveState, clearState, loadPhoto, savePhoto, updatePhoto, removePhoto, loadAudio, saveAudio, removeAudio, loadArchive, archiveInspection, sweepOrphans, setStorageErrorHandler, requestDurableStorage, storageEstimate, loadFieldMode, saveFieldMode, nextCaseNo, setStorageNamespace, loadWebhook,
@@ -15,7 +15,7 @@ import { SettingsScreen } from "./screens/Settings.jsx";
 import { SetupScreen } from "./screens/Setup.jsx";
 import { WalkScreen } from "./screens/Walk.jsx";
 import { StyleBlock } from "./styles.jsx";
-import { claimFromUrl, setAccountLinks } from "./cloud/service.js";
+import { beginLink, claimFromUrl, setAccountLinks } from "./cloud/service.js";
 import { fetchMe, signOut as apiSignOut, captureInviteFromUrl, clearPendingInvite, inviteInfo, acceptInvite, cloudServiceConfig } from "./auth.js";
 import { SignInScreen } from "./screens/SignIn.jsx";
 import { OrgScreen } from "./screens/Org.jsx";
@@ -49,6 +49,8 @@ export default function SiteSnap() {
   // and whether Home should still be asking where photos go
   const [filing, setFiling] = useState(filingState());
   const [needsCloud, setNeedsCloud] = useState(false);
+  const [onedrivePrompt, setOnedrivePrompt] = useState(false);
+  const [onedrivePromptBusy, setOnedrivePromptBusy] = useState(false);
   const filingCtx = useRef(null);
   const [caseTab, setCaseTab] = useState("overview"); // overview|rooms|findings|export, while screen === "casefile"
   const [inspection, setInspection] = useState(null);
@@ -237,6 +239,38 @@ export default function SiteSnap() {
     await refreshIndex();
     setArchive(await loadArchive());
     syncRegister(m);
+    maybePromptOneDrive(m);
+  }
+
+  // A one-time nudge right after a surveyor's first sign-in — Microsoft
+  // sign-in already links OneDrive as part of that flow, so this only fires
+  // for the email-code path. Flagged in localStorage so it shows once ever
+  // per person; the slim status row on Home keeps reminding after that if
+  // they skip it here.
+  function maybePromptOneDrive(m) {
+    if (!(m && m.mode === "accounts" && m.user && m.org && cfg.onedrive)) return;
+    if ((m.links || []).some((l) => l.provider === "onedrive")) return;
+    const key = `ss_od_prompt_${m.user.id}`;
+    try {
+      if (localStorage.getItem(key)) return;
+      localStorage.setItem(key, "1");
+    } catch { return; }
+    setOnedrivePrompt(true);
+  }
+
+  async function connectOneDriveFromPrompt() {
+    setOnedrivePromptBusy(true);
+    const win = window.open("about:blank", "_blank");
+    try {
+      const acct = await beginLink("onedrive", win);
+      if (acct === null && !win) return; // this tab is navigating to the sign-in
+      setOnedrivePrompt(false);
+      setStorageAlert(`OneDrive connected${acct ? " — " + acct : ""}`);
+      await reloadMe();
+    } catch {
+      try { win && win.close(); } catch { /* already gone */ }
+      setOnedrivePrompt(false);
+    } finally { setOnedrivePromptBusy(false); }
   }
 
   async function doSignOut() {
@@ -795,6 +829,20 @@ export default function SiteSnap() {
           <div className="ss-toast">
             <span>Photo deleted</span>
             <button onClick={undoDelete}><Undo2 size={15} /> Undo</button>
+          </div>
+        )}
+
+        {onedrivePrompt && view !== "gate" && (
+          <div className="ss-modal-back" onClick={() => (onedrivePromptBusy ? null : setOnedrivePrompt(false))}>
+            <div className="ss-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="ss-modal-icon"><CloudUpload size={22} /></div>
+              <div className="ss-modal-title">Connect OneDrive?</div>
+              <p>Photos file themselves into OneDrive as you shoot — one sign-in now saves you finding somewhere to send them at the end of every job.</p>
+              <button className="ss-btn ss-btn-primary ss-btn-big" disabled={onedrivePromptBusy} onClick={connectOneDriveFromPrompt}>
+                {onedrivePromptBusy ? <Loader2 size={18} className="ss-spin" /> : <CloudUpload size={18} />} Connect OneDrive
+              </button>
+              <button className="ss-link" style={{ marginTop: 10 }} disabled={onedrivePromptBusy} onClick={() => setOnedrivePrompt(false)}>Skip for now</button>
+            </div>
           </div>
         )}
       </div>
