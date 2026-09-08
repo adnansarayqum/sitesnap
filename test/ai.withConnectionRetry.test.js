@@ -41,10 +41,18 @@ describe("withConnectionRetry", () => {
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
-  it("never retries a user-initiated abort even though it extends APIConnectionError's family", async () => {
+  it("never retries an interrupted-connection abort, and gives it a clear status instead of the generic 500 fallback", async () => {
+    // Same root problem as the connection-error case above: no HTTP status
+    // by design (there was no response to have one), which used to reach
+    // the client as "Something went wrong on the server." — indistinguishable
+    // from a genuine bug — instead of something that says what happened
+    // (the phone's connection dropped mid-request) and invites a retry.
     const abort = new Anthropic.APIUserAbortError({ message: "aborted by caller" });
     const fn = vi.fn().mockRejectedValue(abort);
-    await expect(withConnectionRetry(fn)).rejects.toBe(abort);
+    await expect(withConnectionRetry(fn)).rejects.toMatchObject({
+      status: 499,
+      code: "ai_interrupted",
+    });
     expect(fn).toHaveBeenCalledTimes(1);
   });
 });

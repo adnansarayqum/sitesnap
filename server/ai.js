@@ -52,7 +52,19 @@ export async function withConnectionRetry(fn) {
   try {
     return await fn();
   } catch (e) {
-    if (!(e instanceof Anthropic.APIConnectionError) || e instanceof Anthropic.APIUserAbortError) throw e;
+    // Thrown when the phone's own connection drops mid-request (ai-routes.js's
+    // abortOnClose) — same statusless problem as APIConnectionError below,
+    // and for the same root reason: there was no response to hang a status
+    // on. Never retried (the connection that just dropped would likely just
+    // drop again), but it still needs its own status so the generic 500
+    // fallback doesn't stand in for what actually happened — a flaky
+    // signal on site, not a server bug.
+    if (e instanceof Anthropic.APIUserAbortError) {
+      const err = new Error("The connection dropped before the AI finished — try again.");
+      err.status = 499; err.code = "ai_interrupted";
+      throw err;
+    }
+    if (!(e instanceof Anthropic.APIConnectionError)) throw e;
     try {
       return await fn();
     } catch {
