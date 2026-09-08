@@ -39,6 +39,30 @@ function getClient() {
   return client;
 }
 
+// The SDK already retries a connection failure internally (up to
+// max_retries) before giving up — when it still gives up, the resulting
+// APIConnectionError carries no HTTP status by design (there was no
+// response to have one), so the generic error middleware can't tell it
+// apart from a genuine bug and shows its most defensive fallback message.
+// One more attempt from a fresh connection often succeeds where the SDK's
+// own quick retries didn't (a stale pooled socket, a momentary DNS blip);
+// if it still fails, this turns it into a clear, retryable message instead
+// of a statusless error.
+async function withConnectionRetry(fn) {
+  try {
+    return await fn();
+  } catch (e) {
+    if (!(e instanceof Anthropic.APIConnectionError) || e instanceof Anthropic.APIUserAbortError) throw e;
+    try {
+      return await fn();
+    } catch {
+      const err = new Error("Couldn't reach the AI service — check your connection and try again.");
+      err.status = 503; err.code = "ai_unreachable";
+      throw err;
+    }
+  }
+}
+
 // ---- reference pack ---------------------------------------------------------
 let refCache = null;
 export function loadReference(force = false) {
@@ -195,7 +219,7 @@ export async function draftRoomFindings(input, { signal } = {}) {
   // Anthropic call itself when the surveyor's own connection drops —
   // otherwise a multi-minute high-effort draft nobody will read keeps
   // burning tokens and wall-clock time after they've given up on it.
-  const stream = c.beta.messages.stream({
+  const msg = await withConnectionRetry(() => c.beta.messages.stream({
     model: AI_MODEL,
     max_tokens: 16000,
     // safety classifiers may decline a request (stop_reason "refusal");
@@ -206,8 +230,7 @@ export async function draftRoomFindings(input, { signal } = {}) {
     system: systemBlocks(ref),
     messages: [{ role: "user", content: userContent(input) }],
     output_config: { effort: AI_EFFORT, format: { type: "json_schema", schema: ROOM_SCHEMA } },
-  }, signal ? { signal } : undefined);
-  const msg = await stream.finalMessage();
+  }, signal ? { signal } : undefined).finalMessage());
   if (msg.stop_reason === "refusal") {
     const e = new Error(`The model declined this request${msg.stop_details && msg.stop_details.category ? ` (${msg.stop_details.category})` : ""}.`);
     e.status = 422; e.code = "refusal";
@@ -318,7 +341,7 @@ export async function captionRoomPhotos(input, { signal } = {}) {
   if (MOCK) return mockCaption(input);
   const ref = loadReference();
   const c = getClient();
-  const stream = c.beta.messages.stream({
+  const msg = await withConnectionRetry(() => c.beta.messages.stream({
     model: AI_MODEL,
     max_tokens: 4000,
     betas: ["server-side-fallback-2026-07-01"],
@@ -326,8 +349,7 @@ export async function captionRoomPhotos(input, { signal } = {}) {
     system: captionSystemBlocks(ref),
     messages: [{ role: "user", content: captionUserContent(input) }],
     output_config: { effort: AI_CAPTION_EFFORT, format: { type: "json_schema", schema: CAPTION_SCHEMA } },
-  }, signal ? { signal } : undefined);
-  const msg = await stream.finalMessage();
+  }, signal ? { signal } : undefined).finalMessage());
   if (msg.stop_reason === "refusal") {
     const e = new Error(`The model declined this request${msg.stop_details && msg.stop_details.category ? ` (${msg.stop_details.category})` : ""}.`);
     e.status = 422; e.code = "refusal";
