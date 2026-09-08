@@ -871,7 +871,7 @@ export function StyleBlock() {
 
       /* ---- home dashboard: active case hero ---- */
       .ss-case-hero {
-        display: block; width: 100%; text-align: left; margin: 16px 18px 0; padding: 18px;
+        display: block; width: 100%; text-align: left; margin: 16px 0 0; padding: 18px;
         background: var(--pine); color: #fff; border-radius: 10px; box-shadow: 0 6px 16px -4px rgba(16,53,42,.28);
         transition: transform .1s ease;
       }
