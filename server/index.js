@@ -21,7 +21,7 @@ import { hasDb, migrate, closeDb, q, one, tx } from "./db.js";
 import {
   attachSession, requireUser, requireOrg, requireAdmin, createSession, destroySession,
   clearSessionCookie, setSessionCookie, findOrCreateUser, issueCode, verifyCode,
-  rateLimit, clientIp, normEmail, validEmail, randomToken, sha256, audit,
+  rateLimit, clientIp, normEmail, validEmail, randomToken, sha256, audit, parseCookies,
 } from "./auth.js";
 import { sendEmail, emailConfigured, signInCodeEmail, inviteEmail } from "./email.js";
 import { mountAi } from "./ai-routes.js";
@@ -91,7 +91,7 @@ function unseal(blob) {
 // sends the callback to — an installed iOS web app and Safari keep separate
 // storage, and the callback can land in either. Used both for linking a
 // drive ("link") and for signing in with Microsoft/Google ("signin").
-const pending = new Map(); // pair -> { created, provider, purpose, userId?, result? }
+const pending = new Map(); // pair -> { created, provider, purpose, userId?, bind, result? }
 const PAIR_TTL_MS = 10 * 60 * 1000;
 
 function sweep() {
@@ -110,10 +110,30 @@ function baseUrl(req) {
   return `${proto}://${req.get("host")}`;
 }
 
-function newPair(provider, purpose, userId) {
+// A `pair` value is a bearer credential for whatever it resolves to — for a
+// "signin" pairing, a claimed session. Without binding it to the browser
+// that started it, anyone could create their own valid pairing, complete it
+// as themselves, and hand the pair value to someone else as a link; that
+// person's browser would silently be handed the *attacker's* session on
+// claim. This cookie is set only on the request that creates a pairing and
+// checked on claim, so the value alone — however it's obtained — isn't
+// enough; it must come from the same browser that started it. Every
+// legitimate caller (beginLink's popup-then-poll, oauthSignIn, and the
+// same-tab ?cloudpair= redirect pickup) already polls or returns from the
+// same tab that made the initial request, so this changes nothing for them.
+const PAIR_BIND_COOKIE = "ss_pairbind";
+function pairSecure(req) { return (req.get("x-forwarded-proto") || req.protocol) === "https"; }
+function bindPairCookie(req, res) {
+  const token = crypto.randomBytes(16).toString("base64url");
+  res.append("Set-Cookie", `${PAIR_BIND_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${Math.ceil(PAIR_TTL_MS / 1000)}${pairSecure(req) ? "; Secure" : ""}`);
+  return token;
+}
+const pairBindFromReq = (req) => parseCookies(req)[PAIR_BIND_COOKIE] || null;
+
+function newPair(provider, purpose, userId, bind) {
   sweep();
   const pair = crypto.randomBytes(16).toString("base64url");
-  pending.set(pair, { created: Date.now(), provider, purpose, userId: userId || null });
+  pending.set(pair, { created: Date.now(), provider, purpose, userId: userId || null, bind });
   return pair;
 }
 
@@ -281,7 +301,8 @@ if (hasDb) {
     const provider = String((req.body && req.body.provider) || "");
     if (!enabled(provider)) return res.status(404).json({ error: "provider not configured" });
     if (!rateLimit(`oauth:ip:${clientIp(req)}`, 30, 10 * 60 * 1000)) return res.status(429).json({ error: "slow_down" });
-    const pair = newPair(provider, "signin");
+    const bind = bindPairCookie(req, res);
+    const pair = newPair(provider, "signin", undefined, bind);
     res.json({ pair, url: `${baseUrl(req)}/auth/${provider}/start?pair=${pair}` });
   }));
 }
@@ -320,7 +341,8 @@ app.post("/api/cloud/pair", wrap(async (req, res) => {
   const provider = String((req.body && req.body.provider) || "");
   if (!enabled(provider)) return res.status(404).json({ error: "provider not configured" });
   if (hasDb && !req.session) return res.status(401).json({ error: "sign_in" });
-  const pair = newPair(provider, "link", req.session && req.session.user_id);
+  const bind = bindPairCookie(req, res);
+  const pair = newPair(provider, "link", req.session && req.session.user_id, bind);
   res.json({ pair, url: `${baseUrl(req)}/auth/${provider}/start?pair=${pair}` });
 }));
 
@@ -398,6 +420,10 @@ app.get("/api/cloud/claim", wrap(async (req, res) => {
   const pair = String(req.query.pair || "");
   const p = pending.get(pair);
   if (!p) return res.status(404).json({ status: "expired" });
+  // the pair value alone isn't enough to claim it — only the browser that
+  // started this pairing (and so holds the matching cookie) can. Left in
+  // `pending` (not deleted) so the real browser can still claim it.
+  if (pairBindFromReq(req) !== p.bind) return res.status(403).json({ status: "forbidden" });
   if (!p.result) return res.json({ status: "pending" });
   pending.delete(pair);
   if (p.purpose === "signin") {
