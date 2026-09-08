@@ -13,6 +13,7 @@
 //
 // Secrets never leave this process; the phone only ever holds a session
 // cookie and, in local mode, a sealed blob it can't read.
+import { captureServerError, captureFatal, sentryEnabled } from "./sentry.js"; // first: see server/sentry.js
 import express from "express";
 import crypto from "node:crypto";
 import path from "node:path";
@@ -761,6 +762,9 @@ app.get("*", (req, res) => {
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
   console.error(`${req.method} ${req.path}:`, err && err.stack ? err.stack.split("\n").slice(0, 3).join(" | ") : err);
+  // a caller-facing 4xx (bad input, not signed in, a validation rule) isn't
+  // a bug to be paged for — only genuine server-side failures are
+  if (!err || !err.status || err.status >= 500) captureServerError(err, req);
   if (res.headersSent) return;
   // `error` is the short code callers can branch on; `message` is the
   // human sentence — src/ai.js's readError() reads the latter, so a
@@ -787,7 +791,7 @@ async function purge() {
   }
   const server = app.listen(PORT, "0.0.0.0", () => {
     const on = Object.keys(PROVIDERS).filter(enabled);
-    console.log(`SiteSnap on :${PORT} — mode: ${hasDb ? "accounts" : "local"}; cloud link: ${on.length ? on.join(", ") : "off (set TOKEN_KEY plus a provider's client ID and secret)"}; email: ${emailConfigured ? "resend" : "log only"}; drafting: ${aiEnabled() ? AI_MODEL : "off (set ANTHROPIC_API_KEY)"}; transcription: ${transcriptionEnabled() ? "on" : "off (set OPENAI_API_KEY)"}`);
+    console.log(`SiteSnap on :${PORT} — mode: ${hasDb ? "accounts" : "local"}; cloud link: ${on.length ? on.join(", ") : "off (set TOKEN_KEY plus a provider's client ID and secret)"}; email: ${emailConfigured ? "resend" : "log only"}; drafting: ${aiEnabled() ? AI_MODEL : "off (set ANTHROPIC_API_KEY)"}; transcription: ${transcriptionEnabled() ? "on" : "off (set OPENAI_API_KEY)"}; error monitoring: ${sentryEnabled ? "on" : "off (set SENTRY_DSN)"}`);
   });
   // Railway sends SIGTERM on redeploy: finish in-flight requests, then go
   const shutdown = () => {
@@ -796,4 +800,15 @@ async function purge() {
   };
   process.on("SIGTERM", shutdown);
   process.on("SIGINT", shutdown);
+  // Node's own default for both of these is: print the stack and exit(1).
+  // Report to Sentry first, but keep that same behavior — this app has no
+  // reason to believe process state is still sound once one of these fires.
+  process.on("uncaughtException", (err) => {
+    console.error("uncaughtException:", err);
+    captureFatal(err).finally(() => process.exit(1));
+  });
+  process.on("unhandledRejection", (err) => {
+    console.error("unhandledRejection:", err);
+    captureFatal(err).finally(() => process.exit(1));
+  });
 })();
