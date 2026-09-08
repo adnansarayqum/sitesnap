@@ -35,10 +35,11 @@ jobs:
       - run: npm run build
       - run: npx cap sync ios
 
-      - name: Install CocoaPods dependencies
-        working-directory: ios/App
-        run: pod install
-
+      # This project's plugins resolve via Swift Package Manager (see
+      # ios/App/CapApp-SPM/Package.swift), Capacitor's default since 8.x —
+      # there's no Podfile and no .xcworkspace to install or open; xcodebuild
+      # resolves the SPM dependencies itself against the .xcodeproj.
+      #
       # Builds for the Simulator only — no Apple signing certificate is
       # needed for this, so it works with zero secrets configured. This
       # confirms the native project actually compiles on every change; it is
@@ -48,6 +49,6 @@ jobs:
       - name: Build for iOS Simulator
         working-directory: ios/App
         run: |
-          xcodebuild -workspace App.xcworkspace -scheme App \
+          xcodebuild -project App.xcodeproj -scheme App \
             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
             -configuration Debug build CODE_SIGNING_ALLOWED=NO
