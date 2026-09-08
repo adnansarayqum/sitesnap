@@ -22,11 +22,11 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.3.1",
-    "vite": "^5.4.0"
+    "@vitejs/plugin-react": "^6.1.1",
+    "vite": "^8.2.2"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20.19"
   },
   "overrides": {
     "qs": "6.16.0"
