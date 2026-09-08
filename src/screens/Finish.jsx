@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  AlertTriangle, Check, CircleCheck, Clock, CloudUpload, Download, FileText, FolderTree, ImagePlus, Loader2, MapPin, Mic, Pencil, RotateCcw, ShieldCheck, Sparkles, StickyNote, Trash2, WifiOff, X,
+  AlertTriangle, Check, CircleCheck, Clock, CloudUpload, Download, ExternalLink, FileText, FolderTree, ImagePlus, Loader2, MapPin, Mic, Pencil, RotateCcw, ShieldCheck, Sparkles, StickyNote, Trash2, WifiOff, X,
 } from "lucide-react";
 import JSZip from "jszip";
 import {
@@ -484,6 +484,33 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
           : filedCount(provider) > 0
             ? `Upload the rest to ${providerName} (${totalPhotos - filedCount(provider)} of ${totalPhotos})`
             : `Upload directly to ${providerName}`;
+  // Surveyors browsing OneDrive look in the drive root and find nothing —
+  // the files are under Apps › <app name> › Inspections (the AppFolder
+  // scope, by design). Resolve that folder's real name and, once the first
+  // photo has landed, the case folder itself, so the tab can name and link
+  // the exact place.
+  const [appRoot, setAppRoot] = useState(null);     // { name, webUrl }
+  const [caseFolder, setCaseFolder] = useState(null); // { name, webUrl } once it exists
+  const msFiled = direct.ms ? filedCount("ms") : 0;
+  useEffect(() => {
+    if (!direct.ms) return;
+    let stale = false;
+    (async () => {
+      try {
+        const { oneDriveFolder } = await loadMsGraph();
+        const id = await loadMsClientId();
+        const root = await oneDriveFolder(id);
+        if (!stale) setAppRoot(root);
+        if (msFiled > 0) {
+          try { const f = await oneDriveFolder(id, ["Inspections", inspection.address]); if (!stale) setCaseFolder(f); }
+          catch { /* not there yet — the app-root link still gets them close */ }
+        }
+      } catch { /* the text still says where to look */ }
+    })();
+    return () => { stale = true; };
+  }, [direct.ms, inspection.address, msFiled]);
+  const driveUrl = (caseFolder && caseFolder.webUrl) || (appRoot && appRoot.webUrl) || null;
+
   async function sendToCloud() {
     if (cloudBusy) return;
     if (provider) {
@@ -573,6 +600,14 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
             {filing.pending > 0
               ? `Filing ${filing.pending} photo${filing.pending === 1 ? "" : "s"} to ${filing.provider === "ms" ? "OneDrive" : "Google Drive"} in the background…`
               : `${filedCount(filing.provider)} of ${totalPhotos} photo${totalPhotos === 1 ? "" : "s"} filed to ${filing.provider === "ms" ? "OneDrive" : "Google Drive"} as taken.`}
+          </p>
+        )}
+        {direct.ms && (
+          <p className="ss-fineprint ss-drive-where">
+            In OneDrive under <b>Apps › {appRoot ? appRoot.name : "SiteSnap"} › Inspections › {inspection.address}</b>
+            {driveUrl && (
+              <> · <a href={driveUrl} target="_blank" rel="noopener noreferrer">Open in OneDrive <ExternalLink size={11} /></a></>
+            )}
           </p>
         )}
         {!cloudTarget && (

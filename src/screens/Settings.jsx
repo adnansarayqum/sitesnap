@@ -253,7 +253,9 @@ export function SettingsScreen({ fieldMode, onToggleFieldMode, onTab, me, onSign
           />
         </div>
         <p className="ss-fineprint" style={{ margin: "8px 2px 0" }}>
-          {serviceOn ? "One sign-in, then photos file themselves as you shoot." : "No sign-in prompts to remember at the end of the day."}
+          {serviceOn
+            ? "One sign-in, then photos file themselves as you shoot — into your OneDrive's Apps › SiteSnap › Inspections folder (the app can't see anything else in your OneDrive)."
+            : "No sign-in prompts to remember at the end of the day. Photos go to your OneDrive's Apps › SiteSnap › Inspections folder."}
         </p>
 
         <div className="ss-section-label" style={{ marginTop: 24 }}>Display</div>

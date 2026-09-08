@@ -107,3 +107,19 @@ export async function uploadToOneDrive(clientId, segments, file) {
   }
   return true;
 }
+
+// Where a surveyor can actually find the files. The app folder lives at
+// OneDrive › Apps › <app name>, so a bare "filed to OneDrive" sends people
+// looking in the drive root and finding nothing. Resolves the real folder
+// (the app root, or a path under it) with its name and web URL so the UI
+// can say — and open — the exact place.
+export async function oneDriveFolder(clientId, segments = []) {
+  const token = await getToken(clientId);
+  const path = segments.length ? `:/${graphPathFor(segments)}` : "";
+  const res = await fetch(`https://graph.microsoft.com/v1.0/me/drive/special/approot${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(`OneDrive folder lookup failed (${res.status})`);
+  const j = await res.json();
+  return { name: j.name, webUrl: j.webUrl };
+}

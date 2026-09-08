@@ -956,6 +956,9 @@ export function StyleBlock() {
       .ss-home-hero .ss-cloud-status { margin-top: 22px; }
       .ss-live-filing { display: block; margin-top: 8px; font-size: 12px; font-weight: 700; color: var(--hivis); opacity: .85; }
       .ss-filing-note { margin-top: 8px; }
+      .ss-drive-where { text-align: center; margin-top: 4px; }
+      .ss-drive-where b { font-weight: 700; color: var(--ink); }
+      .ss-drive-where a { color: var(--pine); font-weight: 700; display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
 
       /* ---- firm register ---- */
       .ss-sync { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--muted); margin: 10px 2px 0; }
