@@ -21,9 +21,9 @@ jobs:
   build:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           # the Capacitor CLI itself requires Node >=22, independent of the
           # app's own runtime requirement (engines.node in package.json,

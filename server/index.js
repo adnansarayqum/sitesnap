@@ -798,7 +798,9 @@ app.use(express.static(DIST, {
     res.setHeader("Cache-Control", /[\\/]assets[\\/]/.test(filePath) ? "public, max-age=31536000, immutable" : "no-cache");
   },
 }));
-app.get("*", (req, res) => {
+// Express 5 (path-to-regexp 8) needs the catch-all named; the braces make
+// the segment optional so the bare "/" is caught too
+app.get("/{*splat}", (req, res) => {
   if (req.path.startsWith("/api/") || req.path.startsWith("/auth/")) return res.status(404).json({ error: "not found" });
   res.sendFile(path.join(DIST, "index.html"), { headers: { "Cache-Control": "no-cache" } });
 });
