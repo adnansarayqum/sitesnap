@@ -77,10 +77,9 @@ to. Roughly in the order you'd hit them:
   a custom domain.
 - **Version**: 2.1.0 (build 1) on both platforms, matching `package.json`.
   Bump `versionCode`/`CURRENT_PROJECT_VERSION` for every store upload.
-- **Privacy policy contact**: `public/privacy.html` has a placeholder email
-  address marked `REPLACE-WITH-CONTACT-EMAIL`. Both stores check that this
-  page is real and reachable — put a real, monitored address there before
-  submitting. This is the one identity item still open.
+- **Privacy policy contact**: `hello@sitesnap.uk`, set in
+  `public/privacy.html`. Both stores load that page and expect the address
+  to be monitored — make sure the mailbox exists and someone reads it.
 
 ### 2. Accounts you need
 
