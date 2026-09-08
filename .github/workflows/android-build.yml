@@ -25,7 +25,10 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20.19"
+          # the Capacitor CLI itself requires Node >=22, independent of the
+          # app's own runtime requirement (engines.node in package.json,
+          # which stays >=20.19 for the deployed server)
+          node-version: "22"
           cache: "npm"
 
       - uses: actions/setup-java@v4
