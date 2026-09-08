@@ -212,11 +212,45 @@ app.disable("x-powered-by");
 // whatever address a caller's own X-Forwarded-For claims rather than the
 // one Railway's edge actually appended.
 app.set("trust proxy", 1);
+// Every external origin the app actually talks to, so a CSP violation means
+// something is genuinely wrong, not a false alarm to click through:
+//   fonts.googleapis.com / fonts.gstatic.com — the two Google Fonts hosts
+//     src/styles.jsx's inline stylesheet @imports (style-src needs
+//     'unsafe-inline' for that inline <style> block itself, not just this)
+//   graph.microsoft.com — direct-to-OneDrive uploads (src/cloud/msGraph.js)
+//   login.microsoftonline.com — MSAL's popup sign-in and its hidden-iframe
+//     silent token refresh (connect-src and frame-src respectively)
+//   accounts.google.com / www.googleapis.com — the legacy in-browser Google
+//     Drive path (src/cloud/googleDrive.js), settings-hidden but still
+//     reachable if VITE_GOOGLE_CLIENT_ID is set
+//   *.sentry.io — only reached at all once SENTRY_DSN/VITE_SENTRY_DSN are
+//     set; the exact ingest host varies by org/region, hence the wildcard
+//     scoped to Sentry's own domain rather than an exact host
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self' https://accounts.google.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com",
+  "img-src 'self' data: blob:",
+  "connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com https://www.googleapis.com https://accounts.google.com https://*.sentry.io",
+  "frame-src https://login.microsoftonline.com https://accounts.google.com",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join("; ");
+
 app.use((req, res, next) => {
   res.set("X-Content-Type-Options", "nosniff");
   res.set("Referrer-Policy", "same-origin");
   res.set("X-Frame-Options", "DENY");
   res.set("Permissions-Policy", "camera=(self), microphone=(self), geolocation=()");
+  res.set("Content-Security-Policy", CSP);
+  // browsers only honor this once they've seen it over a real HTTPS
+  // response, so it's harmless to always send — Railway terminates TLS in
+  // front of this process, but the app doesn't get to assume that stays
+  // true forever, so it sets its own rather than relying on the edge
+  res.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   next();
 });
 // the AI routes carry photographs and raw audio and parse their own bodies

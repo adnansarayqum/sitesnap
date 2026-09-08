@@ -18,6 +18,11 @@ jobs:
 
       - run: npm ci
 
+      # fails the build on a new high/critical finding; moderate-and-below
+      # (e.g. a dev-only tool with no fix yet) doesn't block shipping but
+      # still shows up in the log for anyone reading it
+      - run: npm audit --audit-level=high
+
       - run: npm test
 
       - run: npm run build
