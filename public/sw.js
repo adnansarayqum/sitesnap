@@ -54,7 +54,10 @@ self.addEventListener("fetch", (event) => {
   }
 
   // Hashed build assets never change content for a given URL: cache-first.
-  if (url.pathname.startsWith("/assets/") || url.pathname.startsWith("/icon-")) {
+  // The on-device OCR model (public/tesseract/) is the same story — large,
+  // versioned by filename, fetched once on first use and then wanted for
+  // every offline use after that.
+  if (url.pathname.startsWith("/assets/") || url.pathname.startsWith("/icon-") || url.pathname.startsWith("/tesseract/")) {
     event.respondWith(
       caches.match(event.request).then(
         (hit) =>

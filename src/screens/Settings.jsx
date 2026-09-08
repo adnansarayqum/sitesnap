@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import {
-  Aperture, Check, CircleCheck, CloudUpload, FileText, Loader2, Moon, Sun,
+  Aperture, Check, CircleCheck, CloudUpload, FileText, Link2, Loader2, Moon, Sun,
 } from "lucide-react";
 import {
   storageEstimate, loadMsClientId, saveMsClientId, hasBuiltInMsClientId,
+  loadWebhook, saveWebhook, loadWebhookKey, saveWebhookKey,
 } from "../storage.js";
 import { loadMsGraph } from "../cloud/lazy.js";
 import { cloudServiceConfig, linkedAccount, beginLink, unlink } from "../cloud/service.js";
@@ -99,8 +100,64 @@ export function CloudProviderCard({ label, icon, connected, connecting, account,
   );
 }
 
+// A firm's own CRM/case-management system, or a Make/Zapier/n8n scenario in
+// front of one, can receive the same structured export the direct OneDrive/
+// Google upload sends — this just lets the address be configured. Admin-
+// gated in accounts mode (it's a firm-wide routing decision, not a personal
+// preference) and off until someone deliberately sets an address, so it
+// never adds a step for a firm that only ever wants OneDrive.
+function CrmWebhookCard({ flash }) {
+  const [url, setUrl] = useState("");
+  const [key, setKey] = useState("");
+  const [saved, setSaved] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    loadWebhook().then((u) => { setUrl(u || ""); setSaved(!!u); if (u) setOpen(true); });
+    loadWebhookKey().then((k) => setKey(k || ""));
+  }, []);
+
+  async function save() {
+    await saveWebhook(url.trim());
+    await saveWebhookKey(key.trim());
+    setSaved(!!url.trim());
+    flash(url.trim() ? "CRM export link saved" : "CRM export link cleared");
+  }
+
+  return (
+    <div style={{ marginTop: 24 }}>
+      <button className="ss-settings-row" style={{ width: "100%", textAlign: "left" }} onClick={() => setOpen((o) => !o)}>
+        <span className="ss-settings-ic"><Link2 size={17} /></span>
+        <div style={{ flex: 1 }}>
+          <div className="ss-settings-title">CRM / ERP export</div>
+          <div className="ss-settings-sub">{saved ? "An export link is set" : "Off — send exports to your own system instead"}</div>
+        </div>
+      </button>
+      {open && (
+        <div style={{ padding: "0 0 12px" }}>
+          <input
+            className="ss-input" placeholder="https://your-crm-or-scenario.example.com/hook"
+            value={url} onChange={(e) => setUrl(e.target.value)}
+            autoCapitalize="none" autoComplete="off"
+          />
+          <input
+            className="ss-input" style={{ marginTop: 8 }} placeholder="Access key (optional)"
+            value={key} onChange={(e) => setKey(e.target.value)}
+            autoCapitalize="none" autoComplete="off"
+          />
+          <p className="ss-fineprint" style={{ margin: "6px 2px 0" }}>
+            Every export also POSTs the same photos, voice notes and structured findings JSON here — point it at your firm's CRM, or at a Make/Zapier/n8n scenario in front of one. Leave the address blank to keep exports going to OneDrive only.
+          </p>
+          <button className="ss-btn ss-btn-primary" style={{ marginTop: 10 }} onClick={save}>Save</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function SettingsScreen({ fieldMode, onToggleFieldMode, onTab, me, onSignOut, onMeChanged }) {
   const [savedNote, setSavedNote] = useState(null);
+  const isAdmin = !me || me.mode !== "accounts" || (me.org && ["owner", "admin"].includes(me.org.role));
 
   const [msClientId, setMsClientId] = useState("");
   const [msAccountName, setMsAccountName] = useState(null);
@@ -211,6 +268,8 @@ export function SettingsScreen({ fieldMode, onToggleFieldMode, onTab, me, onSign
             role="switch" aria-checked={fieldMode} onClick={onToggleFieldMode}
           ><span /></button>
         </div>
+
+        {isAdmin && <CrmWebhookCard flash={flash} />}
 
         <div className="ss-section-label" style={{ marginTop: 20 }}>This phone</div>
         <CameraCheck />

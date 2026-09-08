@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   Mic, MicOff, X,
 } from "lucide-react";
+import { tapFeedback } from "../haptics.js";
 
 /* ---------- voice memos ---------- */
 
@@ -69,6 +70,7 @@ export function VoiceMemo({ memos, onAdd, onDelete, dark }) {
       };
       rec.current = mr;
       mr.start();
+      tapFeedback("medium");
       setState("recording");
       setSecs(0);
       secsRef.current = 0;
@@ -86,7 +88,7 @@ export function VoiceMemo({ memos, onAdd, onDelete, dark }) {
   }
 
   function stop() {
-    if (rec.current && rec.current.state === "recording") rec.current.stop();
+    if (rec.current && rec.current.state === "recording") { rec.current.stop(); tapFeedback("medium"); }
   }
 
   return (

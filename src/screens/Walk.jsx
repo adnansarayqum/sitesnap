@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  Aperture, ArrowLeft, ArrowRight, Camera, Check, Expand, Loader2, RefreshCw, StickyNote, SwitchCamera, Trash2, X,
+  Aperture, ArrowLeft, ArrowRight, Camera, Check, Expand, Loader2, Moon, RefreshCw, StickyNote, Sun, SwitchCamera, Trash2, X,
 } from "lucide-react";
 import { VoiceMemo } from "../components/VoiceMemo.jsx";
 import { PHOTO_DIM, THUMB_DIM, drawScaled, processCapture } from "../lib/image.js";
 import { CONDITIONS } from "../lib/presets.js";
 import { pad } from "../lib/util.js";
+import { tapFeedback } from "../haptics.js";
 
 /* ---------------- walkthrough capture ---------------- */
 
@@ -16,7 +17,7 @@ import { pad } from "../lib/util.js";
 // tap the shutter, the frame is grabbed straight off the video element, the
 // feed never stops. Falls back to the native picker (via onFallback) if the
 // browser or device won't cooperate, so shooting never dead-ends.
-export function LiveCamera({ label, count, lastThumb, resumeKey, onCapture, onClose, onFallback, onWideShot }) {
+export function LiveCamera({ label, count, lastThumb, resumeKey, onCapture, onClose, onFallback, onWideShot, condition, onCondition, fieldMode, onToggleFieldMode }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const canvasRef = useRef(null);
@@ -292,6 +293,7 @@ export function LiveCamera({ label, count, lastThumb, resumeKey, onCapture, onCl
       return;
     }
     setJustTaken(thumb);
+    tapFeedback("light");
     canvas.toBlob((blob) => {
       capturing.current = false;
       // the full-resolution frame is kept as the session "original" for
@@ -322,8 +324,28 @@ export function LiveCamera({ label, count, lastThumb, resumeKey, onCapture, onCl
             <span>{Math.max(0, lenses.findIndex((d) => d.deviceId === activeLensId)) + 1}/{lenses.length}</span>
           </button>
         )}
+        {onToggleFieldMode && (
+          <button className="ss-livecam-lens" onClick={onToggleFieldMode} title="Field mode — high-contrast for bright daylight">
+            {fieldMode ? <Moon size={16} /> : <Sun size={16} />}
+          </button>
+        )}
         <span className="ss-livecam-count">{count}</span>
       </div>
+
+      {/* Rate the room without leaving the viewfinder — closing the camera
+          just to tap Good/Fair/Poor and reopening it was the single most
+          repeated "jarring" moment in a camera-first flow. */}
+      {state === "ready" && onCondition && (
+        <div className="ss-livecam-cond">
+          {CONDITIONS.map((c) => (
+            <button key={c}
+              className={`${c.toLowerCase()} ${condition === c ? "on" : ""}`}
+              onClick={() => { tapFeedback("light"); onCondition(condition === c ? null : c); }}>
+              {c}
+            </button>
+          ))}
+        </div>
+      )}
 
       {state === "starting" && (
         <div className="ss-livecam-msg"><Loader2 size={22} className="ss-spin" /><span>Opening camera…</span></div>
@@ -382,7 +404,7 @@ export function LiveCamera({ label, count, lastThumb, resumeKey, onCapture, onCl
 
 export const BAD_IMAGE_MSG = "That image couldn't be read, so it wasn't added — try the shot again.";
 
-export function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDeleteLast, onMeta, onAddMemo, onDeleteMemo, onExit, onError, filing }) {
+export function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDeleteLast, onMeta, onAddMemo, onDeleteMemo, onExit, onError, filing, fieldMode, onToggleFieldMode }) {
   const inputRef = useRef(null);
   const [noteOpen, setNoteOpen] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -398,6 +420,29 @@ export function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDel
 
   function openCamera() {
     setCameraOpen(true);
+  }
+
+  // Swipe left/right between rooms — the same move as flicking through
+  // Photos. Ignored when the touch starts on something with its own
+  // gesture or that needs the finger (a button, the note textarea, the
+  // voice-memo controls), and while the camera overlay is open (its own
+  // pinch/pan handlers own touches then).
+  const swipeStart = useRef(null);
+  function onBodyTouchStart(e) {
+    if (cameraOpen || e.touches.length !== 1) { swipeStart.current = null; return; }
+    if (e.target.closest("button, textarea, input, .ss-vm")) { swipeStart.current = null; return; }
+    const t = e.touches[0];
+    swipeStart.current = { x: t.clientX, y: t.clientY };
+  }
+  function onBodyTouchEnd(e) {
+    const start = swipeStart.current;
+    swipeStart.current = null;
+    if (!start) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - start.x, dy = t.clientY - start.y;
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    if (dx < 0 && !isLast) { tapFeedback("light"); onIndex(index + 1); }
+    else if (dx > 0 && index > 0) { tapFeedback("light"); onIndex(index - 1); }
   }
 
   async function handleFile(e) {
@@ -432,15 +477,24 @@ export function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDel
           onClose={() => setCameraOpen(false)}
           onFallback={() => { setCameraOpen(false); inputRef.current && inputRef.current.click(); }}
           onWideShot={() => { inputRef.current && inputRef.current.click(); }}
+          condition={room.condition || null}
+          onCondition={(c) => onMeta({ condition: c })}
+          fieldMode={fieldMode}
+          onToggleFieldMode={onToggleFieldMode}
         />
       )}
 
       <div className="ss-live-top">
         <button className="ss-live-exit" onClick={onExit}><X size={18} /> Exit</button>
         <span className="ss-live-flag">● LIVE</span>
+        {onToggleFieldMode && (
+          <button className="ss-live-fieldmode" onClick={onToggleFieldMode} title="Field mode — high-contrast for bright daylight">
+            {fieldMode ? <Moon size={16} /> : <Sun size={16} />}
+          </button>
+        )}
       </div>
 
-      <div className="ss-live-body">
+      <div className="ss-live-body" onTouchStart={onBodyTouchStart} onTouchEnd={onBodyTouchEnd}>
         <div className="ss-live-eyebrow">Room {pad(index + 1)} of {pad(rooms.length)}</div>
         <div className="ss-live-room">{room.name}</div>
         <span className="ss-live-stamp">Next: Exhibit {nextExhibitNo}</span>
@@ -457,7 +511,7 @@ export function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDel
             <button key={c}
               className={`${c.toLowerCase()} ${room.condition === c ? "on" : ""}`}
               title={`Rate this room ${c} — shown in the report and sent to the AI drafting step`}
-              onClick={() => onMeta({ condition: room.condition === c ? null : c })}>
+              onClick={() => { tapFeedback("light"); onMeta({ condition: room.condition === c ? null : c }); }}>
               {c}
             </button>
           ))}

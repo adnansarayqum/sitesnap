@@ -805,6 +805,8 @@ export default function SiteSnap() {
             onDeleteMemo={(mid) => deleteMemo(rooms[walkIndex].id, mid)}
             onExit={() => setScreen("casefile")}
             filing={filing}
+            fieldMode={fieldMode}
+            onToggleFieldMode={toggleFieldMode}
           /></Screen>
         )}
 

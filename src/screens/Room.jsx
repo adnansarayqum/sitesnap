@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  Camera, Check, ChevronLeft, ChevronRight, Circle, ImagePlus, Loader2, MoveUpRight, Sparkles, Tag, Trash2, Undo2, X,
+  Camera, Check, ChevronLeft, ChevronRight, Circle, ImagePlus, Loader2, MoveUpRight, ScanText, Sparkles, Tag, Trash2, Undo2, X,
 } from "lucide-react";
 import { VoiceMemo } from "../components/VoiceMemo.jsx";
 import { TopBar } from "../components/shared.jsx";
 import { THUMB_DIM, drawScaled, processCapture } from "../lib/image.js";
 import { CONDITIONS } from "../lib/presets.js";
 import { aiConfig, aiPhotoCopy, captionRoom, AI_MAX_PHOTOS } from "../ai.js";
+import { withOfflineRetry } from "../aiRetry.js";
+import { tapFeedback } from "../haptics.js";
 import { BAD_IMAGE_MSG, LiveCamera } from "./Walk.jsx";
 
 /* ---------------- room review ---------------- */
@@ -22,7 +24,10 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
   const [annotating, setAnnotating] = useState(false);
   const [aiCfg, setAiCfg] = useState({ enabled: false });
   const [captioning, setCaptioning] = useState(false);
+  const [scanning, setScanning] = useState(false);
   useEffect(() => { aiConfig().then(setAiCfg); }, []);
+  const aliveRef = useRef(true);
+  useEffect(() => () => { aliveRef.current = false; }, []);
 
   // the grid shows thumbnails; the lightbox swaps in the stored copy once read
   function openPhoto(idx) {
@@ -144,6 +149,7 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
     for (const file of files) {
       try {
         const { dataUrl, thumb } = await processCapture(file);
+        tapFeedback("light");
         onCapture(dataUrl, file, thumb);
       } catch (err) {
         console.error(err);
@@ -176,11 +182,17 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
         payload.push({ id: p.id, caption: p.caption || "", dataUrl: await aiPhotoCopy(full.dataUrl) });
       }
       if (!payload.length) { onError && onError("No photos could be loaded for captioning."); return; }
-      const res = await captionRoom({
-        caseId, roomId: room.id,
-        room: { name: room.name, condition: room.condition || "", note: room.note || "" },
-        photos: payload,
-      });
+      const res = await withOfflineRetry(
+        () => captionRoom({
+          caseId, roomId: room.id,
+          room: { name: room.name, condition: room.condition || "", note: room.note || "" },
+          photos: payload,
+        }),
+        {
+          isAlive: () => aliveRef.current,
+          onQueued: () => aliveRef.current && setNote("No signal — captions will finish automatically once you're back online"),
+        },
+      );
       let filled = 0;
       for (const c of res.photos || []) {
         const p = photos.find((x) => x.id === c.id);
@@ -202,6 +214,31 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
     }
   }
 
+  // Reads a serial/model plate straight off the photo — a boiler, a meter,
+  // an appliance — into that photo's caption, on-device, so it works with
+  // no signal. Never overwrites a caption the surveyor already typed.
+  async function scanText() {
+    if (scanning || !shownPhoto || !shownPhoto.dataUrl) return;
+    setScanning(true);
+    try {
+      const { recognizeText, likelySerials } = await import("../ocr.js");
+      const text = await recognizeText(shownPhoto.dataUrl);
+      const lines = likelySerials(text);
+      if (!lines.length) { setNote("No text recognised on that photo"); setTimeout(() => setNote(null), 3000); return; }
+      const found = lines.slice(0, 2).join(" · ");
+      const existing = (shownPhoto.caption || "").trim();
+      onCaption(shownPhoto.id, existing ? `${existing} — ${found}` : found);
+      setNote(`Read: ${found}`);
+      setTimeout(() => setNote(null), 4000);
+    } catch (e) {
+      console.error(e);
+      setNote("Couldn't read text from this photo");
+      setTimeout(() => setNote(null), 3000);
+    } finally {
+      setScanning(false);
+    }
+  }
+
   const metaCard = (
     <div className="ss-meta">
       <div className="ss-cond-row">
@@ -210,7 +247,7 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
           <button key={c}
             className={`ss-cond ${c.toLowerCase()} ${room.condition === c ? "on" : ""}`}
             title={`Rate this room ${c} — shown in the report and sent to the AI drafting step`}
-            onClick={() => onMeta({ condition: room.condition === c ? null : c })}>
+            onClick={() => { tapFeedback("light"); onMeta({ condition: room.condition === c ? null : c }); }}>
             {c}
           </button>
         ))}
@@ -348,6 +385,10 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
               <button className="ss-btn ss-btn-ghost" disabled={!shownPhoto.dataUrl}
                 onClick={() => { if (shownPhoto.dataUrl) setAnnotating(true); }}>
                 <Tag size={16} /> Annotate
+              </button>
+              <button className="ss-btn ss-btn-ghost" disabled={!shownPhoto.dataUrl || scanning} onClick={scanText}
+                title="Read a serial or model number straight off this photo, on-device">
+                {scanning ? <Loader2 size={16} className="ss-spin" /> : <ScanText size={16} />} {scanning ? "Reading…" : "Read text"}
               </button>
               <button className="ss-btn ss-btn-danger"
                 onClick={() => { onDelete(shownPhoto.id); closePhoto(); }}>

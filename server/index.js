@@ -228,11 +228,19 @@ app.set("trust proxy", 1);
 //     scoped to Sentry's own domain rather than an exact host
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' https://accounts.google.com",
+  // 'wasm-unsafe-eval' only permits compiling/running WebAssembly (needed by
+  // the on-device OCR worker) — unlike 'unsafe-eval' it does not allow
+  // eval()/new Function() on arbitrary strings, so this doesn't reopen the
+  // XSS surface CSP is there to close
+  "script-src 'self' 'wasm-unsafe-eval' https://accounts.google.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
   "img-src 'self' data: blob:",
   "connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com https://www.googleapis.com https://accounts.google.com https://*.sentry.io",
+  // the on-device OCR worker (tesseract.js) is spawned from a same-origin
+  // script wrapped in a blob: URL, not loaded directly — Worker construction
+  // needs blob: explicitly, 'self' alone doesn't cover it
+  "worker-src 'self' blob:",
   "frame-src https://login.microsoftonline.com https://accounts.google.com",
   "object-src 'none'",
   "base-uri 'self'",

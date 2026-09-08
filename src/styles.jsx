@@ -278,6 +278,7 @@ export function StyleBlock() {
       .ss-live-top { display: flex; align-items: center; justify-content: space-between; padding: 16px; }
       .ss-live-exit { display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 14px; color: rgba(217,244,79,.75); }
       .ss-live-flag { font-size: 12px; font-weight: 900; letter-spacing: .14em; animation: ss-pulse 1.6s ease-in-out infinite; }
+      .ss-live-fieldmode { width: 32px; height: 32px; border-radius: 999px; background: rgba(255,255,255,.1); color: rgba(255,255,255,.85); display: flex; align-items: center; justify-content: center; }
       @keyframes ss-pulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
       @media (prefers-reduced-motion: reduce) { .ss-live-flag { animation: none; } }
       .ss-live-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 0 24px; }
@@ -521,6 +522,20 @@ export function StyleBlock() {
         font: 600 11.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
         background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 10px; color: var(--ink);
       }
+      /* bottom-anchored, not top — a rating tap should sit in the same
+         thumb-reachable third as the shutter, not up where the lens/label
+         controls are */
+      .ss-livecam-cond {
+        position: absolute; bottom: calc(168px + env(safe-area-inset-bottom)); left: 0; right: 0; z-index: 2;
+        display: flex; justify-content: center; gap: 8px; padding: 0 16px;
+      }
+      .ss-livecam-cond button {
+        flex: 0 1 92px; padding: 7px 0; border-radius: 999px; font-weight: 800; font-size: 12.5px;
+        background: rgba(0,0,0,.45); color: #fff; border: 1px solid rgba(255,255,255,.3);
+      }
+      .ss-livecam-cond button.on.good { background: var(--hivis); border-color: var(--hivis); color: var(--hivis-deep); }
+      .ss-livecam-cond button.on.fair { background: #E8B04B; border-color: #E8B04B; color: #3A2A00; }
+      .ss-livecam-cond button.on.poor { background: #FF8A73; border-color: #FF8A73; color: #4A130A; }
       .ss-livecam-flash { position: absolute; inset: 0; background: #fff; opacity: .85; animation: ss-flashfade .13s ease-out forwards; pointer-events: none; }
       @keyframes ss-flashfade { from { opacity: .85; } to { opacity: 0; } }
       .ss-livecam-top {

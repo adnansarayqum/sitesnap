@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  AlertTriangle, Check, CircleCheck, Clock, CloudUpload, Download, FileText, FolderTree, ImagePlus, Link2, Loader2, MapPin, Mic, Pencil, RotateCcw, ShieldCheck, Sparkles, StickyNote, Trash2, X,
+  AlertTriangle, Check, CircleCheck, Clock, CloudUpload, Download, FileText, FolderTree, ImagePlus, Link2, Loader2, MapPin, Mic, Pencil, RotateCcw, ShieldCheck, Sparkles, StickyNote, Trash2, WifiOff, X,
 } from "lucide-react";
 import JSZip from "jszip";
 import {
@@ -16,6 +16,7 @@ import {
   aiConfig, aiPhotoCopy, transcribeMemo, draftRoom, reviewFinding, emptyFindings, mergeRun, setFindingStatus,
   effective, isApproved, needsAttention, approvedByRoom, findingsFiles, fromLegacyDraft, AI_MAX_PHOTOS,
 } from "../ai.js";
+import { withOfflineRetry } from "../aiRetry.js";
 
 // the ID photo files beside the inspection metadata, never in a room folder
 export const idPhotoName = (inspection) => `ID ${safeFileName(inspection.postcode || inspection.address || "photo")}.jpg`;
@@ -743,8 +744,16 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
         if (pending.length && cfg && cfg.transcription) {
           setProgress((p) => p && ({ ...p, statuses: { ...p.statuses, [room.id]: "transcribing" } }));
           for (const m of pending) {
-            try { words[m.id] = await transcribeMemo(inspection.id, room.id, m, audioCache.current[m.id], controller.signal); }
-            catch (e) { if (e.name === "AbortError") throw e; words[m.id] = ""; console.error("transcribe", e); }
+            try {
+              words[m.id] = await withOfflineRetry(
+                () => transcribeMemo(inspection.id, room.id, m, audioCache.current[m.id], controller.signal),
+                {
+                  isAlive: () => !controller.signal.aborted,
+                  onQueued: () => setProgress((p) => p && ({ ...p, statuses: { ...p.statuses, [room.id]: "waiting" } })),
+                },
+              );
+              setProgress((p) => p && ({ ...p, statuses: { ...p.statuses, [room.id]: "transcribing" } }));
+            } catch (e) { if (e.name === "AbortError") throw e; words[m.id] = ""; console.error("transcribe", e); }
           }
           onTranscripts(words);
         }
@@ -758,7 +767,13 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
           if (!p || !p.dataUrl) continue;
           photos.push({ id: pid, no: p.no || null, caption: p.caption || "", dataUrl: await aiPhotoCopy(p.dataUrl) });
         }
-        const res = await draftRoom({ inspection, room, order, transcripts: memos.map((m) => words[m.id]).filter(Boolean), photos, signal: controller.signal });
+        const res = await withOfflineRetry(
+          () => draftRoom({ inspection, room, order, transcripts: memos.map((m) => words[m.id]).filter(Boolean), photos, signal: controller.signal }),
+          {
+            isAlive: () => !controller.signal.aborted,
+            onQueued: () => setProgress((p) => p && ({ ...p, statuses: { ...p.statuses, [room.id]: "waiting" } })),
+          },
+        );
         working = mergeRun(working, room, res);
         onFindings(working);
         drafted += res.findings.length;
@@ -827,9 +842,10 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
             <span>{r.name}</span>
             <span className={`st ${st}`}>
               {(st === "drafting" || st === "transcribing") && <Loader2 size={12} className="ss-spin" />}
+              {st === "waiting" && <WifiOff size={12} />}
               {st === "done" && <Check size={12} />}
               {(st === "failed" || st === "cancelled") && <X size={12} />}
-              {st === "queued" ? "queued" : st === "transcribing" ? "transcribing" : st === "drafting" ? "reading photos" : st}
+              {st === "queued" ? "queued" : st === "transcribing" ? "transcribing" : st === "drafting" ? "reading photos" : st === "waiting" ? "no signal — will retry" : st}
             </span>
           </div>
         );
