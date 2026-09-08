@@ -3,47 +3,56 @@
 export function StyleBlock() {
   return (
     <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@500;600;700;800&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap');
 
+      /* Tech/construction direction: pine demoted from a wash to a single
+         sparing accent (primary actions, active states), a warm-neutral
+         bone/graphite scale carrying structure instead, and severity
+         (poor/fair) given its own construction-coded colors — rust and
+         ochre — kept separate from the brand accent, the way a hazard
+         label is separate from a logo. See the "SiteSnap Redesign
+         Direction" artifact this was approved from for the full rationale. */
       :root {
-        --paper: #F6F6F3;
-        --paper-deep: #EBEBE6;
+        --paper: #FAFAF8;
+        --paper-deep: #F1F1EE;
         --card: #FFFFFF;
-        --ink: #14201B;
-        --muted: #5E6B64;
-        --muted2: #93A099;
-        --line: #E2E5DF;
-        --line-soft: #ECEEE9;
+        --ink: #1C1F1D;
+        --muted: #767A75;
+        --muted2: #A3A69F;
+        --line: #E4E4E0;
+        --line-soft: #ECECE9;
+        --line-strong: #CBCCC6;
         --pine: #10352A;
         --pine-press: #0A2419;
         --pine-tint: #E7ECE8;
         --hivis: #E8B84B;
         --hivis-deep: #241B08;
-        --red: #93321F;
-        --red-tint: #F3E4E0;
-        --amber: #8C6A28;
-        --amber-tint: #F6EFDC;
-        --topbar-bg: rgba(246,246,243,.94);
+        --red: #A13F2B;
+        --red-tint: #F1E3DE;
+        --amber: #8F6E2A;
+        --amber-tint: #F2ECDB;
+        --topbar-bg: rgba(250,250,248,.94);
       }
       /* Field mode: a high-contrast dark theme for shooting in direct
          sunlight, where the default paper/ink pairing washes out. Every
          screen already reads off these variables, so this is the only
          place the swap happens. */
       .ss-root.ss-field {
-        --paper: #12201B;
-        --paper-deep: #1A2A22;
-        --card: #182821;
-        --ink: #F1F3EF;
-        --muted: #A9B7AB;
-        --muted2: #6E7E70;
-        --line: #2A3A31;
-        --line-soft: #223026;
-        --pine: #3FAE7C;
-        --pine-press: #57C293;
-        --pine-tint: #17301F;
-        --red-tint: #3A1E19;
-        --amber-tint: #362A10;
-        --topbar-bg: rgba(18,32,27,.92);
+        --paper: #17181A;
+        --paper-deep: #1E2021;
+        --card: #202224;
+        --ink: #F1F1EE;
+        --muted: #9A9D97;
+        --muted2: #6B6E68;
+        --line: #303232;
+        --line-soft: #26282A;
+        --line-strong: #45474A;
+        --pine: #4FAE85;
+        --pine-press: #63C296;
+        --pine-tint: #16261F;
+        --red-tint: #34211B;
+        --amber-tint: #302711;
+        --topbar-bg: rgba(23,24,26,.92);
       }
       * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
       html, body { background: var(--paper); margin: 0; }
@@ -53,11 +62,12 @@ export function StyleBlock() {
         min-height: 100vh; width: 100%;
         background: var(--paper); color: var(--ink);
         display: flex; justify-content: center;
-        font-family: 'Public Sans', system-ui, sans-serif;
+        font-family: 'IBM Plex Sans', system-ui, sans-serif;
         font-size: 15px; line-height: 1.4;
         transition: background .2s ease, color .2s ease;
       }
-      .ss-serif { font-family: 'Libre Caslon Text', Georgia, serif; }
+      .ss-serif { font-family: 'Archivo', system-ui, sans-serif; font-weight: 700; }
+      .ss-mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
       .ss-frame { width: 100%; max-width: 430px; min-height: 100vh; display: flex; flex-direction: column; position: relative; }
       .ss-col { flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
       .ss-center { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
@@ -79,7 +89,7 @@ export function StyleBlock() {
       .ss-topbar-text { flex: 1; min-width: 0; }
       .ss-eyebrow-sm { font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .ss-title { font-size: 17px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .ss-badge { font-size: 12px; font-weight: 700; background: var(--ink); color: var(--paper); padding: 4px 9px; border-radius: 999px; white-space: nowrap; }
+      .ss-badge { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 12px; font-weight: 700; background: var(--ink); color: var(--paper); padding: 4px 9px; border-radius: 999px; white-space: nowrap; }
       .ss-link { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: var(--pine); white-space: nowrap; }
       /* same visual size as .ss-link, but a taller invisible hit area — for
          text links standing in for a real action in a cramped top bar,
@@ -99,7 +109,7 @@ export function StyleBlock() {
       /* ---- buttons ---- */
       .ss-btn {
         display: flex; align-items: center; justify-content: center; gap: 8px;
-        font-weight: 800; font-size: 15px; border-radius: 14px;
+        font-weight: 800; font-size: 15px; border-radius: 10px;
         padding: 14px 18px; transition: transform .06s ease;
       }
       .ss-btn:active { transform: scale(.98); }
@@ -111,7 +121,7 @@ export function StyleBlock() {
       .ss-btn-secondary { background: none; border: 1.5px dashed var(--line); color: var(--muted); }
       .ss-btn-secondary:active { background: var(--line-soft); }
       .ss-btn-danger { background: var(--red); color: #fff; width: 100%; }
-      .ss-btn-sq { padding: 0 16px; border-radius: 12px; }
+      .ss-btn-sq { padding: 0 16px; border-radius: 8px; }
 
       /* ---- screen transitions ---- */
       /* Every top-level screen and case-file tab swap runs through this so
@@ -124,17 +134,20 @@ export function StyleBlock() {
       /* ---- home ---- */
       .ss-home-hero { flex: 1; padding: 56px 26px 20px; display: flex; flex-direction: column; position: relative; overflow: hidden; }
       .ss-home-hero-content { position: relative; z-index: 1; display: flex; flex-direction: column; }
-      .ss-home-orbs { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+      /* the ambient blurred-glow blobs read as decoration, not information —
+         cut for the flatter, quieter direction; the elements still render
+         (aria-hidden, harmless) but contribute nothing visually */
+      .ss-home-orbs { display: none; }
       .ss-orb { position: absolute; border-radius: 50%; filter: blur(38px); }
       .ss-orb-a { width: 220px; height: 220px; top: -70px; right: -70px; background: radial-gradient(circle, var(--pine) 0%, transparent 72%); opacity: .28; }
       .ss-orb-b { width: 180px; height: 180px; bottom: 30px; left: -80px; background: radial-gradient(circle, var(--hivis) 0%, transparent 72%); opacity: .18; }
       .ss-mark {
-        width: 44px; height: 44px; border-radius: 13px; background: linear-gradient(155deg, var(--pine), var(--pine-press));
+        width: 44px; height: 44px; border-radius: 9px; background: linear-gradient(155deg, var(--pine), var(--pine-press));
         color: var(--hivis); display: flex; align-items: center; justify-content: center; margin-bottom: 22px;
-        box-shadow: 0 10px 22px -8px rgba(16,53,42,.55);
+        box-shadow: 0 4px 10px -4px rgba(16,53,42,.35);
       }
       .ss-eyebrow { font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--pine); margin-bottom: 10px; }
-      .ss-h1 { font-family: 'Libre Caslon Text', Georgia, serif; font-style: italic; font-size: 38px; line-height: 1.04; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 14px; }
+      .ss-h1 { font-family: 'Archivo', system-ui, sans-serif; font-size: 36px; line-height: 1.06; font-weight: 800; letter-spacing: -0.015em; margin: 0 0 14px; }
       .ss-lede { color: var(--muted); font-size: 15px; margin: 0 0 18px; max-width: 34ch; }
       .ss-home-features { display: flex; flex-wrap: wrap; gap: 7px; margin: 0 0 28px; }
       .ss-home-feature {
@@ -188,14 +201,14 @@ export function StyleBlock() {
       /* ---- inputs ---- */
       .ss-input {
         width: 100%; background: var(--card); border: 1px solid var(--line);
-        border-radius: 12px; padding: 14px; font-size: 16px; font-family: inherit;
+        border-radius: 8px; padding: 14px; font-size: 16px; font-family: inherit;
         color: var(--ink); outline: none;
       }
       .ss-input:focus { border-color: var(--pine); }
       .ss-inline-add { display: flex; gap: 8px; margin-top: 10px; }
       .ss-dashed {
         width: 100%; margin-top: 10px; padding: 12px;
-        border: 1.5px dashed var(--muted2); border-radius: 12px;
+        border: 1.5px dashed var(--muted2); border-radius: 8px;
         color: var(--muted); font-weight: 700; font-size: 13px;
         display: flex; align-items: center; justify-content: center; gap: 6px;
       }
@@ -205,24 +218,24 @@ export function StyleBlock() {
       .ss-wiz-seg { flex: 1; height: 4px; border-radius: 999px; background: var(--line-soft); }
       .ss-wiz-seg.on { background: var(--pine); }
       .ss-wiz-step { display: flex; flex-direction: column; gap: 10px; }
-      .ss-wiz-title { font-family: 'Libre Caslon Text', Georgia, serif; font-style: italic; font-size: 28px; line-height: 1.1; font-weight: 700; letter-spacing: -0.01em; margin: 4px 0 4px; }
+      .ss-wiz-title { font-family: 'Archivo', system-ui, sans-serif; font-size: 26px; line-height: 1.12; font-weight: 800; letter-spacing: -0.015em; margin: 4px 0 4px; }
       .ss-wiz-lede { font-size: 13px; color: var(--muted); margin: -6px 0 2px; }
       .ss-wiz-footer { display: flex; align-items: center; gap: 12px; }
       .ss-wiz-skip { padding: 8px 4px; }
-      .ss-wiz-summary { margin-top: 18px; padding: 14px 16px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
-      .ss-wiz-summary-address { font-family: 'Libre Caslon Text', Georgia, serif; font-size: 18px; font-weight: 700; margin-top: 4px; }
+      .ss-wiz-summary { margin-top: 18px; padding: 14px 16px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
+      .ss-wiz-summary-address { font-family: 'Archivo', system-ui, sans-serif; font-size: 18px; font-weight: 700; margin-top: 4px; }
       .ss-wiz-summary-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
 
       /* ---- room chips ---- */
       .ss-chip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
       .ss-chip {
         display: flex; align-items: center; justify-content: space-between;
-        background: var(--card); border: 1.5px solid var(--line); border-radius: 12px;
+        background: var(--card); border: 1.5px solid var(--line); border-radius: 8px;
         padding: 4px 8px 4px 0; min-height: 46px;
         transition: transform .1s ease, background .1s ease, border-color .1s ease;
       }
       .ss-chip:active { transform: scale(.97); }
-      .ss-chip.on { border-color: var(--pine); background: var(--pine); box-shadow: 0 3px 10px -4px rgba(16,53,42,.5); }
+      .ss-chip.on { border-color: var(--pine); background: var(--pine); box-shadow: 0 2px 6px -2px rgba(16,53,42,.3); }
       .ss-chip.on .ss-chip-main { color: #fff; }
       .ss-chip-main { flex: 1; text-align: left; padding: 10px 12px; font-weight: 700; font-size: 14px; }
       .ss-chip-check { color: #fff; margin-right: 4px; flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%; background: rgba(255,255,255,.22); display: inline-flex; align-items: center; justify-content: center; }
@@ -237,7 +250,7 @@ export function StyleBlock() {
       .ss-list { display: flex; flex-direction: column; gap: 8px; }
       .ss-row {
         display: flex; align-items: center; gap: 4px;
-        background: var(--card); border: 1px solid var(--line); border-radius: 13px;
+        background: var(--card); border: 1px solid var(--line); border-radius: 9px;
         padding: 6px 12px 6px 4px; position: relative; z-index: 1;
         transition: transform .1s ease;
       }
@@ -247,12 +260,12 @@ export function StyleBlock() {
       .ss-grip { width: 36px; height: 40px; display: flex; align-items: center; justify-content: center; color: var(--muted2); touch-action: none; cursor: grab; }
       .ss-row-tap { flex: 1; display: flex; align-items: center; justify-content: space-between; min-width: 0; text-align: left; padding: 6px 0; }
       .ss-row-main { display: flex; align-items: center; gap: 10px; min-width: 0; }
-      .ss-index { font-size: 11px; font-weight: 800; color: var(--pine); letter-spacing: .05em; width: 20px; flex-shrink: 0; }
+      .ss-index { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 11px; font-weight: 800; color: var(--pine); letter-spacing: .05em; width: 20px; flex-shrink: 0; }
       .ss-row-name { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .ss-row-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: 8px; }
       .ss-thumb { width: 34px; height: 34px; border-radius: 8px; object-fit: cover; border: 1px solid var(--line); }
       .ss-thumb-empty { display: flex; align-items: center; justify-content: center; color: var(--muted2); background: var(--line-soft); }
-      .ss-pill { min-width: 30px; text-align: center; font-size: 12px; font-weight: 800; padding: 4px 8px; border-radius: 999px; background: var(--line-soft); color: var(--muted); }
+      .ss-pill { font-family: 'IBM Plex Mono', ui-monospace, monospace; min-width: 30px; text-align: center; font-size: 12px; font-weight: 800; padding: 4px 8px; border-radius: 999px; background: var(--line-soft); color: var(--muted); }
       .ss-pill.done { background: var(--pine); color: #fff; }
 
       /* ---- progress ---- */
@@ -287,7 +300,7 @@ export function StyleBlock() {
       .ss-live-nav { display: flex; gap: 8px; }
       .ss-live-nav button {
         flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
-        border: 1.5px solid rgba(217,244,79,.35); border-radius: 13px; padding: 13px;
+        border: 1.5px solid rgba(217,244,79,.35); border-radius: 9px; padding: 13px;
         font-weight: 800; font-size: 14px; color: var(--hivis);
         white-space: nowrap; overflow: hidden;
       }
@@ -307,7 +320,7 @@ export function StyleBlock() {
       @keyframes ss-fade-in { from { opacity: 0; } to { opacity: 1; } }
       .ss-lightbox-top { display: flex; align-items: center; justify-content: space-between; padding: 14px; flex-shrink: 0; }
       .ss-lightbox-top button { width: 40px; height: 40px; border-radius: 999px; background: rgba(255,255,255,.12); color: #fff; display: flex; align-items: center; justify-content: center; }
-      .ss-lightbox-count { color: rgba(255,255,255,.7); font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+      .ss-lightbox-count { font-family: 'IBM Plex Mono', ui-monospace, monospace; color: rgba(255,255,255,.7); font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
       .ss-lightbox-stage { flex: 1; min-height: 0; position: relative; display: flex; align-items: center; overflow: hidden; touch-action: none; }
       .ss-lightbox img { flex: 1; min-height: 0; width: 100%; height: 100%; object-fit: contain; padding: 0 10px; user-select: none; touch-action: none; }
       .ss-lightbox-arrow {
@@ -326,11 +339,11 @@ export function StyleBlock() {
       .ss-lightbox-bottom { padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); flex-shrink: 0; }
 
       /* ---- finish ---- */
-      .ss-summary { display: flex; gap: 10px; align-items: flex-start; background: var(--card); border: 1px solid var(--line); border-radius: 13px; padding: 14px; margin-bottom: 16px; }
+      .ss-summary { display: flex; gap: 10px; align-items: flex-start; background: var(--card); border: 1px solid var(--line); border-radius: 9px; padding: 14px; margin-bottom: 16px; }
       .ss-summary svg { margin-top: 2px; color: var(--pine); flex-shrink: 0; }
-      .ss-summary-title { font-family: 'Libre Caslon Text', Georgia, serif; font-weight: 700; font-size: 16px; }
+      .ss-summary-title { font-family: 'Archivo', system-ui, sans-serif; font-weight: 700; font-size: 16px; }
       .ss-summary-sub { font-size: 13px; color: var(--muted); font-weight: 600; margin-top: 2px; }
-      .ss-tree { background: var(--card); border: 1px solid var(--line); border-radius: 13px; overflow: hidden; margin-bottom: 4px; }
+      .ss-tree { background: var(--card); border: 1px solid var(--line); border-radius: 9px; overflow: hidden; margin-bottom: 4px; }
       .ss-tree-root { display: flex; align-items: center; gap: 8px; padding: 12px 14px; font-weight: 800; font-size: 14px; border-bottom: 1px solid var(--line); background: var(--paper-deep); }
       .ss-tree-root svg { color: var(--pine); }
       .ss-tree-row { position: relative; display: flex; align-items: center; gap: 10px; padding: 10px 14px; font-size: 14px; font-weight: 600; border-bottom: 1px solid var(--line); }
@@ -356,7 +369,7 @@ export function StyleBlock() {
 
       .ss-fail { color: var(--red); }
       .ss-hook-toggle { display: flex; align-items: center; gap: 6px; margin: 12px auto 0; font-size: 12.5px; font-weight: 700; color: var(--muted); padding: 6px; }
-      .ss-hook { background: var(--card); border: 1px solid var(--line); border-radius: 13px; padding: 12px; margin-top: 8px; }
+      .ss-hook { background: var(--card); border: 1px solid var(--line); border-radius: 9px; padding: 12px; margin-top: 8px; }
 
       /* ---- toast ---- */
       .ss-toast {
@@ -382,14 +395,14 @@ export function StyleBlock() {
       .ss-cbadge.poor { background: var(--red-tint); color: var(--red); }
       .ss-tree-row .ss-note-flag { margin-left: 6px; vertical-align: -1px; }
 
-      .ss-meta { background: var(--card); border: 1px solid var(--line); border-radius: 13px; padding: 12px; margin-bottom: 14px; }
+      .ss-meta { background: var(--card); border: 1px solid var(--line); border-radius: 9px; padding: 12px; margin-bottom: 14px; }
       .ss-cond-row { display: flex; align-items: center; gap: 6px; }
       .ss-cond-label { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-right: auto; }
-      .ss-cond { padding: 8px 14px; border-radius: 999px; font-weight: 800; font-size: 13px; border: 1.5px solid var(--line); color: var(--muted); background: var(--paper); transition: transform .1s ease; }
+      .ss-cond { padding: 8px 14px; border-radius: 7px; font-weight: 700; font-size: 13px; border: 1px solid var(--line-strong); color: var(--muted); background: var(--paper); transition: transform .1s ease; }
       .ss-cond:active { transform: scale(.94); }
-      .ss-cond.good.on { background: var(--pine); border-color: var(--pine); color: #fff; box-shadow: 0 3px 10px -4px rgba(16,53,42,.5); }
-      .ss-cond.fair.on { background: #B4842A; border-color: #B4842A; color: #fff; box-shadow: 0 3px 10px -4px rgba(140,106,40,.5); }
-      .ss-cond.poor.on { background: var(--red); border-color: var(--red); color: #fff; box-shadow: 0 3px 10px -4px rgba(147,50,31,.5); }
+      .ss-cond.good.on { background: var(--pine); border-color: var(--pine); color: #fff; box-shadow: 0 2px 6px -2px rgba(16,53,42,.3); }
+      .ss-cond.fair.on { background: var(--amber); border-color: var(--amber); color: #fff; box-shadow: 0 2px 6px -2px rgba(143,110,42,.3); }
+      .ss-cond.poor.on { background: var(--red); border-color: var(--red); color: #fff; box-shadow: 0 2px 6px -2px rgba(147,50,31,.3); }
       .ss-note-input {
         width: 100%; margin-top: 10px; background: var(--paper); border: 1px solid var(--line);
         border-radius: 10px; padding: 10px 12px; font-size: 15px; font-family: inherit;
@@ -408,14 +421,14 @@ export function StyleBlock() {
       .ss-live-note-btn { display: flex; align-items: center; gap: 6px; margin-top: 14px; font-size: 13px; font-weight: 700; color: rgba(217,244,79,.65); padding: 6px 10px; }
       .ss-live-note {
         width: 100%; max-width: 320px; margin-top: 14px; background: rgba(217,244,79,.08);
-        border: 1.5px solid rgba(217,244,79,.35); border-radius: 12px; padding: 10px 12px;
+        border: 1.5px solid rgba(217,244,79,.35); border-radius: 8px; padding: 10px 12px;
         font-size: 15px; font-family: inherit; color: var(--hivis); outline: none; resize: none;
       }
       .ss-live-note::placeholder { color: rgba(217,244,79,.4); }
 
       .ss-cell { position: relative; }
-      .ss-cell-no { position: absolute; left: 4px; bottom: 4px; font-size: 10px; font-weight: 800; background: rgba(10,14,11,.66); color: #fff; border-radius: 6px; padding: 1px 5px; font-variant-numeric: tabular-nums; }
-      .ss-lb-no { text-align: center; color: #fff; font-size: 13px; font-weight: 800; margin-bottom: 2px; }
+      .ss-cell-no { font-family: 'IBM Plex Mono', ui-monospace, monospace; position: absolute; left: 4px; bottom: 4px; font-size: 10px; font-weight: 800; background: rgba(10,14,11,.66); color: #fff; border-radius: 6px; padding: 1px 5px; font-variant-numeric: tabular-nums; }
+      .ss-lb-no { font-family: 'IBM Plex Mono', ui-monospace, monospace; text-align: center; color: #fff; font-size: 13px; font-weight: 800; margin-bottom: 2px; }
       .ss-rep-case { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; margin: 12px 0 0; font-size: 13px; }
       .ss-rep-case dt { font-weight: 800; color: var(--muted); }
       .ss-rep-case dd { margin: 0; }
@@ -442,9 +455,9 @@ export function StyleBlock() {
       .ss-alert span { flex: 1; }
       .ss-alert button { color: rgba(255,255,255,.85); flex-shrink: 0; }
 
-      .ss-tip { display: flex; gap: 9px; align-items: flex-start; background: var(--amber-tint); color: var(--amber); border-radius: 12px; padding: 11px 13px; margin-top: 14px; font-size: 12.5px; font-weight: 600; line-height: 1.45; }
+      .ss-tip { display: flex; gap: 9px; align-items: flex-start; background: var(--amber-tint); color: var(--amber); border-radius: 8px; padding: 11px 13px; margin-top: 14px; font-size: 12.5px; font-weight: 600; line-height: 1.45; }
       .ss-tip svg { flex-shrink: 0; margin-top: 1px; }
-      .ss-tip.info { background: var(--pine-tint); color: var(--pine-press); }
+      .ss-tip.info { background: none; color: var(--muted); border-left: 2px solid var(--pine); border-radius: 0; padding: 0 0 0 12px; }
 
       .ss-filter { margin-bottom: 12px; font-size: 15px; padding: 11px 13px; }
       .ss-group-label { font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 14px 2px 7px; }
@@ -554,7 +567,7 @@ export function StyleBlock() {
 
       /* ---- case details ---- */
       .ss-case-toggle { display: flex; align-items: center; gap: 6px; margin: 10px auto 0; font-size: 12.5px; font-weight: 700; color: var(--muted); padding: 6px; }
-      .ss-case { display: flex; flex-direction: column; gap: 8px; background: var(--card); border: 1px solid var(--line); border-radius: 13px; padding: 12px; margin-top: 6px; }
+      .ss-case { display: flex; flex-direction: column; gap: 8px; background: var(--card); border: 1px solid var(--line); border-radius: 9px; padding: 12px; margin-top: 6px; }
 
       /* ---- inspection list ---- */
       .ss-job { flex-direction: column; align-items: flex-start; gap: 2px; }
@@ -595,8 +608,8 @@ export function StyleBlock() {
 
       /* ---- modal ---- */
       .ss-modal-back { position: fixed; inset: 0; z-index: 60; background: rgba(10,14,11,.55); display: flex; align-items: center; justify-content: center; padding: 24px; }
-      .ss-modal { width: 100%; max-width: 340px; background: var(--card); border-radius: 18px; padding: 22px; text-align: center; box-shadow: 0 20px 60px rgba(16,36,29,.35); }
-      .ss-modal-icon { width: 44px; height: 44px; margin: 0 auto 12px; border-radius: 13px; background: var(--red-tint); color: var(--red); display: flex; align-items: center; justify-content: center; }
+      .ss-modal { width: 100%; max-width: 340px; background: var(--card); border-radius: 12px; padding: 22px; text-align: center; box-shadow: 0 10px 30px rgba(16,36,29,.22); }
+      .ss-modal-icon { width: 44px; height: 44px; margin: 0 auto 12px; border-radius: 9px; background: var(--red-tint); color: var(--red); display: flex; align-items: center; justify-content: center; }
       .ss-modal-title { font-size: 18px; font-weight: 800; margin-bottom: 6px; }
       .ss-modal p { font-size: 13.5px; color: var(--muted); line-height: 1.5; margin: 0 0 16px; }
 
@@ -616,7 +629,7 @@ export function StyleBlock() {
       .ss-report-page { max-width: 720px; margin: 0 auto; padding: 28px 22px 48px; color: var(--ink); }
       .ss-rep-head { border-bottom: 3px solid var(--pine); padding-bottom: 18px; margin-bottom: 22px; }
       .ss-rep-brand { display: flex; align-items: center; gap: 6px; font-weight: 900; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--pine); margin-bottom: 10px; }
-      .ss-rep-head h1 { font-family: 'Libre Caslon Text', Georgia, serif; font-size: 26px; font-weight: 700; margin: 0 0 8px; line-height: 1.15; }
+      .ss-rep-head h1 { font-family: 'Archivo', system-ui, sans-serif; font-size: 26px; font-weight: 700; margin: 0 0 8px; line-height: 1.15; }
       .ss-rep-meta { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; font-weight: 600; color: var(--muted); }
       .ss-rep-room { margin-bottom: 24px; break-inside: avoid-page; }
       .ss-rep-room-head { display: flex; align-items: center; gap: 4px; margin-bottom: 8px; }
@@ -649,7 +662,7 @@ export function StyleBlock() {
 
       .ss-search-row {
         display: flex; align-items: center; gap: 8px; margin: 12px 16px 0; padding: 10px 12px;
-        background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+        background: var(--card); border: 1px solid var(--line); border-radius: 8px;
       }
       .ss-search-ic { color: var(--muted); flex-shrink: 0; }
       .ss-search-input { flex: 1; border: none; background: none; font-size: 14.5px; font-family: inherit; color: var(--ink); outline: none; }
@@ -691,17 +704,17 @@ export function StyleBlock() {
       }
       .ss-toggle.on span { transform: translateX(18px); }
 
-      .ss-storage-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+      .ss-storage-card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
 
       /* ---- draft findings ---- */
       .ss-findings-count { font-size: 12.5px; font-weight: 700; color: var(--muted); }
       .ss-findings-page { max-width: 560px; }
       .ss-findings-banner {
         display: flex; gap: 9px; align-items: flex-start; background: var(--amber-tint); color: var(--amber);
-        border-radius: 12px; padding: 12px 14px; font-size: 12.5px; font-weight: 600; line-height: 1.45; margin-bottom: 16px;
+        border-radius: 8px; padding: 12px 14px; font-size: 12.5px; font-weight: 600; line-height: 1.45; margin-bottom: 16px;
       }
       .ss-findings-banner svg { flex-shrink: 0; margin-top: 1px; }
-      .ss-finding-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+      .ss-finding-card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 12px; }
       .ss-finding-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
       .ss-finding-room { font-weight: 800; font-size: 13.5px; }
       .ss-pill-conf { font-size: 11px; font-weight: 800; padding: 4px 9px; border-radius: 999px; white-space: nowrap; }
@@ -709,12 +722,12 @@ export function StyleBlock() {
       .ss-pill-conf.warn { background: var(--amber-tint); color: var(--amber); }
       .ss-finding-label { font-size: 10.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--muted2); margin: 10px 0 3px; }
       .ss-finding-label:first-of-type { margin-top: 0; }
-      .ss-finding-text { font-family: 'Libre Caslon Text', Georgia, serif; font-size: 15px; line-height: 1.5; margin: 0; }
+      .ss-finding-text { font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 15px; line-height: 1.5; margin: 0; }
       .ss-finding-leg { display: inline-flex; align-items: center; gap: 6px; background: var(--pine-tint); color: var(--pine-press); padding: 5px 10px; border-radius: 8px; font-size: 12px; font-weight: 700; }
       .ss-finding-leg-empty { font-size: 12px; font-weight: 600; color: var(--muted2); font-style: italic; }
 
       /* ---- draft findings (AI step) ---- */
-      .ss-ai-bar { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-bottom: 12px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }
+      .ss-ai-bar { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-bottom: 12px; border-radius: 8px; background: var(--card); border: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }
       .ss-ai-bar b { color: var(--ink); }
       .ss-ai-bar svg { color: var(--pine); flex-shrink: 0; }
       .ss-draft-rooms { display: flex; flex-direction: column; gap: 6px; margin: 0 0 14px; }
@@ -727,7 +740,7 @@ export function StyleBlock() {
       .ss-room-run-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
       .ss-room-run-head h3 { font-size: 15px; font-weight: 800; margin: 0; }
       .ss-room-run-meta { font-size: 11.5px; color: var(--muted2); font-weight: 600; white-space: nowrap; }
-      .ss-room-summary { font-family: 'Libre Caslon Text', Georgia, serif; font-size: 14px; color: var(--muted); margin: 6px 0 10px; line-height: 1.5; }
+      .ss-room-summary { font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 14px; color: var(--muted); margin: 6px 0 10px; line-height: 1.5; }
       .ss-gaps { margin: 0 0 12px; padding: 10px 12px; border-radius: 10px; background: var(--amber-tint); color: var(--amber); font-size: 12.5px; font-weight: 600; }
       .ss-gaps ul { margin: 4px 0 0; padding-left: 18px; }
       .ss-transcript-toggle { font-size: 12px; font-weight: 700; color: var(--pine); background: none; padding: 0; margin: 0 0 10px; display: inline-flex; align-items: center; gap: 5px; }
@@ -738,7 +751,7 @@ export function StyleBlock() {
       .ss-finding-status.approved, .ss-finding-status.edited { background: var(--pine-tint); color: var(--pine-press); }
       .ss-finding-status.rejected { background: var(--red-tint); color: var(--red); }
       .ss-finding-card.rejected { opacity: .6; }
-      .ss-flag { display: flex; gap: 10px; padding: 12px; border-radius: 12px; margin: 10px 0 4px; font-size: 13px; line-height: 1.45; }
+      .ss-flag { display: flex; gap: 10px; padding: 12px; border-radius: 8px; margin: 10px 0 4px; font-size: 13px; line-height: 1.45; }
       .ss-flag svg { flex-shrink: 0; margin-top: 2px; }
       .ss-flag.disagree { background: var(--red-tint); color: var(--red); border: 1px solid color-mix(in srgb, var(--red) 25%, transparent); }
       .ss-flag.uncertain { background: var(--amber-tint); color: var(--amber); border: 1px solid color-mix(in srgb, var(--amber) 25%, transparent); }
@@ -753,7 +766,7 @@ export function StyleBlock() {
       .ss-chip.leg { background: var(--pine-tint); color: var(--pine-press); }
       .ss-scope { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; color: var(--pine); margin: 2px 0 4px; }
       .ss-scope-why { font-size: 12.5px; color: var(--muted); margin: 0; }
-      .ss-cost { font-family: 'Libre Caslon Text', Georgia, serif; font-size: 17px; font-weight: 700; }
+      .ss-cost { font-family: 'Archivo', system-ui, sans-serif; font-size: 17px; font-weight: 700; }
       .ss-cost.unpriced { color: var(--amber); font-size: 14px; }
       .ss-cost-basis { font-size: 12px; color: var(--muted); margin: 2px 0 0; }
       .ss-finding-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
@@ -765,7 +778,7 @@ export function StyleBlock() {
       .ss-edit-form .row { display: flex; gap: 8px; }
       .ss-hyp-input { margin-top: 6px; font-size: 14px; }
       /* ID photo slot */
-      .ss-idphoto { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 13px; background: var(--card); border: 1px solid var(--line); margin-top: 14px; }
+      .ss-idphoto { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 9px; background: var(--card); border: 1px solid var(--line); margin-top: 14px; }
       .ss-idphoto img { width: 54px; height: 54px; border-radius: 10px; object-fit: cover; border: 1px solid var(--line); }
       .ss-idphoto .ph { width: 54px; height: 54px; border-radius: 10px; background: var(--paper-deep); display: flex; align-items: center; justify-content: center; color: var(--muted2); }
       .ss-idphoto-main { flex: 1; min-width: 0; }
@@ -797,7 +810,7 @@ export function StyleBlock() {
       .ss-annotate-stage img { max-width: 100%; max-height: 100%; width: 100%; height: 100%; object-fit: contain; display: block; user-select: none; }
       .ss-annotate-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
       .ss-annotate-tools { display: flex; align-items: center; gap: 10px; padding: 14px 18px calc(14px + env(safe-area-inset-bottom)); }
-      .ss-annotate-tool { width: 44px; height: 44px; border-radius: 12px; background: rgba(255,255,255,.10); display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0; }
+      .ss-annotate-tool { width: 44px; height: 44px; border-radius: 8px; background: rgba(255,255,255,.10); display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0; }
       .ss-annotate-tool.on { background: var(--hivis); color: var(--hivis-deep); }
 
       /* ---- top-level tab bar (Home / Cases / Settings) ---- */
@@ -812,7 +825,7 @@ export function StyleBlock() {
       }
       .ss-tabbar-item.on { color: var(--pine); }
       .ss-tabbar-item:active { transform: scale(.92); }
-      .ss-title-lg { font-family: 'Libre Caslon Text', Georgia, serif; font-size: 22px; font-weight: 700; }
+      .ss-title-lg { font-family: 'Archivo', system-ui, sans-serif; font-size: 22px; font-weight: 700; }
 
       /* ---- case file: shared tab strip ---- */
       .ss-case-tabs { display: flex; gap: 20px; padding: 0 18px; border-bottom: 1px solid var(--line); background: var(--card); flex-shrink: 0; overflow-x: auto; }
@@ -820,36 +833,36 @@ export function StyleBlock() {
       .ss-case-tab.on { color: var(--pine); border-bottom-color: var(--pine); }
 
       /* ---- case file: overview tab ---- */
-      .ss-case-cover { margin: 16px 18px 0; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+      .ss-case-cover { margin: 16px 18px 0; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
       .ss-case-cover-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
       .ss-stamp {
-        display: inline-flex; align-items: center; justify-content: center; padding: 4px 11px;
-        border: 1.5px solid var(--pine); border-radius: 4px; color: var(--pine);
-        font-family: 'Libre Caslon Text', Georgia, serif; font-size: 11px; font-weight: 700;
-        letter-spacing: .06em; text-transform: uppercase; transform: rotate(-3deg); white-space: nowrap;
+        display: inline-flex; align-items: center; justify-content: center; padding: 3px 9px;
+        border: 1px solid var(--line-strong); border-radius: 4px; color: var(--muted);
+        font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 10.5px; font-weight: 600;
+        letter-spacing: .05em; text-transform: uppercase; white-space: nowrap;
       }
       .ss-stamp.light { border-color: rgba(255,255,255,.6); color: #fff; }
       .ss-case-kv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 12px; }
       .ss-kv-label { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted2); margin-bottom: 2px; }
       .ss-kv-value { font-size: 13.5px; font-weight: 700; color: var(--ink); }
 
-      .ss-activity { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 4px 14px; }
+      .ss-activity { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 4px 14px; }
       .ss-activity-row { display: flex; align-items: flex-start; gap: 11px; padding: 10px 0; border-bottom: 1px solid var(--line); }
       .ss-activity-row:last-child { border-bottom: none; }
-      .ss-activity-time { width: 42px; flex-shrink: 0; font-size: 10.5px; font-weight: 700; color: var(--muted2); padding-top: 1px; }
+      .ss-activity-time { font-family: 'IBM Plex Mono', ui-monospace, monospace; width: 42px; flex-shrink: 0; font-size: 10.5px; font-weight: 700; color: var(--muted2); padding-top: 1px; }
       .ss-activity-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--pine); margin-top: 6px; flex-shrink: 0; }
       .ss-activity-text { flex: 1; font-size: 12.5px; font-weight: 600; color: var(--ink); line-height: 1.4; }
 
       /* ---- home dashboard: active case hero ---- */
       .ss-case-hero {
         display: block; width: 100%; text-align: left; margin: 16px 18px 0; padding: 18px;
-        background: var(--pine); color: #fff; border-radius: 16px; box-shadow: 0 16px 36px rgba(16,53,42,.22);
+        background: var(--pine); color: #fff; border-radius: 10px; box-shadow: 0 6px 16px -4px rgba(16,53,42,.28);
         transition: transform .1s ease;
       }
       .ss-case-hero:active { transform: scale(.985); }
       .ss-case-hero-head { display: flex; align-items: center; justify-content: space-between; }
       .ss-case-hero-time { font-size: 10.5px; font-weight: 600; color: rgba(255,255,255,.6); }
-      .ss-case-hero-title { font-family: 'Libre Caslon Text', Georgia, serif; font-size: 19px; font-weight: 700; margin-top: 13px; }
+      .ss-case-hero-title { font-family: 'Archivo', system-ui, sans-serif; font-size: 19px; font-weight: 700; margin-top: 13px; }
       .ss-case-hero-sub { font-size: 12px; font-weight: 500; color: rgba(255,255,255,.65); margin-top: 2px; }
       .ss-case-hero-collage { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-top: 14px; }
       .ss-case-hero-collage img { width: 100%; aspect-ratio: 1; border-radius: 5px; object-fit: cover; display: block; }
@@ -859,7 +872,7 @@ export function StyleBlock() {
       }
       .ss-row-tap-full {
         display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; text-align: left;
-        background: var(--card); border: 1px solid var(--line); border-radius: 13px; padding: 13px 14px; font-size: 13.5px; font-weight: 700;
+        background: var(--card); border: 1px solid var(--line); border-radius: 9px; padding: 13px 14px; font-size: 13.5px; font-weight: 700;
       }
 
       /* ---- walk: exhibit stamp ---- */
@@ -872,7 +885,7 @@ export function StyleBlock() {
       .ss-signin { padding-top: 40px; }
       .ss-signin form { display: flex; flex-direction: column; }
       .ss-code-boxes { position: relative; display: flex; gap: 8px; }
-      .ss-code-box { flex: 1; height: 56px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; display: flex; align-items: center; justify-content: center; font: 800 26px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink); }
+      .ss-code-box { flex: 1; height: 56px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; display: flex; align-items: center; justify-content: center; font: 800 26px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink); }
       .ss-code-box.active { border-color: var(--pine); border-width: 1.5px; }
       .ss-code-input { position: absolute; inset: 0; opacity: 0; border: 0; width: 100%; height: 100%; padding: 0; margin: 0; font-size: 16px; }
       .ss-signin-oauth { display: flex; align-items: center; gap: 8px; margin: 20px 0 0; padding-top: 18px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
@@ -880,8 +893,8 @@ export function StyleBlock() {
       .ss-signin-links { display: flex; justify-content: space-between; margin-top: 14px; }
       .ss-signin-links .ss-link { padding: 6px 0; }
       .ss-error { color: var(--red); margin: 12px 2px 0; }
-      .ss-invite-banner { background: var(--pine-tint); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; font-size: 14px; margin-bottom: 18px; line-height: 1.45; }
-      .ss-org-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+      .ss-invite-banner { background: var(--pine-tint); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; font-size: 14px; margin-bottom: 18px; line-height: 1.45; }
+      .ss-org-card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 12px; }
       .ss-org-card-title { display: flex; align-items: center; gap: 7px; font-weight: 800; font-size: 14px; }
       .ss-org-row { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 12px 4px; border-top: 1px solid var(--line-soft); font-weight: 700; font-size: 14px; text-align: left; }
       .ss-org-row:first-of-type { border-top: 0; }
@@ -912,7 +925,7 @@ export function StyleBlock() {
         display: grid; grid-template-columns: minmax(0, 1fr) 80px 56px; gap: 8px; align-items: center;
         min-height: 52px; padding: 8px 0; border-bottom: 1px solid var(--line);
       }
-      .ss-team-active { font-size: 12.5px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+      .ss-team-active { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 12.5px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
       .ss-team-cancel { font-size: 12.5px; font-weight: 700; color: var(--muted); text-align: right; }
       .ss-team-pending { font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--amber); }
 
@@ -932,7 +945,7 @@ export function StyleBlock() {
       .ss-sync { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--muted); margin: 10px 2px 0; }
       .ss-sync-error { color: var(--red); }
       .ss-sync-offline { color: var(--amber); }
-      .ss-remote-room { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; margin-top: 10px; }
+      .ss-remote-room { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-top: 10px; }
       .ss-remote-room-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
       .ss-remote-note { margin: 6px 0 0; font-size: 13px; color: var(--muted); white-space: pre-wrap; }
       .ss-remote-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
@@ -940,8 +953,8 @@ export function StyleBlock() {
       .ss-remote-thumb img, .ss-remote-thumb-empty { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; background: var(--paper-deep); display: block; }
       .ss-remote-thumb figcaption { font-size: 10.5px; color: var(--muted); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .ss-cond-pill { font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; border-radius: 999px; padding: 3px 8px; background: var(--paper-deep); color: var(--muted); }
-      .ss-cond-pill.poor { background: #F3E3DF; color: var(--red); }
-      .ss-cond-pill.fair { background: #F2ECDD; color: var(--amber); }
+      .ss-cond-pill.poor { background: var(--red-tint); color: var(--red); }
+      .ss-cond-pill.fair { background: var(--amber-tint); color: var(--amber); }
       .ss-cond-pill.good { background: var(--pine-tint); color: var(--pine); }
     `}</style>
   );
