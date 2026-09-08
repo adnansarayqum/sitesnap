@@ -9,11 +9,16 @@
     "preview": "vite preview",
     "start": "node server/index.js",
     "evals": "node server/evals/run.mjs",
-    "test": "vitest run"
+    "test": "vitest run",
+    "cap:sync": "vite build && cap sync"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",
     "@azure/msal-browser": "^5.21.0",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/core": "^8.5.1",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.3",
     "@sentry/node": "^10.73.0",
     "@sentry/react": "^10.73.0",
     "express": "^4.21.2",
@@ -25,8 +30,12 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.5.1",
+    "@capacitor/cli": "^8.5.1",
+    "@capacitor/ios": "^8.5.1",
     "@vitejs/plugin-react": "^6.1.1",
     "fake-indexeddb": "^6.2.5",
+    "typescript": "^7.0.2",
     "vite": "^8.2.2",
     "vitest": "^5.0.0"
   },

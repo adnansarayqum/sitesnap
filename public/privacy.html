@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SiteSnap — Privacy Policy</title>
+<style>
+  body { max-width: 680px; margin: 0 auto; padding: 40px 20px 80px; font-family: -apple-system, system-ui, sans-serif; line-height: 1.6; color: #14201B; background: #F6F6F3; }
+  h1 { font-size: 26px; margin-bottom: 4px; }
+  h2 { font-size: 17px; margin-top: 36px; color: #10352A; }
+  p, li { font-size: 15px; color: #14201B; }
+  .updated { color: #5E6B64; font-size: 13px; margin-bottom: 32px; }
+  a { color: #10352A; }
+  code { background: #ECEEE9; padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<h1>Privacy Policy</h1>
+<p class="updated">
+  <!-- REPLACE: keep this date current whenever the policy below changes -->
+  Last updated 8 September 2026 · Applies to the SiteSnap app and its associated web service.
+</p>
+
+<p>SiteSnap is a property-inspection app used by surveying firms to take, organise
+and file inspection photos, voice notes and disrepair findings. This page explains
+what the app collects, why, and where it goes.</p>
+
+<h2>What the app collects</h2>
+<ul>
+  <li><b>Inspection content you create</b> — photos, voice notes, room notes, and
+    (where AI drafting is switched on) findings drafted from that content. This is
+    the core of what the app is for.</li>
+  <li><b>Case details</b> — the property address, postcode, and inspection status
+    you enter.</li>
+  <li><b>Account information</b>, only if your firm uses the accounts/sign-in
+    version of the app — your email address, and if you sign in with Microsoft or
+    Google, the basic profile information those services share (name, email). The
+    app never sees your Microsoft/Google password.</li>
+  <li><b>Device and session information</b> needed to keep you signed in and the
+    app working — a session cookie, and basic technical details (app version,
+    device type) if error monitoring is switched on for your deployment.</li>
+</ul>
+
+<h2>Where it's stored</h2>
+<p>By default, everything you capture is stored on your own device first. Depending
+on how your firm has configured SiteSnap:</p>
+<ul>
+  <li>Case records may sync to a private database operated for your firm ("accounts
+    mode"), so your firm's cases are visible to your firm's team and nowhere else.</li>
+  <li>Photos and case files may be uploaded to a cloud drive (OneDrive or Google
+    Drive) that you or your firm connects — SiteSnap only ever reaches the
+    dedicated folder it creates for itself in that drive, never anything else in
+    your account.</li>
+</ul>
+
+<h2>Who else sees it</h2>
+<p>SiteSnap doesn't sell or share your data with advertisers. Depending on which
+features your deployment has switched on, content may be sent to:</p>
+<ul>
+  <li><b>Anthropic</b> (the maker of Claude), if AI drafting is enabled, to draft
+    findings from your photos and notes.</li>
+  <li><b>OpenAI</b>, if voice-note transcription is enabled, to transcribe voice
+    notes to text.</li>
+  <li><b>Microsoft or Google</b>, only for the cloud folder you've explicitly
+    connected.</li>
+  <li><b>Sentry</b>, if error monitoring is enabled for your deployment, to report
+    crashes — configured to exclude request content, cookies, and AI prompts/
+    responses; it only ever receives the error itself and enough context (which
+    screen, which route) to debug it.</li>
+</ul>
+
+<h2>Your choices</h2>
+<ul>
+  <li>A case can be deleted from within the app at any time, which removes it from
+    your firm's register. Anything already uploaded to a connected OneDrive/Google
+    Drive isn't removed automatically — that copy lives in your own cloud storage
+    and is managed there.</li>
+  <li>Voice-note transcription and AI drafting are both optional, set per
+    deployment — a firm can use SiteSnap purely for photo capture and organising,
+    with nothing sent to a language model.</li>
+</ul>
+
+<h2>Contact</h2>
+<p>
+  Questions about this policy or a request about your data:
+  <a href="mailto:REPLACE-WITH-CONTACT-EMAIL">REPLACE-WITH-CONTACT-EMAIL</a>
+  <!-- REPLACE before submitting to either store: this needs a real, monitored
+       address — see docs/app-store-submission.md -->
+</p>
+
+</body>
+</html>
