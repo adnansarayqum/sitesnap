@@ -60,24 +60,27 @@ already hardened, and shouldn't be done speculatively.
 These need accounts, decisions, and (for iOS) hardware I don't have access
 to. Roughly in the order you'd hit them:
 
-### 1. Decide the app identity (do this first — it's permanent)
+### 1. Confirm the app identity (do this first — it's permanent)
 
-- **Bundle ID / package name**: currently set to the placeholder
-  `com.sitesnap.app` in `capacitor.config.ts`. Once you submit a build to
-  either store under a given ID, you cannot change it later without
-  publishing as a brand-new app listing. Pick the real one now — typically
-  reverse-domain based on whatever domain you control (e.g.
-  `com.stonebridgesurveyors.sitesnap`, or your own company's domain).
-  Changing it means updating `capacitor.config.ts`'s `appId` and re-running
-  `npx cap sync`.
-- **Production URL**: set the `CAPACITOR_SERVER_URL` environment variable
-  (or edit the fallback directly in `capacitor.config.ts`) to your real
-  Railway domain — or a custom domain if you set one up — before building
-  for either store.
+- **Bundle ID / package name**: `com.sitesnap.app`, set consistently in
+  `capacitor.config.ts`, `android/app/build.gradle` (`applicationId` and
+  `namespace`) and the Xcode project (`PRODUCT_BUNDLE_IDENTIFIER`). It is a
+  sensible default and needs no change — but once a build is uploaded to
+  either store under an ID, it can never be changed without publishing a
+  brand-new listing. If you'd rather it sit under a domain you own (e.g.
+  `com.stonebridgesurveyors.sitesnap`), change it in those three places
+  *before* the first upload, then re-run `npx cap sync`.
+- **Production URL**: the shell loads
+  `https://sitesnap-production.up.railway.app` — the live deployment,
+  already the default in `capacitor.config.ts`. Only change it (via the
+  `CAPACITOR_SERVER_URL` env var or the fallback in the file) if you move to
+  a custom domain.
+- **Version**: 2.1.0 (build 1) on both platforms, matching `package.json`.
+  Bump `versionCode`/`CURRENT_PROJECT_VERSION` for every store upload.
 - **Privacy policy contact**: `public/privacy.html` has a placeholder email
   address marked `REPLACE-WITH-CONTACT-EMAIL`. Both stores check that this
   page is real and reachable — put a real, monitored address there before
-  submitting.
+  submitting. This is the one identity item still open.
 
 ### 2. Accounts you need
 
@@ -117,8 +120,9 @@ apps from Xcode on macOS. Options: your own Mac, a colleague's, or a rented
 one (e.g. MacinCloud) for the time it takes to do this once.
 
 1. `npm run build && npx cap sync ios`, then open
-   `ios/App/App.xcworkspace` in Xcode (not the `.xcodeproj` — Capacitor
-   projects use CocoaPods, which needs the workspace file).
+   `ios/App/App.xcodeproj` in Xcode. (This project uses Swift Package
+   Manager for Capacitor's plugins, not CocoaPods — there is no Podfile or
+   `.xcworkspace`, and the iOS CI workflow builds the `.xcodeproj` directly.)
 2. In Xcode: select the App target → Signing & Capabilities → sign in with
    your Apple Developer account → set the Team → Xcode will provision it
    automatically.
@@ -126,24 +130,40 @@ one (e.g. MacinCloud) for the time it takes to do this once.
    App Store Connect → Upload.
 4. App Store Connect (appstoreconnect.apple.com) → create the app record
    (same bundle ID as step 1 above) → fill in App Privacy (use
-   `docs/app-privacy-answers.md`) → add screenshots (required sizes: 6.7"
-   and 5.5" iPhone at minimum) → attach the uploaded build → submit for
-   review.
+   `docs/app-privacy-answers.md`) → add screenshots (the 6.9" iPhone set in
+   `store/screenshots/apple-6.9in-1320x2868/` covers the only required
+   slot) → paste the review notes and test-account details from
+   `docs/store-listing.md` → attach the uploaded build → submit for review.
 
 ### 5. Store listing content (both platforms)
 
-Neither store can be filled in from here — these are content/marketing
-decisions:
+Drafted and ready to paste — see **`docs/store-listing.md`** for the
+descriptions, keywords, category, content-rating answers, the Sign in with
+Apple exemption note and App Review notes, plus the assets in `store/`
+(phone screenshots at both stores' required sizes, the Play feature graphic
+and hi-res icon). Two things there still need you:
 
-- App description, keywords, support URL, marketing URL
-- Screenshots (both stores have specific required device sizes)
-- Age rating questionnaire
-- Category (Business or Productivity fits SiteSnap)
+- **Real photos in the screenshots.** The captured screens use rendered
+  placeholder "damp wall" images so the layouts read correctly. Re-capture
+  with real, anonymised inspection photos before submitting (the capture
+  script is trivially re-runnable — ask).
+- **A reviewer test account** on a firm with a couple of demo cases. In
+  accounts mode nothing is reachable without signing in, and Apple rejects
+  outright ("unable to test") if none is provided.
 
 ## Honest open items — not blocking, worth knowing
 
-- **The bundle ID and production URL are placeholders.** Nothing above will
-  work correctly against a real store account until those are set.
+- **Play's new-developer rule.** A personal Play developer account created
+  after 13 Nov 2023 must run a closed test with at least 12 opted-in
+  testers for 14 continuous days before Production is unlocked. Plan for
+  that fortnight — Stonebridge's team can be the testers.
+- **Sign in with Apple (Guideline 4.8).** Because the app offers Microsoft
+  and Google sign-in, Apple normally requires Sign in with Apple too. The
+  app qualifies for the business-account exemption (surveyors sign in to
+  their firm's existing account; there is no public sign-up), but the
+  reviewer won't assume that — the note in `docs/store-listing.md` states
+  it explicitly. If Apple pushes back anyway, adding Sign in with Apple as a
+  third provider is a contained piece of server work, not a rebuild.
 - **No automated release-signing pipeline yet** for either platform — both
   need your accounts/certificates added before CI can produce a
   submittable, signed build rather than just a debug/simulator one.
