@@ -369,7 +369,8 @@ export function StyleBlock() {
       .ss-fineprint { font-size: 12.5px; color: var(--muted); line-height: 1.5; margin: 12px 2px 4px; }
 
       .ss-fail { color: var(--red); }
-      .ss-hook-toggle { display: flex; align-items: center; gap: 6px; margin: 12px auto 0; font-size: 12.5px; font-weight: 700; color: var(--muted); padding: 6px; }
+      .ss-export-row { display: flex; gap: 8px; margin-top: 8px; }
+      .ss-export-row .ss-btn { flex: 1; padding: 16px 10px; font-size: 15px; }
       .ss-hook { background: var(--card); border: 1px solid var(--line); border-radius: 9px; padding: 12px; margin-top: 8px; }
 
       /* ---- toast ---- */

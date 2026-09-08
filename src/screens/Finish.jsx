@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  AlertTriangle, Check, CircleCheck, Clock, CloudUpload, Download, FileText, FolderTree, ImagePlus, Link2, Loader2, MapPin, Mic, Pencil, RotateCcw, ShieldCheck, Sparkles, StickyNote, Trash2, WifiOff, X,
+  AlertTriangle, Check, CircleCheck, Clock, CloudUpload, Download, FileText, FolderTree, ImagePlus, Loader2, MapPin, Mic, Pencil, RotateCcw, ShieldCheck, Sparkles, StickyNote, Trash2, WifiOff, X,
 } from "lucide-react";
 import JSZip from "jszip";
 import {
@@ -45,7 +45,7 @@ export function parseDraftFindings(body) {
 
 /* ---------------- finish / export ---------------- */
 
-export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom, filesForUpload, fullPhoto, audioCache, onUploadResult, onExportResult, onFindings, onSaveAll, onDone, onSettings, filing, onFiled }) {
+export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, filesForRoom, filesForUpload, fullPhoto, audioCache, onUploadResult, onExportResult, onFindings, onSaveAll, onDone, filing, onFiled }) {
   const [note, setNote] = useState(null);
   const [direct, setDirect] = useState({ ms: null, google: false }); // account name / connected flags
   const [directUpload, setDirectUpload] = useState(null); // { provider, statuses, running, sent, total }
@@ -459,6 +459,39 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
       setDirectError(failReason);
     }
     if (failed) setUploadError(`Direct upload to ${provider === "ms" ? "OneDrive" : "Google Drive"} stopped partway: ${failReason} Nothing has been lost — your photos are still on this phone.`);
+    return !failed;
+  }
+
+  // One cloud action. Files to the connected drive and — when an admin has
+  // set a CRM/ERP link in Settings — posts the structured export there too,
+  // so there's no second button to remember. With only a CRM link and no
+  // drive, the same button sends there directly.
+  const provider = direct.ms ? "ms" : direct.google ? "google" : null;
+  const providerName = provider === "ms" ? "OneDrive" : "Google Drive";
+  const hasHook = !!hookUrl.trim();
+  const cloudTarget = !!(provider || hasHook);
+  const cloudBusy = !!((directUpload && directUpload.running) || (upload && upload.running));
+  const pct = (s) => (s && s.total ? Math.round((s.sent / s.total) * 100) : 0);
+  const cloudPct = directUpload && directUpload.running ? pct(directUpload) : upload && upload.running ? pct(upload) : 0;
+  const cloudLabel = !provider
+    ? (upload && upload.running ? `Sending ${upload.sent} of ${upload.total}…` : "Send to your CRM")
+    : directUpload && directUpload.running
+      ? `Filing to ${providerName} ${directUpload.sent} of ${directUpload.total}…`
+      : upload && upload.running
+        ? `Sending to your CRM ${upload.sent} of ${upload.total}…`
+        : filedCount(provider) >= totalPhotos && totalPhotos > 0
+          ? `All photos filed — send notes to ${providerName}`
+          : filedCount(provider) > 0
+            ? `Upload the rest to ${providerName} (${totalPhotos - filedCount(provider)} of ${totalPhotos})`
+            : `Upload directly to ${providerName}`;
+  async function sendToCloud() {
+    if (cloudBusy) return;
+    if (provider) {
+      const ok = await uploadDirect(provider);
+      if (ok && hasHook) await uploadViaWebhook();
+    } else if (hasHook) {
+      await uploadViaWebhook();
+    }
   }
 
   return (
@@ -511,91 +544,40 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
         )}
 
         <div className="ss-section-label" style={{ marginTop: 18 }}>Export</div>
-        <button className="ss-btn ss-btn-primary ss-btn-big" onClick={handleSaveAll} disabled={totalPhotos === 0}
+        {cloudTarget && (
+          <>
+            <button className="ss-btn ss-btn-primary ss-btn-big" onClick={sendToCloud} disabled={cloudBusy || totalPhotos === 0}
+              title={totalPhotos === 0 ? "Take at least one photo first" : undefined}>
+              <CloudUpload size={19} /> {cloudLabel}
+            </button>
+            {cloudBusy && <div className="ss-upbar"><div style={{ width: `${cloudPct}%` }} /></div>}
+          </>
+        )}
+        <div className="ss-export-row">
+          <button className={`ss-btn ${cloudTarget ? "ss-btn-ghost" : "ss-btn-primary"}`} onClick={openReport} disabled={totalPhotos === 0 || reportBusy}
+            title={totalPhotos === 0 ? "Take at least one photo first" : undefined}>
+            <FileText size={18} /> Report (PDF)
+          </button>
+          <button className="ss-btn ss-btn-ghost" onClick={exportZip} disabled={zipBusy || totalPhotos === 0}
+            title={totalPhotos === 0 ? "Take at least one photo first" : undefined}>
+            <Download size={18} /> {zipBusy ? "Building ZIP…" : "Export ZIP"}
+          </button>
+        </div>
+        <button className="ss-btn ss-btn-ghost ss-btn-big" style={{ marginTop: 8 }} onClick={handleSaveAll} disabled={totalPhotos === 0}
           title={totalPhotos === 0 ? "Take at least one photo first" : undefined}>
           <ImagePlus size={19} /> Save all to Photos app
         </button>
-        <button className="ss-btn ss-btn-ghost ss-btn-big" style={{ marginTop: 8 }} onClick={exportZip} disabled={zipBusy || totalPhotos === 0}
-          title={totalPhotos === 0 ? "Take at least one photo first" : undefined}>
-          <Download size={19} />
-          {zipBusy ? "Building ZIP…" : "Export ZIP (numbered folders)"}
-        </button>
-        <button className="ss-btn ss-btn-ghost ss-btn-big" style={{ marginTop: 8 }} onClick={openReport} disabled={totalPhotos === 0 || reportBusy}
-          title={totalPhotos === 0 ? "Take at least one photo first" : undefined}>
-          <FileText size={19} /> Report (print / save PDF)
-        </button>
-        {hookUrl ? (
-          <>
-            <button className="ss-btn ss-btn-ghost ss-btn-big" style={{ marginTop: 8 }} onClick={uploadViaWebhook} disabled={(upload && upload.running) || totalPhotos === 0}
-              title={totalPhotos === 0 ? "Take at least one photo first" : undefined}>
-              <CloudUpload size={19} />
-              {upload
-                ? upload.running
-                  ? `Uploading ${upload.sent} of ${upload.total}…`
-                  : upload.doneAll
-                    ? (upload.confirmed ? "Filed ✓ — send again" : "Sent ✓ — send again")
-                    : "Retry upload"
-                : "Upload to cloud (Make/n8n/Zapier)"}
-            </button>
-            {upload && upload.running && (
-              <div className="ss-upbar"><div style={{ width: `${upload.total ? Math.round((upload.sent / upload.total) * 100) : 0}%` }} /></div>
-            )}
-          </>
-        ) : null}
-
-        {direct.ms && (
-          <>
-            <button className="ss-btn ss-btn-ghost ss-btn-big" style={{ marginTop: 8 }}
-              onClick={() => uploadDirect("ms")} disabled={(directUpload && directUpload.running) || totalPhotos === 0}
-              title={totalPhotos === 0 ? "Take at least one photo first" : undefined}>
-              <CloudUpload size={19} />
-              {directUpload && directUpload.provider === "ms" && directUpload.running
-                ? `Filing to OneDrive ${directUpload.sent} of ${directUpload.total}…`
-                : filedCount("ms") >= totalPhotos && totalPhotos > 0
-                  ? "All photos filed — send notes to OneDrive"
-                  : filedCount("ms") > 0
-                    ? `Upload the rest to OneDrive (${totalPhotos - filedCount("ms")} of ${totalPhotos})`
-                    : "Upload directly to OneDrive"}
-            </button>
-            {directUpload && directUpload.provider === "ms" && directUpload.running && (
-              <div className="ss-upbar"><div style={{ width: `${directUpload.total ? Math.round((directUpload.sent / directUpload.total) * 100) : 0}%` }} /></div>
-            )}
-          </>
-        )}
-        {direct.google && (
-          <>
-            <button className="ss-btn ss-btn-ghost ss-btn-big" style={{ marginTop: 8 }}
-              onClick={() => uploadDirect("google")} disabled={(directUpload && directUpload.running) || totalPhotos === 0}
-              title={totalPhotos === 0 ? "Take at least one photo first" : undefined}>
-              <CloudUpload size={19} />
-              {directUpload && directUpload.provider === "google" && directUpload.running
-                ? `Filing to Google Drive ${directUpload.sent} of ${directUpload.total}…`
-                : filedCount("google") >= totalPhotos && totalPhotos > 0
-                  ? "All photos filed — send notes to Google Drive"
-                  : filedCount("google") > 0
-                    ? `Upload the rest to Google Drive (${totalPhotos - filedCount("google")} of ${totalPhotos})`
-                    : "Upload directly to Google Drive"}
-            </button>
-            {directUpload && directUpload.provider === "google" && directUpload.running && (
-              <div className="ss-upbar"><div style={{ width: `${directUpload.total ? Math.round((directUpload.sent / directUpload.total) * 100) : 0}%` }} /></div>
-            )}
-          </>
-        )}
         {directError && <p className="ss-fineprint" style={{ color: "var(--red)" }}>{directError}</p>}
         {filing && filing.provider && totalPhotos > 0 && (
           <p className="ss-fineprint ss-filing-note" style={{ textAlign: "center" }}>
             {filing.pending > 0
               ? `Filing ${filing.pending} photo${filing.pending === 1 ? "" : "s"} to ${filing.provider === "ms" ? "OneDrive" : "Google Drive"} in the background…`
-              : `${filedCount(filing.provider)} of ${totalPhotos} photo${totalPhotos === 1 ? "" : "s"} filed to ${filing.provider === "ms" ? "OneDrive" : "Google Drive"} as they were taken. Captions added later are in the notes file and the report.`}
+              : `${filedCount(filing.provider)} of ${totalPhotos} photo${totalPhotos === 1 ? "" : "s"} filed to ${filing.provider === "ms" ? "OneDrive" : "Google Drive"} as taken.`}
           </p>
         )}
-
-        {!hookUrl && !direct.ms && !direct.google && (
-          <p className="ss-fineprint" style={{ textAlign: "center" }}>No cloud link set up yet.</p>
+        {!cloudTarget && (
+          <p className="ss-fineprint" style={{ textAlign: "center" }}>No cloud link yet — connect OneDrive in Settings to file photos as you shoot.</p>
         )}
-        <button className="ss-hook-toggle" onClick={onSettings}>
-          <Link2 size={13} /> Cloud upload settings
-        </button>
 
         {inspection.draftFindings && (
           <p className="ss-fineprint" style={{ textAlign: "center" }}>Draft findings are ready — see the Findings tab.</p>
@@ -603,9 +585,8 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
 
         {note && <div className="ss-note" style={{ marginTop: 10 }}>{note}</div>}
         <p className="ss-fineprint">
-          Nothing is deleted from this device until you close the inspection
-          below — export as many times as you like. The ZIP contains the exact
-          numbered folder structure shown above, ready to drop into OneDrive.
+          Nothing leaves this phone until you close the inspection below. The
+          ZIP mirrors the folder structure above.
         </p>
       </div>
 
@@ -664,10 +645,10 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
             <p>{uploadError}</p>
             <p style={{ marginBottom: 16 }}>
               <strong>Nothing has been lost.</strong> Every photo and note is still on
-              this phone. Fix the connection or the link and tap upload again, or
-              export a ZIP in the meantime.
+              this phone. Fix the connection and send again, or export a ZIP in
+              the meantime.
             </p>
-            <button className="ss-btn ss-btn-primary" onClick={() => { setUploadError(null); uploadViaWebhook(); }}>
+            <button className="ss-btn ss-btn-primary" onClick={() => { setUploadError(null); sendToCloud(); }}>
               Try again
             </button>
             <button className="ss-btn ss-btn-ghost" style={{ marginTop: 8 }} onClick={() => setUploadError(null)}>
@@ -845,7 +826,7 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
               {st === "waiting" && <WifiOff size={12} />}
               {st === "done" && <Check size={12} />}
               {(st === "failed" || st === "cancelled") && <X size={12} />}
-              {st === "queued" ? "queued" : st === "transcribing" ? "transcribing" : st === "drafting" ? "reading photos" : st === "waiting" ? "no signal — will retry" : st}
+              {st === "queued" ? "queued" : st === "transcribing" ? "transcribing" : st === "drafting" ? "reading photos" : st === "waiting" ? "connection lost — retrying" : st}
             </span>
           </div>
         );

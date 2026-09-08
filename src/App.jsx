@@ -783,7 +783,6 @@ export default function SiteSnap() {
             onFiled={(ids, provider) => ids.forEach((id) => markFiled(id, { provider, at: Date.now() }))}
             onSaveAll={async () => shareFiles(await filesForAll(), "Inspection photos")}
             onDone={finishAndReset}
-            onSettings={() => exitCase("settings")}
           /></Screen>
         )}
 

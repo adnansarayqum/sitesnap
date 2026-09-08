@@ -25,7 +25,7 @@ export function CaseFileScreen({
   inspection, sync, filing, onFiled, rooms, photoCache, totalPhotos, doneRooms,
   caseTab, onCaseTab, onExit, onReorder, onAddRoom, onRename, onOpenRoom, onWalk,
   filesForRoom, filesForUpload, fullPhoto, audioCache,
-  onUploadResult, onExportResult, onFindings, onTranscripts, onActivity, onSaveAll, onDone, onSettings,
+  onUploadResult, onExportResult, onFindings, onTranscripts, onActivity, onSaveAll, onDone,
   idPhoto, onIdPhoto, onRemoveIdPhoto, onShareIdPhoto,
 }) {
   const [renaming, setRenaming] = useState(false);
@@ -110,7 +110,7 @@ export function CaseFileScreen({
             inspection={inspection} rooms={rooms} photoCache={photoCache} totalPhotos={totalPhotos}
             filesForRoom={filesForRoom} filesForUpload={filesForUpload} fullPhoto={fullPhoto} audioCache={audioCache}
             onUploadResult={onUploadResult} onExportResult={onExportResult} onFindings={onFindings}
-            onSaveAll={onSaveAll} onDone={onDone} onSettings={onSettings}
+            onSaveAll={onSaveAll} onDone={onDone}
           />
         </div>
       )}
