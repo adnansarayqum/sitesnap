@@ -102,7 +102,7 @@ export default function SiteSnap() {
     photoTimers.current = {};
     const batch = Object.entries(pendingPhotos.current);
     pendingPhotos.current = {};
-    return Promise.all(batch.map(([id, caption]) => updatePhoto(id, { caption }).catch(() => {})));
+    return Promise.all(batch.map(([id, patch]) => updatePhoto(id, patch).catch(() => {})));
   }
 
   // Only the thumbnail lives in memory; the stored copy is read back from
@@ -532,20 +532,23 @@ export default function SiteSnap() {
   // A caption is typed one character at a time, and each photo record carries
   // its full-size image — so the write is debounced per photo rather than
   // rewriting a megabyte on every keystroke.
-  function setPhotoCaption(photoId, caption) {
+  // `aiGenerated` marks a caption the AI wrote and the surveyor hasn't
+  // touched yet (shown with a small badge) — any manual edit calls this
+  // without it, which is what clears the badge.
+  function setPhotoCaption(photoId, caption, aiGenerated = false) {
     setPhotoCache((c) => {
       const p = c[photoId];
       if (!p) return c;
-      pendingPhotos.current[photoId] = caption;
-      return { ...c, [photoId]: { ...p, caption } };
+      pendingPhotos.current[photoId] = { caption, captionAi: !!aiGenerated };
+      return { ...c, [photoId]: { ...p, caption, captionAi: !!aiGenerated } };
     });
     if (photoTimers.current[photoId]) clearTimeout(photoTimers.current[photoId]);
     photoTimers.current[photoId] = setTimeout(() => {
       delete photoTimers.current[photoId];
       if (photoId in pendingPhotos.current) {
-        const caption = pendingPhotos.current[photoId];
+        const patch = pendingPhotos.current[photoId];
         delete pendingPhotos.current[photoId];
-        updatePhoto(photoId, { caption }).catch(() => {});
+        updatePhoto(photoId, patch).catch(() => {});
       }
     }, 400);
   }

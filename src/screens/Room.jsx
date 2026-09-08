@@ -64,15 +64,75 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewIndex, ordered.length]);
 
-  // a light swipe left/right steps photos; a small deliberate horizontal
-  // drag, not an accidental brush while scrolling the (non-scrolling) stage
-  const touchStart = useRef(null);
-  function onStageTouchStart(e) { touchStart.current = e.touches[0].clientX; }
+  // Zoom stays local to whichever photo is open — a fresh look at the next
+  // one always starts flat, same as Photos/Instagram.
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const stageRef = useRef(null);
+  useEffect(() => { setZoom(1); setPan({ x: 0, y: 0 }); }, [viewIndex]);
+
+  const MAX_ZOOM = 4;
+  const ZOOM_STEP = 2.5; // what a double-tap/double-click jumps to
+  function clampPan(z, p) {
+    const stage = stageRef.current;
+    if (!stage || z <= 1) return { x: 0, y: 0 };
+    // how far the enlarged image can shift before its edge would show —
+    // approximated from the stage's own box, which is close enough since
+    // the photo is drawn to fill it (object-fit: contain)
+    const maxX = (stage.clientWidth * (z - 1)) / 2;
+    const maxY = (stage.clientHeight * (z - 1)) / 2;
+    return { x: Math.min(maxX, Math.max(-maxX, p.x)), y: Math.min(maxY, Math.max(-maxY, p.y)) };
+  }
+  function toggleZoom() {
+    setZoom((z) => { const next = z > 1 ? 1 : ZOOM_STEP; setPan((p) => clampPan(next, next > 1 ? p : { x: 0, y: 0 })); return next; });
+  }
+
+  // Pinch (two fingers) zooms; one finger pans while zoomed in, or steps
+  // to the next/previous photo (a short horizontal swipe) at 1x — never
+  // both at once, so a swipe-to-navigate can't fire mid-pinch.
+  const touchStart = useRef(null); // swipe-nav tracking, 1x only
+  const pinch = useRef(null); // { startDist, startZoom }
+  const dragPan = useRef(null); // { startX, startY, startPanX, startPanY }
+  const lastTap = useRef(0);
+  const dist2 = (touches) => Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
+
+  function onStageTouchStart(e) {
+    if (e.touches.length === 2) {
+      pinch.current = { startDist: dist2(e.touches), startZoom: zoom };
+      touchStart.current = null;
+      dragPan.current = null;
+    } else if (e.touches.length === 1) {
+      if (zoom > 1) {
+        dragPan.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, startPanX: pan.x, startPanY: pan.y };
+      } else {
+        touchStart.current = e.touches[0].clientX;
+      }
+      const now = Date.now();
+      if (now - lastTap.current < 300) { toggleZoom(); lastTap.current = 0; }
+      else lastTap.current = now;
+    }
+  }
+  function onStageTouchMove(e) {
+    if (e.touches.length === 2 && pinch.current) {
+      e.preventDefault();
+      const next = Math.min(MAX_ZOOM, Math.max(1, pinch.current.startZoom * (dist2(e.touches) / pinch.current.startDist)));
+      setZoom(next);
+      setPan((p) => clampPan(next, p));
+    } else if (e.touches.length === 1 && dragPan.current) {
+      const dx = e.touches[0].clientX - dragPan.current.startX;
+      const dy = e.touches[0].clientY - dragPan.current.startY;
+      setPan(clampPan(zoom, { x: dragPan.current.startPanX + dx, y: dragPan.current.startPanY + dy }));
+    }
+  }
   function onStageTouchEnd(e) {
-    if (touchStart.current == null) return;
-    const dx = e.changedTouches[0].clientX - touchStart.current;
+    if (e.touches.length > 0) return; // wait for every finger to lift
+    pinch.current = null;
+    dragPan.current = null;
+    if (zoom <= 1 && touchStart.current != null) {
+      const dx = e.changedTouches[0].clientX - touchStart.current;
+      if (Math.abs(dx) > 50) stepPhoto(dx > 0 ? -1 : 1);
+    }
     touchStart.current = null;
-    if (Math.abs(dx) > 50) stepPhoto(dx > 0 ? -1 : 1);
   }
 
   const [note, setNote] = useState(null);
@@ -124,7 +184,7 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
       let filled = 0;
       for (const c of res.photos || []) {
         const p = photos.find((x) => x.id === c.id);
-        if (p && !(p.caption || "").trim() && c.caption && c.caption.trim()) { onCaption(c.id, c.caption.trim()); filled += 1; }
+        if (p && !(p.caption || "").trim() && c.caption && c.caption.trim()) { onCaption(c.id, c.caption.trim(), true); filled += 1; }
       }
       const notedRoom = !!(res.room_note && !(room.note || "").trim());
       if (notedRoom) onMeta({ note: res.room_note });
@@ -141,6 +201,36 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
       setCaptioning(false);
     }
   }
+
+  const metaCard = (
+    <div className="ss-meta">
+      <div className="ss-cond-row">
+        <span className="ss-cond-label" title="Rated rooms show a coloured badge in the report and board, and are what the AI drafting step reads">Condition</span>
+        {CONDITIONS.map((c) => (
+          <button key={c}
+            className={`ss-cond ${c.toLowerCase()} ${room.condition === c ? "on" : ""}`}
+            title={`Rate this room ${c} — shown in the report and sent to the AI drafting step`}
+            onClick={() => onMeta({ condition: room.condition === c ? null : c })}>
+            {c}
+          </button>
+        ))}
+      </div>
+      <textarea
+        className="ss-note-input" rows={2}
+        placeholder="Notes — damage, decor, meter readings… (or use your keyboard's mic)"
+        value={room.note || ""}
+        onChange={(e) => onMeta({ note: e.target.value })}
+      />
+      <input
+        className="ss-note-input ss-hyp-input"
+        placeholder="Your read on the cause, if you have one — the AI tests it against the photos"
+        title="Optional. Say what you think is causing it; the draft will say whether the photographs agree, and flag it if they don't."
+        value={room.hypothesis || ""}
+        onChange={(e) => onMeta({ hypothesis: e.target.value })}
+      />
+      <VoiceMemo memos={room.memos || []} onAdd={onAddMemo} onDelete={onDeleteMemo} />
+    </div>
+  );
 
   return (
     <div className="ss-col">
@@ -172,35 +262,11 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
       {note && <div className="ss-note">{note}</div>}
 
       <div className="ss-scroll">
-        <div className="ss-meta">
-          <div className="ss-cond-row">
-            <span className="ss-cond-label" title="Rated rooms show a coloured badge in the report and board, and are what the AI drafting step reads">Condition</span>
-            {CONDITIONS.map((c) => (
-              <button key={c}
-                className={`ss-cond ${c.toLowerCase()} ${room.condition === c ? "on" : ""}`}
-                title={`Rate this room ${c} — shown in the report and sent to the AI drafting step`}
-                onClick={() => onMeta({ condition: room.condition === c ? null : c })}>
-                {c}
-              </button>
-            ))}
-          </div>
-          <textarea
-            className="ss-note-input" rows={2}
-            placeholder="Notes — damage, decor, meter readings… (or use your keyboard's mic)"
-            value={room.note || ""}
-            onChange={(e) => onMeta({ note: e.target.value })}
-          />
-          <input
-            className="ss-note-input ss-hyp-input"
-            placeholder="Your read on the cause, if you have one — the AI tests it against the photos"
-            title="Optional. Say what you think is causing it; the draft will say whether the photographs agree, and flag it if they don't."
-            value={room.hypothesis || ""}
-            onChange={(e) => onMeta({ hypothesis: e.target.value })}
-          />
-          <VoiceMemo memos={room.memos || []} onAdd={onAddMemo} onDelete={onDeleteMemo} />
-        </div>
-
         {photos.length === 0 ? (
+          // Camera-first: a surveyor walking into an empty room shoots
+          // before they write anything, so the shutter prompt leads and the
+          // notes/condition card — still one tap away — follows rather than
+          // standing between them and the camera.
           <>
             <div className="ss-empty">
               <Camera size={22} />
@@ -212,24 +278,31 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
                 ? "Once you've shot a few, AI captions can fill these in for you — still yours to edit."
                 : "Exhibit numbers start fresh in each room, so photo 1 here won't clash with photo 1 elsewhere."}</span>
             </div>
+            {metaCard}
           </>
         ) : (
-          <div className="ss-shots">
-            {ordered.map((p, i) => (
-              <div key={p.id} className="ss-shot">
-                <button className="ss-cell" onClick={() => openPhoto(i)}>
-                  <img src={p.thumb || p.dataUrl} alt="Inspection" loading="lazy" decoding="async" />
-                  {p.no ? <span className="ss-cell-no">{p.no}</span> : null}
-                </button>
-                <input
-                  className="ss-caption"
-                  placeholder="What is it? e.g. damp and mould to ceiling"
-                  value={p.caption || ""}
-                  onChange={(e) => onCaption(p.id, e.target.value)}
-                />
-              </div>
-            ))}
-          </div>
+          <>
+            {metaCard}
+            <div className="ss-shots">
+              {ordered.map((p, i) => (
+                <div key={p.id} className="ss-shot">
+                  <button className="ss-cell" onClick={() => openPhoto(i)}>
+                    <img src={p.thumb || p.dataUrl} alt="Inspection" loading="lazy" decoding="async" />
+                    {p.no ? <span className="ss-cell-no">{p.no}</span> : null}
+                  </button>
+                  <div className={`ss-caption-wrap ${p.captionAi ? "ai" : ""}`}>
+                    {p.captionAi && <Sparkles size={11} className="ss-caption-ai-badge" aria-label="AI-suggested — not yet reviewed" />}
+                    <input
+                      className="ss-caption"
+                      placeholder="What is it? e.g. damp and mould to ceiling"
+                      value={p.caption || ""}
+                      onChange={(e) => onCaption(p.id, e.target.value)}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
         <div style={{ height: 12 }} />
       </div>
@@ -248,14 +321,19 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
             <span className="ss-lightbox-count">{viewIndex + 1} of {ordered.length}</span>
             <span style={{ width: 40 }} />
           </div>
-          <div className="ss-lightbox-stage" onClick={(e) => e.stopPropagation()}
-            onTouchStart={onStageTouchStart} onTouchEnd={onStageTouchEnd}>
-            <button className="ss-lightbox-arrow prev" disabled={viewIndex === 0}
+          <div className="ss-lightbox-stage" ref={stageRef} onClick={(e) => e.stopPropagation()}
+            onTouchStart={onStageTouchStart} onTouchMove={onStageTouchMove} onTouchEnd={onStageTouchEnd}>
+            <button className="ss-lightbox-arrow prev" disabled={viewIndex === 0 || zoom > 1}
               onClick={() => stepPhoto(-1)} aria-label="Previous photo"><ChevronLeft size={22} /></button>
-            <img src={shownPhoto.dataUrl || shownPhoto.thumb} alt="Full view" />
-            <button className="ss-lightbox-arrow next" disabled={viewIndex === ordered.length - 1}
+            <img
+              src={shownPhoto.dataUrl || shownPhoto.thumb} alt="Full view"
+              onDoubleClick={toggleZoom}
+              style={{ transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`, cursor: zoom > 1 ? "grab" : "zoom-in" }}
+            />
+            <button className="ss-lightbox-arrow next" disabled={viewIndex === ordered.length - 1 || zoom > 1}
               onClick={() => stepPhoto(1)} aria-label="Next photo"><ChevronRight size={22} /></button>
           </div>
+          {zoom > 1 && <div className="ss-lightbox-zoom-hint">{Math.round(zoom * 100)}%</div>}
           <div className="ss-lightbox-bottom" onClick={(e) => e.stopPropagation()}>
             {shownPhoto.no ? <div className="ss-lb-no">Exhibit {shownPhoto.no}</div> : null}
             {shownPhoto.takenAt && (

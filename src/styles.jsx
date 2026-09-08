@@ -308,8 +308,8 @@ export function StyleBlock() {
       .ss-lightbox-top { display: flex; align-items: center; justify-content: space-between; padding: 14px; flex-shrink: 0; }
       .ss-lightbox-top button { width: 40px; height: 40px; border-radius: 999px; background: rgba(255,255,255,.12); color: #fff; display: flex; align-items: center; justify-content: center; }
       .ss-lightbox-count { color: rgba(255,255,255,.7); font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
-      .ss-lightbox-stage { flex: 1; min-height: 0; position: relative; display: flex; align-items: center; }
-      .ss-lightbox img { flex: 1; min-height: 0; width: 100%; height: 100%; object-fit: contain; padding: 0 10px; user-select: none; }
+      .ss-lightbox-stage { flex: 1; min-height: 0; position: relative; display: flex; align-items: center; overflow: hidden; touch-action: none; }
+      .ss-lightbox img { flex: 1; min-height: 0; width: 100%; height: 100%; object-fit: contain; padding: 0 10px; user-select: none; touch-action: none; }
       .ss-lightbox-arrow {
         position: absolute; top: 50%; transform: translateY(-50%); z-index: 2;
         width: 40px; height: 40px; border-radius: 999px; background: rgba(255,255,255,.10); color: #fff;
@@ -318,6 +318,11 @@ export function StyleBlock() {
       .ss-lightbox-arrow:disabled { opacity: 0; pointer-events: none; }
       .ss-lightbox-arrow.prev { left: 8px; }
       .ss-lightbox-arrow.next { right: 8px; }
+      .ss-lightbox-zoom-hint {
+        position: absolute; top: 62px; left: 50%; transform: translateX(-50%); z-index: 2;
+        background: rgba(255,255,255,.14); color: #fff; font-size: 11.5px; font-weight: 800;
+        padding: 4px 10px; border-radius: 999px; font-variant-numeric: tabular-nums; pointer-events: none;
+      }
       .ss-lightbox-bottom { padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); flex-shrink: 0; }
 
       /* ---- finish ---- */
@@ -463,6 +468,12 @@ export function StyleBlock() {
       }
       .ss-caption:focus { border-color: var(--pine); }
       .ss-caption::placeholder { font-size: 12px; }
+      /* a caption the AI wrote and nobody has read yet — the badge is gone
+         the instant it's edited, since onCaption then fires without the
+         ai flag and the photo record no longer carries it */
+      .ss-caption-wrap { position: relative; }
+      .ss-caption-wrap.ai .ss-caption { padding-right: 26px; }
+      .ss-caption-ai-badge { position: absolute; right: 9px; top: 50%; transform: translateY(-50%); color: var(--pine); pointer-events: none; }
       .ss-modal-left { text-align: left; }
       .ss-modal-left .ss-modal-title { text-align: center; }
 
