@@ -35,12 +35,19 @@ deployment tells you what it sees.
 except: under *Redirect URI* choose platform **Web** (not SPA) and enter
 `https://<your-app>/auth/onedrive/callback`; then **Certificates &
 secrets → New client secret**, copy the *value* (shown once) into
-`MS_CLIENT_SECRET`. Under *API permissions* add `Files.ReadWrite`,
+`MS_CLIENT_SECRET`. Under *API permissions* add `Files.ReadWrite.AppFolder`,
 `offline_access`, `openid`, `profile`, `email` (all delegated, no admin
 consent). Supported account types must still be *any organizational
 directory and personal Microsoft accounts* — a work tenant whose policy
 forbids that can't host this registration; use a personal Microsoft
 account.
+
+`Files.ReadWrite.AppFolder`, not the bare `Files.ReadWrite` — SiteSnap is
+confined to its own isolated OneDrive folder (`Apps/SiteSnap`) and cannot
+see or touch anything else in the account, including whatever else lives in
+that OneDrive. Worth the trade-off given what's in a case folder: tenant
+names, addresses, disrepair evidence — the kind of thing you don't want one
+compromised app able to reach beyond its own sandbox.
 
 **Google client for the service** — as in the Google Drive steps below,
 except: the OAuth client's *Authorized redirect URIs* gets
@@ -108,14 +115,21 @@ several surveyors sharing one deployment.
 6. Click **Register**. On the app's Overview page, copy the
    **Application (client) ID**.
 7. Go to **API permissions** → **Add a permission** → **Microsoft Graph** →
-   **Delegated permissions** → search for and add `Files.ReadWrite`. (You
-   do **not** need admin consent for this — it's a personal-scope
-   permission the surveyor grants themselves the first time they connect.)
+   **Delegated permissions** → search for and add
+   `Files.ReadWrite.AppFolder`. (You do **not** need admin consent for
+   this — it's a personal-scope permission the surveyor grants themselves
+   the first time they connect. It's also the *least* Microsoft offers:
+   the app is confined to its own dedicated OneDrive folder and can't see
+   anything else in the account — worth knowing if a surveyor asks what
+   "Have full access to your files" on the consent screen actually means
+   for them: with this scope, it doesn't apply.)
 8. In SiteSnap, open **Settings** → paste the client ID into the OneDrive
    card → **Connect OneDrive** → sign in with the same Microsoft account.
 
-That's it — uploads now go to `/Inspections/<address>/<room>/<file>` in
-that account's own OneDrive, the same folder layout Make produces.
+That's it — uploads now go to
+`Apps/SiteSnap/Inspections/<address>/<room>/<file>` in that account's own
+OneDrive (Microsoft creates the `Apps/SiteSnap` folder itself, the first
+time the app writes anything) — same layout under it that Make produces.
 
 ## Google Drive
 

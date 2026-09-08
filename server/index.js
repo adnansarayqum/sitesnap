@@ -41,7 +41,9 @@ const PROVIDERS = {
     authUrl: process.env.MS_AUTH_URL || "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
     tokenUrl: process.env.MS_TOKEN_URL || "https://login.microsoftonline.com/common/oauth2/v2.0/token",
     revokeUrl: null, // Microsoft has no per-app revoke endpoint; the account's "apps you've given access to" page does it
-    scope: "openid profile email offline_access Files.ReadWrite",
+    // .AppFolder, not the bare scope: confines the app to its own isolated
+    // OneDrive folder rather than the whole drive (see src/cloud/msGraph.js)
+    scope: "openid profile email offline_access Files.ReadWrite.AppFolder",
     authParams: {},
   },
   google: {

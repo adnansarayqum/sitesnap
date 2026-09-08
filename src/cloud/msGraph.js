@@ -2,10 +2,17 @@
 // Uses MSAL Browser's PKCE flow (public client, no secret needed for a
 // static PWA) so a surveyor can sign in with their own Microsoft account
 // and Graph writes straight into their OneDrive.
+//
+// Scoped to the app's own OneDrive folder (Files.ReadWrite.AppFolder), not
+// the whole drive — SiteSnap physically cannot see or touch anything
+// outside "Apps/SiteSnap" in the account it's connected to, which matters
+// given the case files living there (tenant names, addresses, disrepair
+// evidence). The trade-off: a surveyor browsing their own OneDrive finds
+// inspections under Apps/SiteSnap/Inspections, not at the drive's root.
 import { PublicClientApplication } from "@azure/msal-browser";
 import { serviceToken } from "./service.js";
 
-const SCOPES = ["Files.ReadWrite", "User.Read"];
+const SCOPES = ["Files.ReadWrite.AppFolder", "User.Read"];
 
 let msalInstance = null;
 let initPromise = null;
@@ -73,7 +80,8 @@ async function getToken(clientId) {
 
 function graphPathFor(segments) {
   // Graph builds/creates the folder path automatically from a colon-path,
-  // same layout Make already produces: /Inspections/<address>/<folder>/<file>
+  // same layout Make already produces: Inspections/<address>/<folder>/<file>
+  // — relative to the app folder (see uploadToOneDrive), not the drive root
   return segments.map((s) => encodeURIComponent(s)).join("/");
 }
 
@@ -82,7 +90,9 @@ function graphPathFor(segments) {
 export async function uploadToOneDrive(clientId, segments, file) {
   const token = await getToken(clientId);
   const path = graphPathFor(segments);
-  const res = await fetch(`https://graph.microsoft.com/v1.0/me/drive/root:/${path}:/content`, {
+  // special/approot, not drive/root — confines every write to the app's own
+  // isolated OneDrive folder, matching the AppFolder scope above
+  const res = await fetch(`https://graph.microsoft.com/v1.0/me/drive/special/approot:/${path}:/content`, {
     method: "PUT",
     headers: {
       Authorization: `Bearer ${token}`,
