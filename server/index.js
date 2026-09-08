@@ -683,10 +683,23 @@ if (hasDb) {
           b.startedAt ? new Date(b.startedAt) : null, b.closedAt ? new Date(b.closedAt) : null, JSON.stringify(doc)]);
       const keep = photos.map((p) => String(p.id));
       await c.query("delete from photos where case_id = $1 and not (id = any($2::text[]))", [id, keep]);
-      for (const p of photos) {
-        await c.query(`insert into photos (id, case_id, room_id, no, caption) values ($1, $2, $3, $4, $5)
-                       on conflict (id) do update set room_id = excluded.room_id, no = excluded.no, caption = excluded.caption`,
-          [String(p.id), id, p.roomId ? String(p.roomId) : null, Number.isFinite(p.no) ? p.no : null, p.caption ? String(p.caption).slice(0, 500) : null]);
+      // one round trip for the whole case regardless of photo count, not one
+      // per photo — a big case held the transaction (and its pool
+      // connection) open for as long as it took Postgres to answer N
+      // sequential inserts; unnest turns the batch into a single query
+      if (photos.length) {
+        await c.query(
+          `insert into photos (id, case_id, room_id, no, caption)
+           select * from unnest($1::text[], $2::text[], $3::text[], $4::int[], $5::text[])
+           on conflict (id) do update set room_id = excluded.room_id, no = excluded.no, caption = excluded.caption`,
+          [
+            photos.map((p) => String(p.id)),
+            photos.map(() => id),
+            photos.map((p) => (p.roomId ? String(p.roomId) : null)),
+            photos.map((p) => (Number.isFinite(p.no) ? p.no : null)),
+            photos.map((p) => (p.caption ? String(p.caption).slice(0, 500) : null)),
+          ],
+        );
       }
       const missing = (await c.query("select id from photos where case_id = $1 and thumb is null", [id])).rows.map((r) => r.id);
       return { case_no: caseNo, missingThumbs: missing, created: !existing };
