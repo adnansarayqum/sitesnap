@@ -1,10 +1,26 @@
 // SiteSnap service worker — keeps the app shell available offline so an
 // inspection can carry on mid-property with no signal. Photos live in
 // IndexedDB, so only the shell (HTML + hashed assets) is cached here.
-const CACHE = "sitesnap-shell-v3";
+const CACHE = "sitesnap-shell-v4";
 
-self.addEventListener("install", () => {
+// Precache the shell and the hashed bundles it references at install, so
+// the app works offline from the very first visit. Without this the shell
+// was only cached by a *controlled* navigation — i.e. the second visit — and
+// a surveyor who installed the app in the office and drove straight to a
+// property with no signal got a browser error page.
+self.addEventListener("install", (event) => {
   self.skipWaiting();
+  event.waitUntil((async () => {
+    try {
+      const c = await caches.open(CACHE);
+      const res = await fetch("/", { cache: "no-store" });
+      if (!res.ok) return;
+      const html = await res.clone().text();
+      await c.put("/", res);
+      const assets = Array.from(new Set(html.match(/\/assets\/[^"' )]+/g) || []));
+      await Promise.all(assets.map((a) => c.add(a).catch(() => {})));
+    } catch { /* offline at install — the next online visit fills the cache */ }
+  })());
 });
 
 self.addEventListener("activate", (event) => {

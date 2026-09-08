@@ -24,7 +24,9 @@ initNativeShell();
 
 // Offline shell — photos already persist in IndexedDB; this keeps the app
 // itself loadable with no signal. Dev servers are skipped.
-if ("serviceWorker" in navigator && location.protocol === "https:") {
+// localhost counts as a secure context, so the offline shell can be
+// exercised against a local build too, not only in production
+if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/sw.js").catch(() => {});
   });

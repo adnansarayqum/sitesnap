@@ -236,7 +236,12 @@ const CSP = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
   "img-src 'self' data: blob:",
-  "connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com https://www.googleapis.com https://accounts.google.com https://*.sentry.io",
+  // `https:` rather than a host list: the CRM/ERP export posts to whatever
+  // HTTPS address a firm's admin configures, which a fixed list can't know.
+  // Scripts stay 'self'-only, so this only widens where an already-running
+  // page may send requests, not what can run. CSP_CONNECT_EXTRA adds
+  // space-separated origins on top (a plain-http receiver in development).
+  `connect-src 'self' https:${process.env.CSP_CONNECT_EXTRA ? " " + process.env.CSP_CONNECT_EXTRA.trim() : ""}`,
   // the on-device OCR worker (tesseract.js) is spawned from a same-origin
   // script wrapped in a blob: URL, not loaded directly — Worker construction
   // needs blob: explicitly, 'self' alone doesn't cover it
@@ -713,6 +718,11 @@ if (hasDb) {
     const out = await tx(async (c) => {
       const existing = (await c.query("select org_id, case_no, created_by from cases where id = $1", [id])).rows[0];
       if (existing && existing.org_id !== req.session.org_id) { const e = new Error("forbidden"); e.status = 403; throw e; }
+      // the register copy is written only by the phone that owns the case
+      // (or an admin) — a colleague sees it read-only, and must not be able
+      // to overwrite a case they didn't shoot
+      const admin = ["owner", "admin"].includes(req.membership.role);
+      if (existing && existing.created_by !== req.session.user_id && !admin) { const e = new Error("This case belongs to a colleague."); e.status = 403; e.code = "not_your_case"; throw e; }
       let caseNo = existing ? existing.case_no : null;
       if (caseNo == null) {
         await c.query("insert into org_counters (org_id) values ($1) on conflict do nothing", [req.session.org_id]);
@@ -754,8 +764,10 @@ if (hasDb) {
   }));
 
   app.post("/api/cases/:id/thumbs", requireOrg, wrap(async (req, res) => {
-    const owned = await one("select 1 from cases where id = $1 and org_id = $2", [req.params.id, req.session.org_id]);
+    const owned = await one("select created_by from cases where id = $1 and org_id = $2", [req.params.id, req.session.org_id]);
     if (!owned) return res.status(404).json({ error: "not_found" });
+    const admin = ["owner", "admin"].includes(req.membership.role);
+    if (owned.created_by !== req.session.user_id && !admin) return res.status(403).json({ error: "not_your_case" });
     const thumbs = Array.isArray(req.body && req.body.thumbs) ? req.body.thumbs.slice(0, 25) : [];
     let stored = 0;
     for (const t of thumbs) {
@@ -798,6 +810,10 @@ app.use(express.static(DIST, {
     res.setHeader("Cache-Control", /[\\/]assets[\\/]/.test(filePath) ? "public, max-age=31536000, immutable" : "no-cache");
   },
 }));
+// an unknown API path is a JSON 404 whatever the method — never Express's
+// HTML error page, which a fetch() caller can't read
+app.all("/api/{*splat}", (req, res) => res.status(404).json({ error: "not found" }));
+app.all("/auth/{*splat}", (req, res) => res.status(404).json({ error: "not found" }));
 // Express 5 (path-to-regexp 8) needs the catch-all named; the braces make
 // the segment optional so the bare "/" is caught too
 app.get("/{*splat}", (req, res) => {

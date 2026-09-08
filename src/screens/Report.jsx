@@ -86,7 +86,9 @@ export function ReportView({ inspection, rooms, photoCache, onClose }) {
                   {photos.map((p) => (
                     <figure key={p.id}>
                       <img src={p.dataUrl} alt="" />
-                      {p.no ? <figcaption>Photo {p.no}</figcaption> : null}
+                      {(p.no || (p.caption && p.caption.trim())) ? (
+                        <figcaption>{p.no ? `Photo ${p.no}` : ""}{p.caption && p.caption.trim() ? `${p.no ? " — " : ""}${p.caption.trim()}` : ""}</figcaption>
+                      ) : null}
                     </figure>
                   ))}
                 </div>

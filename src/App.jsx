@@ -33,6 +33,22 @@ import { linkedAccount } from "./cloud/service.js";
 // with this class replays its entrance animation on every navigation, not
 // just the very first paint. Cheap, but it's what makes switching screens
 // read as movement instead of a hard cut.
+// A synchronous write-ahead copy of what the debounced IndexedDB save is
+// about to persist. An IndexedDB write started in pagehide can be dropped
+// when the app is killed or reloaded straight after a keystroke; a
+// localStorage write is synchronous, so the last edit survives and is
+// replayed on the next open. Cleared as soon as the real save completes.
+const WAL = {
+  key: (id) => `sitesnap:wal:${id}`,
+  capKey: (photoId) => `sitesnap:capwal:${photoId}`,
+  write(id, inspection, rooms) { try { localStorage.setItem(WAL.key(id), JSON.stringify({ inspection, rooms })); } catch { /* full or blocked — the debounced save is still coming */ } },
+  read(id) { try { const s = localStorage.getItem(WAL.key(id)); return s ? JSON.parse(s) : null; } catch { return null; } },
+  clear(id) { try { localStorage.removeItem(WAL.key(id)); } catch { /* nothing to clear */ } },
+  writeCaption(photoId, patch) { try { localStorage.setItem(WAL.capKey(photoId), JSON.stringify(patch)); } catch { /* as above */ } },
+  readCaption(photoId) { try { const s = localStorage.getItem(WAL.capKey(photoId)); return s ? JSON.parse(s) : null; } catch { return null; } },
+  clearCaption(photoId) { try { localStorage.removeItem(WAL.capKey(photoId)); } catch { /* nothing to clear */ } },
+};
+
 const SCREEN_STYLE = { display: "flex", flexDirection: "column", flex: 1, minHeight: 0 };
 function Screen({ children }) {
   return <div className="ss-screen-in" style={SCREEN_STYLE}>{children}</div>;
@@ -95,14 +111,14 @@ export default function SiteSnap() {
     if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
     const p = pendingSave.current;
     pendingSave.current = null;
-    return p ? saveState(p.inspection, p.rooms) : Promise.resolve();
+    return p ? saveState(p.inspection, p.rooms).then((r) => { WAL.clear(p.inspection.id); return r; }) : Promise.resolve();
   }
   function flushPhotoSaves() {
     Object.values(photoTimers.current).forEach(clearTimeout);
     photoTimers.current = {};
     const batch = Object.entries(pendingPhotos.current);
     pendingPhotos.current = {};
-    return Promise.all(batch.map(([id, patch]) => updatePhoto(id, patch).catch(() => {})));
+    return Promise.all(batch.map(([id, patch]) => updatePhoto(id, patch).then(() => WAL.clearCaption(id)).catch(() => {})));
   }
 
   // Only the thumbnail lives in memory; the stored copy is read back from
@@ -123,6 +139,7 @@ export default function SiteSnap() {
   useEffect(() => {
     if (!inspection || inspection.id === suppressSaveId.current) return;
     pendingSave.current = { inspection, rooms };
+    WAL.write(inspection.id, inspection, rooms);
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(flushSave, saveNow.current ? 0 : 250);
     saveNow.current = false;
@@ -306,6 +323,10 @@ export default function SiteSnap() {
   async function openInspection(id, fromTab = "home") {
     const data = await loadInspection(id);
     if (!data || !data.inspection) { await refreshIndex(); return; }
+    // an edit whose IndexedDB save never completed (app killed mid-debounce)
+    // is replayed from the write-ahead copy; the normal save then clears it
+    const wal = WAL.read(id);
+    if (wal && wal.inspection && wal.inspection.id === id) { data.inspection = wal.inspection; data.rooms = wal.rooms || data.rooms; }
     suppressSaveId.current = null;
     setReturnTab(fromTab);
     setCaseTab("overview");
@@ -327,6 +348,8 @@ export default function SiteSnap() {
         } catch { /* keep the full copy in memory as before */ }
       }
       cache[pid] = lighten(p);
+      const cap = WAL.readCaption(pid);
+      if (cap) { cache[pid] = { ...cache[pid], ...cap }; updatePhoto(pid, cap).then(() => WAL.clearCaption(pid)).catch(() => {}); }
     }
     if (data.inspection.idPhotoId) {
       const p = await loadPhoto(data.inspection.idPhotoId);
@@ -343,7 +366,7 @@ export default function SiteSnap() {
     photoSeq.current = {};
     for (const r of data.rooms || []) {
       photoSeq.current[r.id] = (r.photoIds || [])
-        .reduce((m, pid) => Math.max(m, (cache[pid] && cache[pid].no) || 0), 0);
+        .reduce((m, pid) => Math.max(m, (cache[pid] && cache[pid].no) || 0), r.seq || 0);
     }
     setScreen("casefile");
     // anything shot offline, or before a drive was linked, files now
@@ -418,8 +441,12 @@ export default function SiteSnap() {
     if (originalFile) originals.current[photo.id] = originalFile;
     saveNow.current = true;
     setPhotoCache((c) => ({ ...c, [photo.id]: photo }));
+    // `seq` rides along on the saved room so the counter survives a reload:
+    // a number is never handed out twice for the life of the case, even
+    // after the photo that had it is deleted — a reused "20 Kitchen.jpg"
+    // would silently overwrite the one already filed in the drive
     setRooms((prev) => prev.map((r) =>
-      r.id === roomId ? { ...r, photoIds: [...r.photoIds, photo.id] } : r
+      r.id === roomId ? { ...r, photoIds: [...r.photoIds, photo.id], seq: no } : r
     ));
     const roomName = (rooms.find((r) => r.id === roomId) || {}).name || "a room";
     logActivity(`Photo added to ${roomName} — Exhibit ${no}`);
@@ -536,6 +563,7 @@ export default function SiteSnap() {
   // touched yet (shown with a small badge) — any manual edit calls this
   // without it, which is what clears the badge.
   function setPhotoCaption(photoId, caption, aiGenerated = false) {
+    WAL.writeCaption(photoId, { caption, captionAi: !!aiGenerated });
     setPhotoCache((c) => {
       const p = c[photoId];
       if (!p) return c;
@@ -548,9 +576,9 @@ export default function SiteSnap() {
       if (photoId in pendingPhotos.current) {
         const patch = pendingPhotos.current[photoId];
         delete pendingPhotos.current[photoId];
-        updatePhoto(photoId, patch).catch(() => {});
+        updatePhoto(photoId, patch).then(() => WAL.clearCaption(photoId)).catch(() => {});
       }
-    }, 400);
+    }, 250);
   }
 
   function setRoomMeta(roomId, patch) {
@@ -573,10 +601,12 @@ export default function SiteSnap() {
     suppressSaveId.current = inspection.id;
     if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
     pendingSave.current = null;
+    WAL.clear(inspection.id);
     Object.values(photoTimers.current).forEach(clearTimeout);
     photoTimers.current = {};
     pendingPhotos.current = {};
     const ids = rooms.flatMap((r) => r.photoIds);
+    ids.forEach((id) => WAL.clearCaption(id));
     const memoIds = rooms.flatMap((r) => (r.memos || []).map((m) => m.id));
     // the register keeps the closed case (with its thumbnails) after the
     // phone lets the photos go
@@ -605,8 +635,9 @@ export default function SiteSnap() {
   // Discards a whole property from the list without opening it.
   async function discardInspection(id) {
     const data = await loadInspection(id);
+    WAL.clear(id);
     if (data && data.rooms) {
-      data.rooms.flatMap((r) => r.photoIds).forEach((pid) => removePhoto(pid));
+      data.rooms.flatMap((r) => r.photoIds).forEach((pid) => { removePhoto(pid); WAL.clearCaption(pid); });
       data.rooms.flatMap((r) => (r.memos || []).map((m) => m.id)).forEach((mid) => removeAudio(mid));
     }
     if (data && data.inspection && data.inspection.idPhotoId) removePhoto(data.inspection.idPhotoId);
@@ -633,7 +664,7 @@ export default function SiteSnap() {
       const light = photoCache[id];
       const orig = compressedOnly ? null : originals.current[id];
       if (orig) {
-        const ext = (orig.type && orig.type.split("/")[1]) || "jpg";
+        const ext = ((orig.type && orig.type.split("/")[1]) || "jpg").replace(/^jpeg$/, "jpg");
         out.push(new File([orig], photoFilename(light, room, i, ext), { type: orig.type || "image/jpeg" }));
         continue;
       }

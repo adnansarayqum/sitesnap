@@ -112,6 +112,25 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
     return s.replace(/[\\/:*?"<>|]/g, "-").trim();
   }
 
+  // The structured record of the inspection — what the ZIP, the drive upload
+  // and a CRM receiver all get as _Inspection/inspection.json, so the notes,
+  // ratings and captions travel with the photos rather than living only in
+  // the filenames.
+  function inspectionNotes() {
+    return {
+      inspectionId: inspection.id, address: inspection.address, postcode: inspection.postcode || "",
+      reference: inspection.ref || "", client: inspection.client || "", occupier: inspection.occupier || "",
+      solicitor: inspection.solicitor || "", inspectedAt: new Date(inspection.startedAt).toISOString(), totalPhotos,
+      rooms: rooms.map((r, i) => ({
+        order: i + 1, folder: `${pad(i + 1)}. ${r.name}`, room: r.name, condition: r.condition || "",
+        note: (r.note || "").trim(), hypothesis: (r.hypothesis || "").trim(), photos: r.photoIds.length, voiceNotes: (r.memos || []).length,
+        photoNumbers: r.photoIds.map((id) => photoCache[id] && photoCache[id].no).filter(Boolean),
+        captions: r.photoIds.map((id) => photoCache[id]).filter(Boolean).map((p) => ({ no: p.no || null, caption: p.caption || "" })),
+      })),
+    };
+  }
+  const notesJsonFile = () => new File([JSON.stringify(inspectionNotes(), null, 2)], "inspection.json", { type: "application/json" });
+
   async function handleSaveAll() {
     const res = await onSaveAll();
     if (res.ok) { onExportResult && onExportResult({ at: Date.now(), kind: "photos" }); flash("All photos saved to your Photos app"); }
@@ -131,13 +150,15 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
         const folder = root.folder(`${pad(i + 1)}. ${safeName(room.name)}`);
         (await filesForRoom(room)).forEach((f) => folder.file(f.name, f));
       }
-      // approved findings for the workbook, and the ID photo — both beside the
-      // rooms, never inside one
-      const extras = findingsFiles(inspection.findings, rooms);
-      if (extras.length) { const meta = root.folder("_Inspection"); extras.forEach((f) => meta.file(f.name, f)); }
+      // the notes record, any approved findings, and the ID photo — all in
+      // _Inspection/ beside the rooms, never inside one: the same layout the
+      // drive upload produces, so a ZIP dropped into OneDrive is indistinguishable
+      const meta = root.folder("_Inspection");
+      meta.file("inspection.json", notesJsonFile());
+      findingsFiles(inspection.findings, rooms).forEach((f) => meta.file(f.name, f));
       if (inspection.idPhotoId) {
         const p = await fullPhoto(inspection.idPhotoId);
-        if (p && p.dataUrl) root.file(idPhotoName(inspection), dataUrlToFile(p.dataUrl, idPhotoName(inspection)));
+        if (p && p.dataUrl) meta.file(idPhotoName(inspection), dataUrlToFile(p.dataUrl, idPhotoName(inspection)));
       }
       const blob = await zip.generateAsync({ type: "blob" });
       const fileName = `${rootName}.zip`;
@@ -425,17 +446,7 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
           setDirectUpload((s) => s && ({ ...s, sent: s.sent + 1 }));
         }
       }
-      const payload = {
-        inspectionId: inspection.id, address: inspection.address, postcode: inspection.postcode || "",
-        reference: inspection.ref || "", client: inspection.client || "", occupier: inspection.occupier || "",
-        solicitor: inspection.solicitor || "", inspectedAt: new Date(inspection.startedAt).toISOString(), totalPhotos,
-        rooms: rooms.map((r, i) => ({
-          order: i + 1, folder: `${pad(i + 1)}. ${r.name}`, room: r.name, condition: r.condition || "",
-          note: (r.note || "").trim(), photos: r.photoIds.length, voiceNotes: (r.memos || []).length,
-          photoNumbers: r.photoIds.map((id) => photoCache[id] && photoCache[id].no).filter(Boolean),
-        })),
-      };
-      const notesFile = new File([JSON.stringify(payload, null, 2)], "inspection.json", { type: "application/json" });
+      const notesFile = notesJsonFile();
       await put(["Inspections", inspection.address, "_Inspection"], "inspection.json", notesFile);
       setDirectUpload((s) => s && ({ ...s, sent: s.sent + 1 }));
       for (const f of extraFiles) {
