@@ -44,7 +44,13 @@ export function rateLimit(key, max, windowMs) {
   if (buckets.size > 10000) for (const [k, v] of buckets) if (now > v.reset) buckets.delete(k);
   return b.n <= max;
 }
-export const clientIp = (req) => (req.get("x-forwarded-for") || req.ip || "").split(",")[0].trim();
+// req.ip, not a raw X-Forwarded-For read — Express resolves it against
+// `trust proxy`'s hop count, so it's the address the trusted edge proxy
+// itself appended, not the leftmost entry a caller can freely set by
+// sending its own X-Forwarded-For header (which a raw header read, or an
+// overly permissive `trust proxy: true`, would hand straight back and let
+// a caller pick any IP-keyed rate-limit bucket it likes)
+export const clientIp = (req) => req.ip || "";
 
 // ---- users & sessions ------------------------------------------------------
 export async function findOrCreateUser(email, name) {

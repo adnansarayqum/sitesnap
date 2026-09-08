@@ -183,7 +183,12 @@ async function me(req) {
 // ---- app -----------------------------------------------------------------
 const app = express();
 app.disable("x-powered-by");
-app.set("trust proxy", true);
+// trust exactly one hop — Railway's own edge proxy — not the whole chain.
+// `true` trusts every hop including ones a caller can add itself, so
+// reading req.ip (the rate limiter's IP-bucket key) would hand back
+// whatever address a caller's own X-Forwarded-For claims rather than the
+// one Railway's edge actually appended.
+app.set("trust proxy", 1);
 app.use((req, res, next) => {
   res.set("X-Content-Type-Options", "nosniff");
   res.set("Referrer-Policy", "same-origin");
@@ -252,8 +257,8 @@ if (hasDb) {
     const v = await verifyCode(email, req.body.code);
     if (!v.ok) return res.status(401).json({ error: v.reason });
     const user = await findOrCreateUser(email, null);
-    await createSession(req, res, user.id);
-    req.session = { user_id: user.id, org_id: null };
+    const token = await createSession(req, res, user.id);
+    req.session = { id: sha256(token), user_id: user.id, org_id: null };
     await acceptInviteIfAny(req, user, req.body.invite);
     await reloadSession(req);
     res.json(await me(req));
@@ -291,14 +296,19 @@ async function acceptInviteIfAny(req, user, token) {
     await c.query(`insert into memberships (org_id, user_id, role) values ($1, $2, $3)
                    on conflict (org_id, user_id) do update set role = excluded.role`, [inv.org_id, user.id, inv.role]);
     await c.query("update invites set accepted_at = now() where id = $1", [inv.id]);
-    await c.query("update sessions set org_id = $2 where user_id = $1", [user.id, inv.org_id]);
+    // only the session accepting the invite switches org — a user's other
+    // signed-in devices shouldn't have their context changed out from under them
+    await c.query("update sessions set org_id = $2 where id = $1", [req.session.id, inv.org_id]);
   });
   await audit({ session: { org_id: inv.org_id, user_id: user.id } }, "invite.accepted", inv.email, { role: inv.role });
   return inv;
 }
 
 async function reloadSession(req) {
-  const fresh = await one("select * from sessions where user_id = $1 order by created_at desc limit 1", [req.session.user_id]);
+  // by id, not "most recent for this user" — a user signed in on two
+  // devices must each keep reading back their own session, not whichever
+  // one happens to have been created last
+  const fresh = await one("select * from sessions where id = $1", [req.session.id]);
   req.session = fresh || req.session;
   req.membership = req.session.org_id
     ? await one("select m.*, o.name as org_name from memberships m join orgs o on o.id = m.org_id where m.org_id = $1 and m.user_id = $2", [req.session.org_id, req.session.user_id])

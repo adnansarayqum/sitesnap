@@ -186,12 +186,26 @@ export async function savePhoto(photo) {
 }
 // Patches fields on a stored photo without the caller having to hold the
 // full-size image in memory (captions are edited from a lightweight copy).
-export async function updatePhoto(id, patch) {
-  try {
-    const cur = await get(`sitesnap:photo:${id}`);
-    if (!cur) return;
-    await set(`sitesnap:photo:${id}`, { ...cur, ...patch });
-  } catch (e) { writeFailed("Saving a photo", e); throw e; }
+// This is a read-modify-write like saveState's — and just as prone to one
+// write silently undoing another — but two DIFFERENT photos never conflict,
+// so each photo id gets its own queue rather than one global one (the
+// caption a surveyor is typing and the "filed" flag background upload sets
+// land seconds apart on the same photo in normal use; a room note and a
+// caption on two different photos shouldn't wait on each other).
+const photoQueues = new Map();
+export function updatePhoto(id, patch) {
+  const prevTail = photoQueues.get(id) || Promise.resolve();
+  const run = prevTail.then(async () => {
+    try {
+      const cur = await get(`sitesnap:photo:${id}`);
+      if (!cur) return;
+      await set(`sitesnap:photo:${id}`, { ...cur, ...patch });
+    } catch (e) { writeFailed("Saving a photo", e); throw e; }
+  });
+  const guarded = run.catch(() => {});
+  photoQueues.set(id, guarded);
+  guarded.finally(() => { if (photoQueues.get(id) === guarded) photoQueues.delete(id); });
+  return run;
 }
 export async function removePhoto(id) {
   try { await del(`sitesnap:photo:${id}`); } catch {}

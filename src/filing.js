@@ -17,6 +17,7 @@ let onFiled = () => {};
 const queue = [];
 const queued = new Set();
 const attempts = new Map();
+const nextAttemptAt = new Map(); // id -> a failed upload's own backoff, not the whole queue's
 let running = false;
 let timer = null;
 
@@ -42,13 +43,13 @@ export function enqueueFiling(photoIds, delay = 3000) {
 }
 
 export function clearFilingQueue() {
-  queue.length = 0; queued.clear(); attempts.clear();
+  queue.length = 0; queued.clear(); attempts.clear(); nextAttemptAt.clear();
   state.filed = 0; state.failed = 0; state.lastError = null;
   emit();
 }
 
 function kick(delay = 0) { clearTimeout(timer); timer = setTimeout(work, delay); }
-function drop(id) { const i = queue.indexOf(id); if (i >= 0) queue.splice(i, 1); queued.delete(id); }
+function drop(id) { const i = queue.indexOf(id); if (i >= 0) queue.splice(i, 1); queued.delete(id); nextAttemptAt.delete(id); }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function work() {
@@ -57,7 +58,19 @@ async function work() {
   running = true; state.busy = true; emit();
   try {
     while (queue.length && provider) {
-      const id = queue[0];
+      // a photo mid-backoff after a failed attempt shouldn't hold up every
+      // *other* photo behind it in the queue — find the first one actually
+      // due, and only wait (for the soonest one) when every photo is still
+      // in backoff and there's truly nothing else to try right now
+      const now = Date.now();
+      const readyIdx = queue.findIndex((qid) => (nextAttemptAt.get(qid) || 0) <= now);
+      if (readyIdx === -1) {
+        const soonest = Math.min(...queue.map((qid) => nextAttemptAt.get(qid) || 0));
+        await sleep(Math.max(200, soonest - now));
+        if (navigator.onLine === false) break;
+        continue;
+      }
+      const id = queue[readyIdx];
       const ctx = getContext();
       const room = ctx && ctx.inspection ? ctx.rooms.find((r) => r.photoIds.includes(id)) : null;
       const photo = ctx && ctx.photoCache[id];
@@ -84,7 +97,7 @@ async function work() {
         attempts.set(id, n);
         state.lastError = (e && e.message) || "upload failed";
         if (n >= 3) { state.failed += 1; drop(id); }
-        else { queue.push(queue.shift()); emit(); await sleep(4000 * n); if (navigator.onLine === false) break; }
+        else nextAttemptAt.set(id, Date.now() + 4000 * n);
       }
       emit();
     }

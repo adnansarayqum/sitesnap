@@ -19,6 +19,11 @@ export function db() {
     pool = new pg.Pool({
       connectionString: DATABASE_URL,
       max: 8,
+      // the pg default is to wait forever for a free connection — under a
+      // burst of large requests (a photo-heavy case sync holds one client
+      // for many sequential queries) that turns pool exhaustion into every
+      // other request hanging indefinitely instead of failing fast
+      connectionTimeoutMillis: 10_000,
       // Railway's Postgres is TLS with a certificate the client can't verify
       ssl: local || process.env.PGSSL === "off" ? false : { rejectUnauthorized: false },
     });
@@ -51,19 +56,39 @@ export async function tx(fn) {
 }
 
 // schema.sql is idempotent; migrations.js holds ordered changes made after
-// the schema first shipped, each applied once and recorded
+// the schema first shipped, each applied once and recorded.
+//
+// A session-level advisory lock serializes this across concurrent boots —
+// Railway can briefly run more than one instance during a deploy, and
+// without the lock two instances can both see a migration as unapplied and
+// both run its DDL, with the loser's own bookkeeping insert crashing on the
+// schema_migrations primary key. Held on one dedicated connection for the
+// whole function, since the lock is scoped to the session that took it.
+const MIGRATION_LOCK_KEY = 72190001;
 export async function migrate() {
-  await q(fs.readFileSync(path.join(__dirname, "schema.sql"), "utf8"));
-  await q("create table if not exists schema_migrations (name text primary key, applied_at timestamptz not null default now())");
-  const { MIGRATIONS } = await import("./migrations.js");
-  for (const m of MIGRATIONS) {
-    const done = await one("select 1 from schema_migrations where name = $1", [m.name]);
-    if (done) continue;
-    await tx(async (c) => {
-      await c.query(m.sql);
-      await c.query("insert into schema_migrations (name) values ($1)", [m.name]);
-    });
-    console.log(`migration applied: ${m.name}`);
+  const client = await db().connect();
+  try {
+    await client.query("select pg_advisory_lock($1)", [MIGRATION_LOCK_KEY]);
+    await client.query(fs.readFileSync(path.join(__dirname, "schema.sql"), "utf8"));
+    await client.query("create table if not exists schema_migrations (name text primary key, applied_at timestamptz not null default now())");
+    const { MIGRATIONS } = await import("./migrations.js");
+    for (const m of MIGRATIONS) {
+      const done = (await client.query("select 1 from schema_migrations where name = $1", [m.name])).rows[0];
+      if (done) continue;
+      await client.query("begin");
+      try {
+        await client.query(m.sql);
+        await client.query("insert into schema_migrations (name) values ($1)", [m.name]);
+        await client.query("commit");
+      } catch (e) {
+        await client.query("rollback").catch(() => {});
+        throw e;
+      }
+      console.log(`migration applied: ${m.name}`);
+    }
+  } finally {
+    await client.query("select pg_advisory_unlock($1)", [MIGRATION_LOCK_KEY]).catch(() => {});
+    client.release();
   }
 }
 

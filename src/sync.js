@@ -20,6 +20,12 @@ const pushedThumbs = new Set(); // photo ids the server has confirmed, this sess
 let timer = null;
 let queued = null;
 let inflight = null;
+let inflightCaseId = null;
+// set when a push fails (a thrown error, or the offline branch) and cleared
+// on the next successful push — so the "back online" listener below has
+// something to retry even though `queued` (which only tracks a pending
+// *debounced* edit) is already null by the time a push fails
+let lastFailedJob = null;
 
 const json = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
 
@@ -43,7 +49,8 @@ async function run() {
   const job = queued;
   queued = null;
   if (!job) return;
-  inflight = push(job).finally(() => { inflight = null; if (queued) run(); });
+  inflightCaseId = job.inspection.id;
+  inflight = push(job).finally(() => { inflight = null; inflightCaseId = null; if (queued) run(); });
   return inflight;
 }
 
@@ -60,7 +67,11 @@ function docFor(inspection, rooms) {
 }
 
 async function push({ inspection, rooms, photoCache, status, onCaseNo, keepalive }) {
-  if (typeof navigator !== "undefined" && navigator.onLine === false) { emit({ status: "offline", caseId: inspection.id }); return; }
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    emit({ status: "offline", caseId: inspection.id });
+    lastFailedJob = { inspection, rooms, photoCache, status, onCaseNo };
+    return;
+  }
   emit({ status: "syncing", error: null, caseId: inspection.id });
   try {
     const photos = [];
@@ -100,8 +111,10 @@ async function push({ inspection, rooms, photoCache, status, onCaseNo, keepalive
       if (t.ok) batch.forEach((b) => pushedThumbs.add(b.id));
     }
     emit({ status: "synced", at: Date.now(), error: null, caseId: inspection.id });
+    lastFailedJob = null;
   } catch (e) {
     emit({ status: "error", error: e.message, caseId: inspection.id });
+    lastFailedJob = { inspection, rooms, photoCache, status, onCaseNo };
   }
 }
 
@@ -123,6 +136,11 @@ export async function reconcile(localIndex, register, loadInspection) {
   const remote = new Map((register || []).map((c) => [c.id, new Date(c.updated_at).getTime()]));
   let pushed = 0;
   for (const entry of localIndex || []) {
+    // a push for this exact case is already queued or in flight via the
+    // debounced path — pushing a second, independently-read copy here would
+    // race it (whichever finishes last wins, and it might be reading a
+    // staler snapshot); the debounced push will land on its own shortly
+    if ((queued && queued.inspection.id === entry.id) || inflightCaseId === entry.id) continue;
     const at = remote.get(entry.id);
     if (at != null && at + 1500 >= (entry.updatedAt || 0)) continue;
     const data = await loadInspection(entry.id);
@@ -151,7 +169,10 @@ export async function fetchRemoteCase(id) {
 }
 
 if (typeof window !== "undefined") {
-  window.addEventListener("online", () => { if (queued) run(); });
+  window.addEventListener("online", () => {
+    if (queued) { run(); return; }
+    if (lastFailedJob) { queued = lastFailedJob; lastFailedJob = null; run(); }
+  });
   window.addEventListener("pagehide", flushSync);
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flushSync(); });
 }
