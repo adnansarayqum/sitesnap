@@ -71,7 +71,7 @@ to. Roughly in the order you'd hit them:
   `com.stonebridgesurveyors.sitesnap`), change it in those three places
   *before* the first upload, then re-run `npx cap sync`.
 - **Production URL**: the shell loads
-  `https://sitesnap-production.up.railway.app` — the live deployment,
+  `https://sitesnap-production-821d.up.railway.app` — the live deployment,
   already the default in `capacitor.config.ts`. Only change it (via the
   `CAPACITOR_SERVER_URL` env var or the fallback in the file) if you move to
   a custom domain.

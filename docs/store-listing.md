@@ -32,8 +32,8 @@ Homes") are invented.
 | App name | SiteSnap |
 | Bundle ID / package name | `com.sitesnap.app` (set in `capacitor.config.ts`, `android/app/build.gradle`, and the Xcode project — all three agree) |
 | Version | 2.1.0 (build 1) — matches `package.json`; Android `versionName`, iOS `MARKETING_VERSION` |
-| Production URL the shell loads | `https://sitesnap-production.up.railway.app` |
-| Privacy policy URL | `https://sitesnap-production.up.railway.app/privacy.html` — **replace the `REPLACE-WITH-CONTACT-EMAIL` placeholder in `public/privacy.html` first**; both stores load this page |
+| Production URL the shell loads | `https://sitesnap-production-821d.up.railway.app` |
+| Privacy policy URL | `https://sitesnap-production-821d.up.railway.app/privacy.html` — **replace the `REPLACE-WITH-CONTACT-EMAIL` placeholder in `public/privacy.html` first**; both stores load this page |
 | Support URL / email | the same address as the privacy contact |
 | Category | Business (primary); Productivity (secondary, App Store only) |
 | Price | Free (no in-app purchases — nothing is sold inside the app) |

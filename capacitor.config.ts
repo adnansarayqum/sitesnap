@@ -13,7 +13,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 //
 // Set this to the deployment's real public URL before running `cap sync` —
 // see docs/app-store-submission.md.
-const SERVER_URL = process.env.CAPACITOR_SERVER_URL || "https://sitesnap-production.up.railway.app";
+const SERVER_URL = process.env.CAPACITOR_SERVER_URL || "https://sitesnap-production-821d.up.railway.app";
 
 const config: CapacitorConfig = {
   appId: "com.sitesnap.app",
