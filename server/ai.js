@@ -48,7 +48,7 @@ function getClient() {
 // own quick retries didn't (a stale pooled socket, a momentary DNS blip);
 // if it still fails, this turns it into a clear, retryable message instead
 // of a statusless error.
-async function withConnectionRetry(fn) {
+export async function withConnectionRetry(fn) {
   try {
     return await fn();
   } catch (e) {
