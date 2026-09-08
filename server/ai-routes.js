@@ -17,6 +17,7 @@ import crypto from "node:crypto";
 import { hasDb, q, one } from "./db.js";
 import { requireOrg, rateLimit, clientIp, audit } from "./auth.js";
 import { aiEnabled, transcriptionEnabled, draftRoomFindings, captionRoomPhotos, transcribeAudio, loadReference, AI_MODEL, AI_EFFORT } from "./ai.js";
+import { abortOnClose } from "./abortOnClose.js";
 
 const CASE_ID = /^insp_[\w-]{4,60}$/;
 const ROOM_ID = /^room_[\w-]{4,60}$/;
@@ -38,16 +39,6 @@ async function ownedCase(req, id) {
   return one("select id, org_id from cases where id = $1 and org_id = $2", [id, req.session.org_id]);
 }
 
-// Aborts the upstream call (Claude or the transcription provider) if the
-// surveyor's own connection drops mid-request — a closed tab or a dead
-// mobile connection shouldn't leave a multi-minute draft burning tokens
-// for a response nobody will read.
-function abortOnClose(req) {
-  const controller = new AbortController();
-  let done = false;
-  req.on("close", () => { if (!done) controller.abort(); });
-  return { signal: controller.signal, finish: () => { done = true; } };
-}
 
 export function mountAi(app) {
   app.get("/api/ai/config", (req, res) => {
@@ -63,7 +54,7 @@ export function mountAi(app) {
       if (!Buffer.isBuffer(req.body) || req.body.length < 200) return res.status(400).json({ error: "no_audio" });
       if (!rateLimit(`ai:transcribe:${who(req)}`, 120, 60 * 60 * 1000)) return res.status(429).json({ error: "slow_down" });
       const memoId = String(req.get("x-memo-id") || "").slice(0, 80);
-      const { signal, finish } = abortOnClose(req);
+      const { signal, finish } = abortOnClose(req, res);
       const text = await transcribeAudio({ buffer: req.body, mime: req.get("content-type"), filename: String(req.get("x-filename") || "note.webm").slice(0, 120), signal });
       finish();
       const owned = await ownedCase(req, req.params.id);
@@ -108,7 +99,7 @@ export function mountAi(app) {
         transcripts, photos,
       };
 
-      const { signal, finish } = abortOnClose(req);
+      const { signal, finish } = abortOnClose(req, res);
       const result = await draftRoomFindings(input, { signal });
       finish();
       const runId = crypto.randomUUID();
@@ -156,7 +147,7 @@ export function mountAi(app) {
         room: { name: String(room.name).slice(0, 120), condition: String(room.condition || "").slice(0, 20), note: String(room.note || "").slice(0, 4000) },
         photos,
       };
-      const { signal, finish } = abortOnClose(req);
+      const { signal, finish } = abortOnClose(req, res);
       const result = await captionRoomPhotos(input, { signal });
       finish();
       res.json({ model: result.model, photos: result.output.photos || [], room_note: result.output.room_note || "" });

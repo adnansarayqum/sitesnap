@@ -190,7 +190,9 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
         }),
         {
           isAlive: () => aliveRef.current,
-          onQueued: () => aliveRef.current && setNote("No signal — captions will finish automatically once you're back online"),
+          onQueued: (e) => aliveRef.current && setNote(e && e.code === "ai_unreachable"
+            ? "The AI service isn't reachable right now — retrying automatically"
+            : "No signal — captions will finish automatically once you're back online"),
         },
       );
       let filled = 0;
