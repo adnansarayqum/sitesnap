@@ -431,8 +431,13 @@ export function StyleBlock() {
       .ss-cond.good.on { background: var(--pine); border-color: var(--pine); color: #fff; box-shadow: 0 2px 6px -2px rgba(16,53,42,.3); }
       .ss-cond.fair.on { background: var(--amber); border-color: var(--amber); color: #fff; box-shadow: 0 2px 6px -2px rgba(143,110,42,.3); }
       .ss-cond.poor.on { background: var(--red); border-color: var(--red); color: #fff; box-shadow: 0 2px 6px -2px rgba(147,50,31,.3); }
+      .ss-field-label {
+        display: block; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+        color: var(--muted); margin: 14px 2px 0;
+      }
+      .ss-field-label-hint { font-weight: 600; text-transform: none; letter-spacing: normal; color: var(--muted2); }
       .ss-note-input {
-        width: 100%; margin-top: 10px; background: var(--paper); border: 1px solid var(--line);
+        width: 100%; margin-top: 6px; background: var(--paper); border: 1px solid var(--line);
         border-radius: 10px; padding: 10px 12px; font-size: 15px; font-family: inherit;
         color: var(--ink); outline: none; resize: vertical; min-height: 44px;
       }

@@ -255,16 +255,19 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
           </button>
         ))}
       </div>
+      <span className="ss-field-label">Notes</span>
       <textarea
         className="ss-note-input" rows={2}
-        placeholder="Notes — damage, decor, meter readings… (or use your keyboard's mic)"
+        placeholder="Damage, decor, meter readings… (or use your keyboard's mic)"
         value={room.note || ""}
         onChange={(e) => onMeta({ note: e.target.value })}
       />
+      <span className="ss-field-label" title="Optional. Say what you think is causing it; Draft findings checks it against the photos and flags it if they don't agree.">
+        Suspected cause <span className="ss-field-label-hint">— optional, checked against the photos</span>
+      </span>
       <input
         className="ss-note-input ss-hyp-input"
-        placeholder="Your read on the cause, if you have one — the AI tests it against the photos"
-        title="Optional. Say what you think is causing it; the draft will say whether the photographs agree, and flag it if they don't."
+        placeholder="e.g. condensation from a broken extractor"
         value={room.hypothesis || ""}
         onChange={(e) => onMeta({ hypothesis: e.target.value })}
       />
