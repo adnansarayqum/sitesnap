@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useRef } from "react";
 import {
-  Camera, Check, Image as ImageIcon, Pencil, Plus, Sparkles, StickyNote, CloudUpload, CloudOff, Loader2, AlertTriangle, Share2, Trash2, User,
+  Camera, Check, Image as ImageIcon, Pencil, Plus, StickyNote, CloudUpload, CloudOff, Loader2, AlertTriangle, Share2, Trash2, User,
 } from "lucide-react";
 import { ReorderableList, TopBar } from "../components/shared.jsx";
 import { Coach } from "../components/Hints.jsx";
@@ -179,7 +179,7 @@ export function OverviewTab({ inspection, sync, rooms, totalPhotos, doneRooms, o
           {idPhoto && (idPhoto.thumb || idPhoto.dataUrl) ? <img src={idPhoto.thumb || idPhoto.dataUrl} alt="" /> : <div className="ph"><User size={22} /></div>}
           <div className="ss-idphoto-main">
             <b>ID photo</b>
-            <span>{idPhoto ? "Files beside the inspection notes, outside the room folders." : "Your selfie for the file — kept out of the room folders."}</span>
+            <span>{idPhoto ? "Filed separately from room photos." : "Kept out of the room folders."}</span>
           </div>
           <div className="ss-idphoto-actions">
             {idPhoto && onShareIdPhoto && <button onClick={onShareIdPhoto} aria-label="Share ID photo" title="Share or email the ID photo"><Share2 size={16} /></button>}
@@ -205,12 +205,6 @@ export function OverviewTab({ inspection, sync, rooms, totalPhotos, doneRooms, o
           <p className="ss-empty-note">No activity yet.</p>
         )}
 
-        {totalPhotos === 0 && (
-          <div className="ss-tip info">
-            <Sparkles size={14} />
-            <span>Once every room's covered, the Findings tab can draft a first pass from your notes and photos — review and edit before it goes in the report.</span>
-          </div>
-        )}
         <div style={{ height: 12 }} />
       </div>
       <div className="ss-footer">

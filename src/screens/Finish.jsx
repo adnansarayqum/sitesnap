@@ -870,11 +870,6 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
       )}
     </div>
   );
-  const coach = cfg && cfg.enabled && (
-    <Coach id="findings" title="A first draft, not the report">
-      <b>Draft findings</b> reads this case's notes, voice notes and photos against your firm's legal register and price book. Approve, edit or reject each one — only what you approve reaches the report.
-    </Coach>
-  );
 
   const progressList = progress && (
     <div className="ss-draft-rooms">
@@ -902,15 +897,14 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
       <>
         <div className="ss-scroll">
           {statusBar}
-          {coach}
           {progressList}
           <div className="ss-empty">
             <ShieldCheck size={22} />
             <p>
               No draft findings yet.<br />
               {candidates.length
-                ? <>{candidates.length} room{candidates.length === 1 ? " has" : "s have"} notes, voice notes or a rating to work from. Drafting reads the photos too.</>
-                : <>Add a note, a voice note, your read on the cause, or rate a room Fair or Poor, and it can be drafted.</>}
+                ? <>{candidates.length} room{candidates.length === 1 ? " has" : "s have"} something to work from — drafting reads the photos too.</>
+                : <>Add a note, voice note or condition rating to a room to draft from.</>}
             </p>
           </div>
         </div>

@@ -333,7 +333,7 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
         ) : (
           <>
             <Coach id="room" title="This room's evidence">
-              Every photo gets a number. Type a caption under each{aiCfg.enabled ? <>, or tap <b>AI captions</b> to fill in the blanks — it never overwrites what you've written</> : null}. Tap a photo to <b>mark up</b> the defect or <b>read a serial number</b> off it.
+              Every photo gets a number and a caption{aiCfg.enabled ? <> — tap <b>AI captions</b> to fill blanks</> : null}. Tap a photo to <b>mark up</b> the defect or <b>read a serial number</b> off it.
             </Coach>
             {metaCard}
             <div className="ss-shots">
