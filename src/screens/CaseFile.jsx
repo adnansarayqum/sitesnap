@@ -4,6 +4,7 @@ import {
   Camera, Check, Image as ImageIcon, Pencil, Plus, Sparkles, StickyNote, CloudUpload, CloudOff, Loader2, AlertTriangle, Share2, Trash2, User,
 } from "lucide-react";
 import { ReorderableList, TopBar } from "../components/shared.jsx";
+import { Coach } from "../components/Hints.jsx";
 import { pad } from "../lib/util.js";
 import { FindingsTab, FinishScreen } from "./Finish.jsx";
 import { relativeDay } from "./Home.jsx";
@@ -133,6 +134,9 @@ export function OverviewTab({ inspection, sync, rooms, totalPhotos, doneRooms, o
   return (
     <>
       <div className="ss-scroll">
+        <Coach id="casefile" title="Your case file">
+          <b>Overview</b>, <b>Rooms</b>, <b>Findings</b> and <b>Export</b> are the four tabs above. <b>Start walkthrough</b> opens the camera and takes you room by room.
+        </Coach>
         <div className="ss-case-cover">
           <div className="ss-case-cover-head">
             <span className="ss-stamp">Case No. {inspection.caseNo || "—"}</span>

@@ -369,6 +369,32 @@ export function StyleBlock() {
       .ss-fineprint { font-size: 12.5px; color: var(--muted); line-height: 1.5; margin: 12px 2px 4px; }
 
       .ss-fail { color: var(--red); }
+      /* ---- first-time guidance ---- */
+      .ss-coach {
+        display: flex; gap: 11px; align-items: flex-start; text-align: left;
+        background: var(--pine-tint); border: 1px solid var(--line); border-radius: 10px;
+        padding: 12px 14px 10px; margin: 0 0 14px;
+      }
+      .ss-coach-ic { color: var(--pine); flex-shrink: 0; margin-top: 1px; }
+      .ss-coach-main { flex: 1; min-width: 0; }
+      .ss-coach-title { font-weight: 800; font-size: 13.5px; color: var(--ink); }
+      .ss-coach-body { font-size: 13px; line-height: 1.45; color: var(--muted); margin-top: 3px; }
+      .ss-coach-body b { color: var(--ink); font-weight: 700; }
+      .ss-coach-btn { margin-top: 6px; font-weight: 800; font-size: 12.5px; color: var(--pine); padding: 4px 0; }
+      .ss-coach.dark { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.14); margin: 14px 0 0; max-width: 340px; }
+      .ss-coach.dark .ss-coach-ic, .ss-coach.dark .ss-coach-btn { color: var(--hivis); }
+      .ss-coach.dark .ss-coach-title, .ss-coach.dark .ss-coach-body b { color: #fff; }
+      .ss-coach.dark .ss-coach-body { color: rgba(255,255,255,.72); }
+      .ss-link-icon { display: inline-flex; align-items: center; padding: 4px; }
+      .ss-infotip {
+        width: 22px; height: 22px; border-radius: 999px; border: 1px solid var(--line-strong); color: var(--muted);
+        display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; vertical-align: middle;
+      }
+      .ss-sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+      .ss-sheet-close { width: 30px; height: 30px; border-radius: 999px; background: var(--paper-deep); color: var(--muted); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+      .ss-sheet-body { font-size: 14px; line-height: 1.5; color: var(--ink); text-align: left; }
+      .ss-sheet-body p { margin: 0 0 10px; }
+      .ss-sheet-body p:last-child { margin-bottom: 0; }
       .ss-export-row { display: flex; gap: 8px; margin-top: 8px; }
       .ss-export-row .ss-btn { flex: 1; padding: 16px 10px; font-size: 15px; }
       .ss-hook { background: var(--card); border: 1px solid var(--line); border-radius: 9px; padding: 12px; margin-top: 8px; }

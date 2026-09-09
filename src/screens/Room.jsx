@@ -9,6 +9,7 @@ import { CONDITIONS } from "../lib/presets.js";
 import { aiConfig, aiPhotoCopy, captionRoom, AI_MAX_PHOTOS } from "../ai.js";
 import { withOfflineRetry } from "../aiRetry.js";
 import { tapFeedback } from "../haptics.js";
+import { Coach, InfoTip } from "../components/Hints.jsx";
 import { BAD_IMAGE_MSG, LiveCamera } from "./Walk.jsx";
 
 /* ---------------- room review ---------------- */
@@ -277,11 +278,18 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
         right={photos.length > 0 && (
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             {aiCfg.enabled && (
-              <button className="ss-link" disabled={captioning} onClick={aiCaption}>
-                {captioning ? <Loader2 size={14} className="ss-spin" /> : <Sparkles size={14} />} {captioning ? "Captioning…" : "AI captions"}
-              </button>
+              <>
+                <button className="ss-link" disabled={captioning} onClick={aiCaption}>
+                  {captioning ? <Loader2 size={14} className="ss-spin" /> : <Sparkles size={14} />} {captioning ? "Captioning…" : "AI captions"}
+                </button>
+                <InfoTip title="What AI captions does">
+                  <p>Looks at each photo and your typed note, then fills in any <b>blank</b> captions and suggests a room note.</p>
+                  <p>It never changes a caption you've written, and you can edit anything it adds — a small sparkle marks the ones it wrote until you do.</p>
+                  <p>Voice notes aren't used here; they go into <b>Draft findings</b>.</p>
+                </InfoTip>
+              </>
             )}
-            <button className="ss-link" onClick={handleSave}><ImagePlus size={14} /> Save to Photos</button>
+            <button className="ss-link ss-link-icon" onClick={handleSave} aria-label="Save this room's photos to your Photos app" title="Save this room's photos to your Photos app"><ImagePlus size={16} /></button>
           </div>
         )} />
 
@@ -321,6 +329,9 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
           </>
         ) : (
           <>
+            <Coach id="room" title="This room's evidence">
+              Every photo gets a number. Type a caption under each{aiCfg.enabled ? <>, or tap <b>AI captions</b> to fill in the blanks — it never overwrites what you've written</> : null}. Tap a photo to <b>mark up</b> the defect or <b>read a serial number</b> off it.
+            </Coach>
             {metaCard}
             <div className="ss-shots">
               {ordered.map((p, i) => (

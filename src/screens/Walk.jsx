@@ -7,6 +7,7 @@ import { PHOTO_DIM, THUMB_DIM, drawScaled, processCapture } from "../lib/image.j
 import { CONDITIONS } from "../lib/presets.js";
 import { pad } from "../lib/util.js";
 import { tapFeedback } from "../haptics.js";
+import { Coach } from "../components/Hints.jsx";
 
 /* ---------------- walkthrough capture ---------------- */
 
@@ -505,6 +506,10 @@ export function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDel
         )}
         <div className="ss-tally">{count}</div>
         <div className="ss-live-sub">photo{count === 1 ? "" : "s"} in this room</div>
+
+        <Coach id="walk" title="Shooting a room" dark>
+          Tap the shutter — the camera stays open, keep tapping. Rate the room <b>Good, Fair or Poor</b> without closing it. <b>Swipe left</b> when this room's done.
+        </Coach>
 
         <div className="ss-live-cond">
           {CONDITIONS.map((c) => (

@@ -11,6 +11,7 @@ import { cloudServiceConfig, linkedAccount, beginLink, unlink } from "../cloud/s
 import { updateName, switchOrg } from "../auth.js";
 import { TabBar } from "./Home.jsx";
 import { TeamSettings } from "./Team.jsx";
+import { resetHints } from "../components/Hints.jsx";
 
 /* ---------------- account (accounts mode) ---------------- */
 
@@ -269,6 +270,14 @@ export function SettingsScreen({ fieldMode, onToggleFieldMode, onTab, me, onSign
             className={`ss-toggle ${fieldMode ? "on" : ""}`}
             role="switch" aria-checked={fieldMode} onClick={onToggleFieldMode}
           ><span /></button>
+        </div>
+
+        <div className="ss-ledger-row">
+          <div className="ss-ledger-main">
+            <div className="ss-ledger-title">Tips</div>
+            <div className="ss-ledger-sub">The one-time pointers on each screen</div>
+          </div>
+          <button className="ss-link" onClick={() => { resetHints(); flash("Tips will show again"); }}>Show again</button>
         </div>
 
         {isAdmin && <CrmWebhookCard flash={flash} />}

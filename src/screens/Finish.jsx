@@ -17,6 +17,7 @@ import {
   effective, isApproved, needsAttention, approvedByRoom, findingsFiles, fromLegacyDraft, AI_MAX_PHOTOS,
 } from "../ai.js";
 import { withOfflineRetry } from "../aiRetry.js";
+import { Coach, InfoTip } from "../components/Hints.jsx";
 
 // the ID photo files beside the inspection metadata, never in a room folder
 export const idPhotoName = (inspection) => `ID ${safeFileName(inspection.postcode || inspection.address || "photo")}.jpg`;
@@ -535,6 +536,9 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
   return (
     <>
       <div className="ss-scroll">
+        <Coach id="export" title="Getting it off the phone">
+          One tap files everything to <b>OneDrive</b>. <b>Report</b> makes the PDF; <b>ZIP</b> mirrors the folder structure below. Export as often as you like.
+        </Coach>
         <div className="ss-summary">
           <MapPin size={15} />
           <div>
@@ -857,7 +861,19 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
         {cfg.enabled ? <>Drafted by <b>{cfg.model}</b> against <b>{cfg.reference}</b>.</> : <>Drafting is <b>off</b> on this server — it needs an ANTHROPIC_API_KEY.</>}
         {cfg.enabled && !cfg.transcription && <> Voice notes won't be transcribed until OPENAI_API_KEY is set — typed notes still go through.</>}
       </span>
+      {cfg.enabled && (
+        <InfoTip title="What Draft findings does">
+          <p>Transcribes your voice notes, then drafts <b>one finding per issue</b>: the defect, its likely cause, the legislation it breaches, the remedial works, and an estimated cost from your firm's price book.</p>
+          <p>Each draft says whether the photos <b>support the cause you gave</b>, and flags anything it couldn't evidence.</p>
+          <p>Nothing reaches the report until you <b>approve</b> it. Edit or reject anything.</p>
+        </InfoTip>
+      )}
     </div>
+  );
+  const coach = cfg && cfg.enabled && (
+    <Coach id="findings" title="A first draft, not the report">
+      <b>Draft findings</b> reads this case's notes, voice notes and photos against your firm's legal register and price book. Approve, edit or reject each one — only what you approve reaches the report.
+    </Coach>
   );
 
   const progressList = progress && (
@@ -886,6 +902,7 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
       <>
         <div className="ss-scroll">
           {statusBar}
+          {coach}
           {progressList}
           <div className="ss-empty">
             <ShieldCheck size={22} />
