@@ -3,56 +3,61 @@
 export function StyleBlock() {
   return (
     <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap');
 
-      /* Tech/construction direction: pine demoted from a wash to a single
-         sparing accent (primary actions, active states), a warm-neutral
-         bone/graphite scale carrying structure instead, and severity
-         (poor/fair) given its own construction-coded colors — rust and
-         ochre — kept separate from the brand accent, the way a hazard
-         label is separate from a logo. See the "SiteSnap Redesign
-         Direction" artifact this was approved from for the full rationale. */
+      /* SaaS-professional direction: a cool, neutral slate scale (no warm
+         "bone" cast) carries structure; a single deep teal accent (--pine,
+         name kept for a minimal diff) does primary actions and active
+         states; severity (poor/fair) keeps its own construction-coded
+         colors — rust and ochre — separate from the brand accent, same as
+         a hazard label is separate from a logo. Cards lean on a soft
+         --shadow rather than heavy borders, which is the single biggest
+         "does this look like professional software" signal at this scale. */
       :root {
-        --paper: #FAFAF8;
-        --paper-deep: #F1F1EE;
+        --paper: #F7F8FA;
+        --paper-deep: #EEF1F4;
         --card: #FFFFFF;
-        --ink: #1C1F1D;
-        --muted: #767A75;
-        --muted2: #A3A69F;
-        --line: #E4E4E0;
-        --line-soft: #ECECE9;
-        --line-strong: #CBCCC6;
-        --pine: #10352A;
-        --pine-press: #0A2419;
-        --pine-tint: #E7ECE8;
+        --ink: #12151C;
+        --muted: #64707D;
+        --muted2: #98A2B0;
+        --line: #E3E7EC;
+        --line-soft: #ECEFF3;
+        --line-strong: #CDD3DA;
+        --pine: #0E4038;
+        --pine-press: #0A2E28;
+        --pine-tint: #E5F0ED;
         --hivis: #E8B84B;
         --hivis-deep: #241B08;
-        --red: #A13F2B;
-        --red-tint: #F1E3DE;
-        --amber: #8F6E2A;
-        --amber-tint: #F2ECDB;
-        --topbar-bg: rgba(250,250,248,.94);
+        --red: #B3261E;
+        --red-tint: #FBEAE8;
+        --amber: #A15C07;
+        --amber-tint: #FBF0DA;
+        --topbar-bg: rgba(247,248,250,.92);
+        --shadow-sm: 0 1px 2px rgba(15,23,42,.04), 0 1px 3px rgba(15,23,42,.06);
+        --shadow-md: 0 2px 4px rgba(15,23,42,.04), 0 10px 24px -8px rgba(15,23,42,.12);
       }
       /* Field mode: a high-contrast dark theme for shooting in direct
          sunlight, where the default paper/ink pairing washes out. Every
          screen already reads off these variables, so this is the only
          place the swap happens. */
       .ss-root.ss-field {
-        --paper: #17181A;
-        --paper-deep: #1E2021;
-        --card: #202224;
-        --ink: #F1F1EE;
-        --muted: #9A9D97;
-        --muted2: #6B6E68;
-        --line: #303232;
-        --line-soft: #26282A;
-        --line-strong: #45474A;
-        --pine: #4FAE85;
-        --pine-press: #63C296;
-        --pine-tint: #16261F;
+        --paper: #0F1216;
+        --paper-deep: #161A1F;
+        --card: #1B2025;
+        --ink: #F1F2F4;
+        --muted: #99A1AC;
+        --muted2: #626A74;
+        --line: #282D33;
+        --line-soft: #20242A;
+        --line-strong: #3C424A;
+        --pine: #4FC7A8;
+        --pine-press: #6BDAC0;
+        --pine-tint: #142621;
         --red-tint: #34211B;
         --amber-tint: #302711;
-        --topbar-bg: rgba(23,24,26,.92);
+        --topbar-bg: rgba(15,18,22,.9);
+        --shadow-sm: 0 1px 2px rgba(0,0,0,.24), 0 1px 3px rgba(0,0,0,.3);
+        --shadow-md: 0 2px 4px rgba(0,0,0,.24), 0 10px 24px -8px rgba(0,0,0,.4);
       }
       * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
       html, body { background: var(--paper); margin: 0; }
@@ -66,7 +71,7 @@ export function StyleBlock() {
         font-size: 15px; line-height: 1.4;
         transition: background .2s ease, color .2s ease;
       }
-      .ss-serif { font-family: 'Archivo', system-ui, sans-serif; font-weight: 700; }
+      .ss-serif { font-family: 'Inter', system-ui, sans-serif; font-weight: 700; letter-spacing: -0.01em; }
       .ss-mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
       .ss-frame { width: 100%; max-width: 430px; min-height: 100vh; display: flex; flex-direction: column; position: relative; }
       .ss-col { flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
@@ -115,12 +120,12 @@ export function StyleBlock() {
       .ss-btn:active { transform: scale(.98); }
       .ss-btn:disabled { opacity: .45; pointer-events: none; }
       .ss-btn-big { width: 100%; padding: 18px; font-size: 16px; }
-      .ss-btn-primary { background: var(--pine); color: #fff; }
-      .ss-btn-primary:active { background: var(--pine-press); }
-      .ss-btn-ghost { width: 100%; background: var(--card); border: 1px solid var(--line); color: var(--ink); }
+      .ss-btn-primary { background: var(--pine); color: #fff; box-shadow: 0 1px 2px rgba(15,23,42,.06), 0 6px 14px -6px color-mix(in srgb, var(--pine) 55%, transparent); }
+      .ss-btn-primary:active { background: var(--pine-press); box-shadow: 0 1px 2px rgba(15,23,42,.06); }
+      .ss-btn-ghost { width: 100%; background: var(--card); border: 1px solid var(--line); color: var(--ink); box-shadow: var(--shadow-sm); }
       .ss-btn-secondary { background: none; border: 1.5px dashed var(--line); color: var(--muted); }
       .ss-btn-secondary:active { background: var(--line-soft); }
-      .ss-btn-danger { background: var(--red); color: #fff; width: 100%; }
+      .ss-btn-danger { background: var(--red); color: #fff; width: 100%; box-shadow: 0 1px 2px rgba(15,23,42,.06), 0 6px 14px -6px color-mix(in srgb, var(--red) 45%, transparent); }
       .ss-btn-sq { padding: 0 16px; border-radius: 8px; }
 
       /* ---- screen transitions ---- */
@@ -147,7 +152,7 @@ export function StyleBlock() {
         box-shadow: 0 4px 10px -4px rgba(16,53,42,.35);
       }
       .ss-eyebrow { font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--pine); margin-bottom: 10px; }
-      .ss-h1 { font-family: 'Archivo', system-ui, sans-serif; font-size: 36px; line-height: 1.06; font-weight: 800; letter-spacing: -0.015em; margin: 0 0 14px; }
+      .ss-h1 { font-family: 'Inter', system-ui, sans-serif; font-size: 36px; line-height: 1.06; font-weight: 800; letter-spacing: -0.015em; margin: 0 0 14px; }
       .ss-lede { color: var(--muted); font-size: 15px; margin: 0 0 18px; max-width: 34ch; }
       .ss-home-features { display: flex; flex-wrap: wrap; gap: 7px; margin: 0 0 28px; }
       .ss-home-feature {
@@ -202,9 +207,9 @@ export function StyleBlock() {
       .ss-input {
         width: 100%; background: var(--card); border: 1px solid var(--line);
         border-radius: 8px; padding: 14px; font-size: 16px; font-family: inherit;
-        color: var(--ink); outline: none;
+        color: var(--ink); outline: none; transition: border-color .12s ease, box-shadow .12s ease;
       }
-      .ss-input:focus { border-color: var(--pine); }
+      .ss-input:focus { border-color: var(--pine); box-shadow: 0 0 0 3px color-mix(in srgb, var(--pine) 14%, transparent); }
       .ss-inline-add { display: flex; gap: 8px; margin-top: 10px; }
       .ss-dashed {
         width: 100%; margin-top: 10px; padding: 12px;
@@ -218,12 +223,12 @@ export function StyleBlock() {
       .ss-wiz-seg { flex: 1; height: 4px; border-radius: 999px; background: var(--line-soft); }
       .ss-wiz-seg.on { background: var(--pine); }
       .ss-wiz-step { display: flex; flex-direction: column; gap: 10px; }
-      .ss-wiz-title { font-family: 'Archivo', system-ui, sans-serif; font-size: 26px; line-height: 1.12; font-weight: 800; letter-spacing: -0.015em; margin: 4px 0 4px; }
+      .ss-wiz-title { font-family: 'Inter', system-ui, sans-serif; font-size: 26px; line-height: 1.12; font-weight: 800; letter-spacing: -0.015em; margin: 4px 0 4px; }
       .ss-wiz-lede { font-size: 13px; color: var(--muted); margin: -6px 0 2px; }
       .ss-wiz-footer { display: flex; align-items: center; gap: 12px; }
       .ss-wiz-skip { padding: 8px 4px; }
       .ss-wiz-summary { margin-top: 18px; padding: 14px 16px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
-      .ss-wiz-summary-address { font-family: 'Archivo', system-ui, sans-serif; font-size: 18px; font-weight: 700; margin-top: 4px; }
+      .ss-wiz-summary-address { font-family: 'Inter', system-ui, sans-serif; font-size: 18px; font-weight: 700; margin-top: 4px; }
       .ss-wiz-summary-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
 
       /* ---- room chips ---- */
@@ -342,7 +347,7 @@ export function StyleBlock() {
       /* ---- finish ---- */
       .ss-summary { display: flex; gap: 10px; align-items: flex-start; background: var(--card); border: 1px solid var(--line); border-radius: 9px; padding: 14px; margin-bottom: 16px; }
       .ss-summary svg { margin-top: 2px; color: var(--pine); flex-shrink: 0; }
-      .ss-summary-title { font-family: 'Archivo', system-ui, sans-serif; font-weight: 700; font-size: 16px; }
+      .ss-summary-title { font-family: 'Inter', system-ui, sans-serif; font-weight: 700; font-size: 16px; }
       .ss-summary-sub { font-size: 13px; color: var(--muted); font-weight: 600; margin-top: 2px; }
       .ss-tree { background: var(--card); border: 1px solid var(--line); border-radius: 9px; overflow: hidden; margin-bottom: 4px; }
       .ss-tree-root { display: flex; align-items: center; gap: 8px; padding: 12px 14px; font-weight: 800; font-size: 14px; border-bottom: 1px solid var(--line); background: var(--paper-deep); }
@@ -676,7 +681,7 @@ export function StyleBlock() {
       .ss-report-page { max-width: 720px; margin: 0 auto; padding: 28px 22px 48px; color: var(--ink); }
       .ss-rep-head { border-bottom: 3px solid var(--pine); padding-bottom: 18px; margin-bottom: 22px; }
       .ss-rep-brand { display: flex; align-items: center; gap: 6px; font-weight: 900; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--pine); margin-bottom: 10px; }
-      .ss-rep-head h1 { font-family: 'Archivo', system-ui, sans-serif; font-size: 26px; font-weight: 700; margin: 0 0 8px; line-height: 1.15; }
+      .ss-rep-head h1 { font-family: 'Inter', system-ui, sans-serif; font-size: 26px; font-weight: 700; margin: 0 0 8px; line-height: 1.15; }
       .ss-rep-meta { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; font-weight: 600; color: var(--muted); }
       .ss-rep-room { margin-bottom: 24px; break-inside: avoid-page; }
       .ss-rep-room-head { display: flex; align-items: center; gap: 4px; margin-bottom: 8px; }
@@ -813,7 +818,7 @@ export function StyleBlock() {
       .ss-chip.leg { background: var(--pine-tint); color: var(--pine-press); }
       .ss-scope { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; color: var(--pine); margin: 2px 0 4px; }
       .ss-scope-why { font-size: 12.5px; color: var(--muted); margin: 0; }
-      .ss-cost { font-family: 'Archivo', system-ui, sans-serif; font-size: 17px; font-weight: 700; }
+      .ss-cost { font-family: 'Inter', system-ui, sans-serif; font-size: 17px; font-weight: 700; }
       .ss-cost.unpriced { color: var(--amber); font-size: 14px; }
       .ss-cost-basis { font-size: 12px; color: var(--muted); margin: 2px 0 0; }
       .ss-finding-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
@@ -872,7 +877,7 @@ export function StyleBlock() {
       }
       .ss-tabbar-item.on { color: var(--pine); }
       .ss-tabbar-item:active { transform: scale(.92); }
-      .ss-title-lg { font-family: 'Archivo', system-ui, sans-serif; font-size: 22px; font-weight: 700; }
+      .ss-title-lg { font-family: 'Inter', system-ui, sans-serif; font-size: 22px; font-weight: 700; }
 
       /* ---- case file: shared tab strip ---- */
       .ss-case-tabs { display: flex; gap: 20px; padding: 0 18px; border-bottom: 1px solid var(--line); background: var(--card); flex-shrink: 0; overflow-x: auto; }
@@ -909,7 +914,7 @@ export function StyleBlock() {
       .ss-case-hero:active { transform: scale(.985); }
       .ss-case-hero-head { display: flex; align-items: center; justify-content: space-between; }
       .ss-case-hero-time { font-size: 10.5px; font-weight: 600; color: rgba(255,255,255,.6); }
-      .ss-case-hero-title { font-family: 'Archivo', system-ui, sans-serif; font-size: 19px; font-weight: 700; margin-top: 13px; }
+      .ss-case-hero-title { font-family: 'Inter', system-ui, sans-serif; font-size: 19px; font-weight: 700; margin-top: 13px; }
       .ss-case-hero-sub { font-size: 12px; font-weight: 500; color: rgba(255,255,255,.65); margin-top: 2px; }
       .ss-case-hero-collage { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-top: 14px; }
       .ss-case-hero-collage img { width: 100%; aspect-ratio: 1; border-radius: 5px; object-fit: cover; display: block; }
@@ -1022,7 +1027,7 @@ export function StyleBlock() {
       .ss-ichip-add .ss-input { padding: 7px 10px; font-size: 13.5px; width: 190px; }
       .ss-issue-card { margin-top: 10px; background: var(--card); border: 1px solid var(--pine); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 6px; }
       .ss-issue-card.suggested { border-color: var(--amber); border-style: dashed; }
-      .ss-issue-title { font-family: 'Archivo', system-ui, sans-serif; font-weight: 800; font-size: 15px; text-align: left; background: none; padding: 0; color: var(--ink); }
+      .ss-issue-title { font-family: 'Inter', system-ui, sans-serif; font-weight: 800; font-size: 15px; text-align: left; background: none; padding: 0; color: var(--ink); }
       .ss-readings { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 4px; }
       .ss-reading-add { display: flex; flex-direction: column; gap: 6px; width: 100%; }
       .ss-reading-add .row { display: flex; gap: 6px; }
@@ -1143,6 +1148,18 @@ export function StyleBlock() {
       .ss-claim-text em { color: var(--muted); }
       .ss-audit div { line-height: 1.5; word-break: break-word; }
       .ss-audit ul { margin: 2px 0 0; padding-left: 18px; }
+
+      /* ---- a soft elevation instead of a heavy border on every card-like
+         surface — reads as professional software rather than a wireframe.
+         Purely additive: no markup or class changes, every one of these
+         selectors already existed. */
+      .ss-wiz-summary, .ss-finding-card, .ss-summary-card, .ss-idphoto, .ss-remote-room,
+      .ss-storage-card, .ss-cov-row, .ss-org-issue, .ss-pilot-row, .ss-case-cover,
+      .ss-camcheck, .ss-modal, .ss-picker-row, .ss-line, .ss-evrecord, .ss-issue-card {
+        box-shadow: var(--shadow-sm);
+      }
+      .ss-modal { box-shadow: var(--shadow-md); }
+      .ss-topbar { box-shadow: 0 1px 0 rgba(15,23,42,.02); }
       /* ---- the inspection capture screen ---- */
       .ss-cap-head { display: grid; grid-template-columns: auto 1fr auto; align-items: start; gap: 10px; padding: 12px 14px 4px; }
       .ss-cap-where { text-align: left; display: flex; flex-direction: column; gap: 1px; color: inherit; padding: 0; min-width: 0; }
@@ -1204,11 +1221,11 @@ export function StyleBlock() {
       .ss-summary-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
       .ss-summary-head { display: flex; align-items: center; gap: 10px; color: var(--pine); }
       .ss-summary-head div { display: flex; flex-direction: column; }
-      .ss-summary-head b { font-family: 'Archivo', system-ui, sans-serif; font-size: 16px; color: var(--ink); }
+      .ss-summary-head b { font-family: 'Inter', system-ui, sans-serif; font-size: 16px; color: var(--ink); }
       .ss-summary-head span { font-size: 12px; color: var(--muted); }
       .ss-summary-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(72px, 1fr)); gap: 8px; }
       .ss-summary-stats div { display: flex; flex-direction: column; align-items: flex-start; padding: 8px 10px; border-radius: 10px; background: var(--paper-deep); }
-      .ss-summary-stats b { font-family: 'Archivo', system-ui, sans-serif; font-size: 22px; line-height: 1; }
+      .ss-summary-stats b { font-family: 'Inter', system-ui, sans-serif; font-size: 22px; line-height: 1; }
       .ss-summary-stats span { font-size: 11px; font-weight: 700; color: var(--muted); margin-top: 3px; }
       .ss-summary-lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; font-weight: 700; }
       .ss-summary-lines li.ok { color: var(--pine); }
