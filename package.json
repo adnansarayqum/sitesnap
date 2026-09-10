@@ -13,6 +13,7 @@
     "evals:all": "node server/evals/run.mjs --all",
     "evals:fixtures": "node server/evals/fixtures/make-fixtures.mjs",
     "evals:review-worksheet": "node server/evals/reference-review.mjs",
+    "evals:payload": "AI_MOCK=1 node --expose-gc server/evals/payload-benchmark.mjs",
     "test": "vitest run",
     "test:e2e": "node test/e2e/local.mjs",
     "cap:sync": "vite build && cap sync"
