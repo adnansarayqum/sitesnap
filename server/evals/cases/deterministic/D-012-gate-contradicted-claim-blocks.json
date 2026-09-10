@@ -1,0 +1,12 @@
+{
+  "id": "GOLDEN-D-012",
+  "title": "Deterministic — a contradicted verifier claim blocks; a partially supported one only flags",
+  "kind": "deterministic",
+  "category": "control",
+  "split": "development",
+  "risk": "deterministic_control",
+  "control": "gate",
+  "pricing": { "unpriced": true, "lines": [], "low": null, "high": null, "problems": [], "flags": ["unpriced"] },
+  "verification": { "claims": [ { "claim": "the ceiling was dry", "type": "observation", "support": "contradicted", "source_ids": ["READING-1"], "severity": "block", "note": "60% recorded" }, { "claim": "condensation", "type": "causation", "support": "partially_supported", "source_ids": [], "severity": "review", "note": "" } ] },
+  "expected": { "status": "blocked", "reasons_match": "contradicted", "flags_include": ["contradictory_evidence"] }
+}

@@ -1,0 +1,28 @@
+{
+  "id": "GOLDEN-A-030",
+  "title": "Legal — no appropriate reference: scuffed decoration only, no disrepair",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "legal_hhsrs",
+  "why": "Scuffed and marked paintwork in a hallway with nothing else wrong is wear, not disrepair. The legal list must be empty, the hazard none. Citing s.11 or s.9A here is the 'stretch' the register forbids.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-08T10:30:00.000Z", "builtPre2000": false },
+    "room": { "name": "Hallway", "order": 7, "condition": "Fair", "note": "Scuffs and marks to the painted walls at pram height along the hall, paint worn through to plaster in two small spots by the front door. Dry, 7%. Nothing else.", "hypothesis": "Wear and tear" },
+    "issue": { "title": "Scuffed decoration", "humanSuspectedCause": "Wear and tear", "confirmedBySurveyor": true },
+    "transcripts": [ "Hall, walls are scuffed along the length at about pram height, couple of spots by the door where it's through to the plaster. Dry. That's just wear and tear really, tenant asked me to note it." ],
+    "readings": [ { "text": "Wall", "value": "7", "unit": "% WME" } ]
+  },
+  "expected": {
+    "legal_empty": true,
+    "hazard_in": ["none"]
+  },
+  "must_not_happen": [
+    { "rule": "legal_excludes", "ids": ["LEGAL-S11-LTA", "LEGAL-S9A-LTA", "LEGAL-S10-LTA", "LEGAL-DPA-S4", "LEGAL-HHSRS-HA2004"], "severity": "critical", "label": "no statute cited for wear and tear" },
+    { "rule": "hazard_not", "ids": ["HHSRS-01", "HHSRS-20", "HHSRS-29"], "severity": "critical", "label": "no hazard from scuffed paint" },
+    { "rule": "price_rows_exclude", "rows": ["REDEC-ROOM"], "severity": "major", "label": "whole-room redecoration is not a remedy for wear" }
+  ],
+  "allowed_uncertainty": ["Unpriced is the expected outcome: nothing here is a landlord repair."],
+  "calibration": { "truth": "wear|use|scuff|impact|abrasion", "evidence_supports": "medium" },
+  "reviewer_notes": "Legal register: 'Where the note does not clearly support a breach, leave the legislation list empty.'"
+}

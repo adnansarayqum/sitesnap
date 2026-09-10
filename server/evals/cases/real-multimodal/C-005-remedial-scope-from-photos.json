@@ -1,0 +1,21 @@
+{
+  "id": "GOLDEN-C-005",
+  "title": "REAL EVIDENCE REQUIRED — remedial scope decided from photographs (localised vs whole element)",
+  "kind": "pipeline",
+  "category": "real_multimodal",
+  "split": "development",
+  "risk": "pricing",
+  "status": "REQUIRES_REAL_SURVEY_EVIDENCE",
+  "why": "Two sub-cases the surveyor supplies: (a) cracking across most of a ceiling → whole_element / CEIL-MAKE-GOOD; (b) a short isolated crack → localised / CEIL-CRACK-LOCAL. Photos decide scope (corrections 1, 4).",
+  "input": {
+    "context": { "inspectedAt": "", "builtPre2000": null },
+    "room": { "name": "Living Room", "condition": "Poor", "note": "", "hypothesis": "" },
+    "issue": { "title": "Ceiling cracking", "confirmedBySurveyor": true },
+    "photos": [ { "file": "fixtures/REAL/C-005/01.jpg", "caption": "" } ]
+  },
+  "expected": {},
+  "must_not_happen": [
+    { "rule": "if_row_then", "row": "CEIL-CRACK-LOCAL", "then_rows_any": [], "or_scope": ["localised"], "severity": "critical", "label": "patch row only with localised scope" }
+  ],
+  "reviewer_notes": "TO COMPLETE as C-001; duplicate the file for sub-case (b) and set expected.scope_in accordingly."
+}

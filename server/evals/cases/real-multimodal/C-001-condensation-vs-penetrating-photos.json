@@ -1,0 +1,23 @@
+{
+  "id": "GOLDEN-C-001",
+  "title": "REAL EVIDENCE REQUIRED — condensation vs penetrating damp decided from photographs",
+  "kind": "pipeline",
+  "category": "real_multimodal",
+  "split": "development",
+  "risk": "causation",
+  "status": "REQUIRES_REAL_SURVEY_EVIDENCE",
+  "why": "Only genuine inspection photographs can test whether the model reads a staining pattern (defined edge, tide mark, blistering) versus black-spot mould on cold surfaces. Synthetic images cannot stand in for this. A practising surveyor supplies or approves the photographs and confirms the expected reading.",
+  "input": {
+    "context": { "inspectedAt": "", "builtPre2000": null },
+    "room": { "name": "Bedroom", "condition": "Poor", "note": "", "hypothesis": "" },
+    "issue": { "title": "Damp to external wall", "confirmedBySurveyor": true },
+    "photos": [ { "file": "fixtures/REAL/C-001/01.jpg", "caption": "" }, { "file": "fixtures/REAL/C-001/02.jpg", "caption": "" } ],
+    "transcripts": []
+  },
+  "expected": { "alternatives_min": 1, "confidence_max": "medium" },
+  "must_not_happen": [
+    { "rule": "no_definitive_cause_with_alternatives", "severity": "critical", "label": "no definitive cause where the photographs show both patterns" }
+  ],
+  "calibration": { "truth": null, "evidence_supports": "medium" },
+  "reviewer_notes": "TO COMPLETE: place anonymised photographs under server/evals/fixtures/REAL/C-001/, fill in the surveyor's note/transcript as recorded, set calibration.truth to the cause the surveyor holds on the balance of probabilities, then change status to runnable. Photographs must not show faces, documents, or addresses."
+}

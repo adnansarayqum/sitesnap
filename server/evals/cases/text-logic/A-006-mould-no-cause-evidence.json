@@ -1,0 +1,30 @@
+{
+  "id": "GOLDEN-A-006",
+  "title": "Mould with no reliable cause evidence — one sentence, nothing else",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "professional_caution",
+  "why": "A confirmed issue whose only evidence is 'black mould spots on ceiling'. No photographs, no readings, no pattern described. Any cause carried must be low confidence; the evidence gaps must say what is missing.",
+  "input": {
+    "context": { "inspectedAt": "2026-05-01T10:00:00.000Z", "builtPre2000": null },
+    "room": { "name": "Bathroom", "order": 2, "condition": "Fair", "note": "Black mould spots on ceiling.", "hypothesis": "" },
+    "issue": { "title": "Ceiling mould", "confirmedBySurveyor": true },
+    "transcripts": []
+  },
+  "expected": {
+    "confidence_max": "low",
+    "agreement_in": ["no_hypothesis"],
+    "gaps_match": "photo|reading|extract|ventilation|moisture",
+    "flags_include": ["low_confidence", "no_photo_evidence"]
+  },
+  "must_not_happen": [
+    { "rule": "confidence_not", "grade": "high", "severity": "critical", "label": "no high confidence from one sentence" },
+    { "rule": "confidence_not", "grade": "medium", "severity": "major", "label": "not even medium from one sentence" },
+    { "rule": "text_not_matches", "pattern": "extractor (fan )?(is|was) (not working|absent|missing|inadequate)", "severity": "critical", "label": "no invented ventilation finding" },
+    { "rule": "hazard_category_not", "category": "Cat 1", "severity": "major", "label": "no Cat 1 hazard from one sentence" }
+  ],
+  "allowed_uncertainty": ["Condensation as a low-confidence possibility is acceptable; 'not established' is also acceptable."],
+  "calibration": { "truth": null, "evidence_supports": "low" },
+  "reviewer_notes": "This is the minimum the eligibility rule lets through (human note + confirmed). The output should look thin, because it is."
+}

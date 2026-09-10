@@ -1,0 +1,11 @@
+{
+  "id": "GOLDEN-D-008",
+  "title": "Deterministic — an unknown HHSRS id is rejected; a low-confidence known hazard is marked for review",
+  "kind": "deterministic",
+  "category": "control",
+  "split": "development",
+  "risk": "deterministic_control",
+  "control": "hazard",
+  "proposed": { "hazard_id": "HHSRS-30", "category": "Cat 1", "evidence_basis": "", "confidence": "high" },
+  "expected": { "hazard": null, "rejected": true }
+}

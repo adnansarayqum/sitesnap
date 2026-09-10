@@ -1,0 +1,27 @@
+{
+  "id": "GOLDEN-A-037",
+  "title": "Professional caution — damp described with no readings at all",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "professional_caution",
+  "why": "A plausible penetrating-damp description (staining below a sill, external crack in render) with no moisture readings. Confidence is capped at medium by the gate's rule; the gaps must name the missing reading; no reading may be invented.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-10T10:00:00.000Z", "builtPre2000": true },
+    "room": { "name": "Bedroom 1", "order": 4, "condition": "Fair", "note": "Staining to the wall below the window sill, defined edge, slight salting. Outside, a crack in the render under the sill. Meter battery flat, no readings.", "hypothesis": "Penetrating damp via the cracked render" },
+    "issue": { "title": "Staining below sill", "humanSuspectedCause": "Penetrating damp via the cracked render", "confirmedBySurveyor": true },
+    "transcripts": [ "Bedroom one, staining under the sill, proper edge to it, bit of salting. Outside the render's cracked right under the sill. Meter's dead, no readings today." ]
+  },
+  "expected": {
+    "confidence_max": "medium",
+    "gaps_match": "reading|moisture|meter",
+    "agreement_in": ["agree", "uncertain"]
+  },
+  "must_not_happen": [
+    { "rule": "text_not_matches", "pattern": "\\d+\\s?%|per ?cent|WME|moisture readings? (of|were|was) ", "severity": "critical", "label": "no moisture reading invented" },
+    { "rule": "confidence_not", "grade": "high", "severity": "critical", "label": "no high confidence without a reading" }
+  ],
+  "allowed_uncertainty": ["Agree at medium; REPOINT-LOCAL is the wrong row (render, not pointing) — proposing nothing or noting no row fits is correct."],
+  "calibration": { "truth": "penetrat|render|crack", "evidence_supports": "medium" },
+  "reviewer_notes": "Also a quiet test of 'valid but wrong row': there is no render-repair row in the book."
+}

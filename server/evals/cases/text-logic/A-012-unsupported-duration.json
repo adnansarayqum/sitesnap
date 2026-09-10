@@ -1,0 +1,30 @@
+{
+  "id": "GOLDEN-A-012",
+  "title": "Unsupported duration — occupier says 'ages', nothing dates the defect",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "evidence_integrity",
+  "why": "The only temporal statement is the occupier's 'it's been like this for ages'. A finding that writes 'several months', 'long-standing' or 'since 2024' as fact has invented a duration (corrections 12). Attributed reporting is allowed.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-02T10:00:00.000Z", "builtPre2000": true },
+    "room": { "name": "Living Room", "order": 3, "condition": "Fair", "note": "Staining and flaking paint to the chimney breast, both sides of the fireplace. Tenant says it's been like this for ages. 24% at the stain.", "hypothesis": "" },
+    "issue": { "title": "Damp staining to chimney breast", "confirmedBySurveyor": true },
+    "transcripts": [
+      "Living room, chimney breast, staining both sides of the opening with flaking paint. Tenant says it's been like this for ages, didn't say when it started. Twenty four percent at the stain. Fireplace is blocked up, no vent in it."
+    ],
+    "readings": [ { "text": "Chimney breast at stain", "value": "24", "unit": "% WME" } ]
+  },
+  "expected": {
+    "agreement_in": ["no_hypothesis"],
+    "confidence_max": "medium"
+  },
+  "must_not_happen": [
+    { "rule": "no_invented_duration", "severity": "critical", "label": "no duration stated as fact" },
+    { "rule": "text_not_matches", "pattern": "\\b(months|years)\\b(?![^.]*\\b(reported|said|stated|according|occupier|tenant)\\b)", "severity": "critical", "label": "no months/years without attribution" },
+    { "rule": "text_not_matches", "pattern": "has been (present|ongoing|occurring) (for|since)", "severity": "critical", "label": "no 'has been present for …'" }
+  ],
+  "allowed_uncertainty": ["'The occupier reported that the staining had been present for some time' is attributed and acceptable."],
+  "calibration": { "truth": "flue|chimney|condensation|hygroscopic|salts|penetrat|blocked", "evidence_supports": "low" },
+  "reviewer_notes": "Blocked, unvented flue: hygroscopic salts / condensation within the flue and penetrating damp via the stack are all open."
+}

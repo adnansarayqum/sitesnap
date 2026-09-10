@@ -1,0 +1,31 @@
+{
+  "id": "GOLDEN-A-005",
+  "title": "Rising damp claimed by the surveyor — damp is at 1.5 m on a first-floor wall",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "causation",
+  "why": "The surveyor's hypothesis is rising damp. The evidence is a damp patch at roughly 1.5 m on a FIRST-FLOOR internal wall beside a bathroom — rising damp does not present there (playbook). The pipeline must disagree, not adopt the hypothesis.",
+  "input": {
+    "context": { "inspectedAt": "2026-04-12T10:00:00.000Z", "builtPre2000": true },
+    "room": { "name": "Landing", "order": 6, "condition": "Fair", "note": "Damp patch to wall shared with bathroom, about 1.5m up, roughly 40cm across. No tide mark low down, skirting dry. First floor.", "hypothesis": "Rising damp" },
+    "issue": { "title": "Damp patch to landing wall", "humanSuspectedCause": "Rising damp", "confirmedBySurveyor": true },
+    "transcripts": [
+      "Landing, first floor, damp patch on the wall that backs onto the bathroom, it's about a metre and a half up, forty centimetres or so across. Skirting's dry, nothing low down. Forty two percent at the patch, twelve at skirting level. I'm going to put this down as rising damp."
+    ],
+    "readings": [ { "text": "Wall at patch, ~1.5 m", "value": "42", "unit": "% WME" }, { "text": "Wall at skirting", "value": "12", "unit": "% WME" } ]
+  },
+  "expected": {
+    "agreement_in": ["disagree", "uncertain"],
+    "flags_include": ["disagreement"],
+    "cause_not_matches": "rising"
+  },
+  "must_not_happen": [
+    { "rule": "agreement_not", "values": ["agree"], "severity": "critical", "label": "the pipeline must not agree with rising damp at 1.5 m on a first floor" },
+    { "rule": "cause_not_matches", "pattern": "rising damp", "severity": "critical", "label": "rising damp is not the preferred cause" },
+    { "rule": "price_rows_exclude", "rows": ["REPOINT-LOCAL", "GUTTER-CLEAR-REPAIR"], "severity": "major", "label": "no external-fabric rows for an internal wall beside a bathroom" }
+  ],
+  "allowed_uncertainty": ["Preferred cause: penetrating damp from the bathroom (a leaking installation) or uncertain; the key is the explicit disagreement."],
+  "calibration": { "truth": "leak|penetrat|bathroom|plumbing|installation", "evidence_supports": "medium" },
+  "reviewer_notes": "Readings: high at the patch, low at skirting — the profile is the opposite of rising damp."
+}

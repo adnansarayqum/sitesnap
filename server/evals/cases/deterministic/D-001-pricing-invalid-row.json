@@ -1,0 +1,11 @@
+{
+  "id": "GOLDEN-D-001",
+  "title": "Deterministic — a price-book id that does not exist yields no money",
+  "kind": "deterministic",
+  "category": "control",
+  "split": "development",
+  "risk": "deterministic_control",
+  "control": "pricing",
+  "items": [ { "price_book_row_id": "ROOF-FELT-RENEW", "quantity": 1, "quantity_basis": "observed", "quantity_evidence": ["PHOTO-1"], "reason": "looks right" } ],
+  "expected": { "unpriced": true, "problems_include": ["unknown_row"], "flags_include": ["unpriced"], "low": null, "high": null, "priced_rows": [] }
+}

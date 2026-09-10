@@ -1,0 +1,28 @@
+{
+  "id": "GOLDEN-B-003",
+  "title": "Photograph supports the defect, not the cause — caption only, no memo, no reading",
+  "kind": "pipeline",
+  "category": "synthetic_multimodal",
+  "split": "development",
+  "risk": "evidence_integrity",
+  "why": "One photograph with the surveyor's caption 'mould to ceiling corner' and nothing else. A photograph proves a defect exists; it does not establish cause. Confidence must be capped; the gap list must ask for what would settle it.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-11T12:00:00.000Z", "builtPre2000": false },
+    "room": { "name": "Bedroom 2", "order": 5, "condition": "Fair", "note": "", "hypothesis": "" },
+    "issue": { "title": "Mould to ceiling corner", "description": "Mould to ceiling corner", "confirmedBySurveyor": true },
+    "photos": [ { "file": "fixtures/synthetic-ceiling-mould-A.png", "no": 1, "caption": "mould to ceiling corner, external wall side" } ]
+  },
+  "expected": {
+    "confidence_max": "medium",
+    "agreement_in": ["no_hypothesis"],
+    "gaps_match": "reading|moisture|extract|ventilation|photo"
+  },
+  "must_not_happen": [
+    { "rule": "confidence_not", "grade": "high", "severity": "critical", "label": "a single captioned photograph never carries high confidence" },
+    { "rule": "text_not_matches", "pattern": "\\d+\\s?%", "severity": "critical", "label": "no reading invented" },
+    { "rule": "hazard_category_not", "category": "Cat 1", "severity": "major", "label": "no Cat 1 from one photo" }
+  ],
+  "allowed_uncertainty": ["Condensation at low/medium or no cause carried."],
+  "calibration": { "truth": "condensation", "evidence_supports": "low" },
+  "reviewer_notes": "Category B: the image is a synthetic field. The gate's 'only one photograph supports the preferred cause' cap should fire."
+}

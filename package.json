@@ -9,6 +9,10 @@
     "preview": "vite preview",
     "start": "node server/index.js",
     "evals": "node server/evals/run.mjs",
+    "evals:holdout": "node server/evals/run.mjs --holdout",
+    "evals:all": "node server/evals/run.mjs --all",
+    "evals:fixtures": "node server/evals/fixtures/make-fixtures.mjs",
+    "evals:review-worksheet": "node server/evals/reference-review.mjs",
     "test": "vitest run",
     "test:e2e": "node test/e2e/local.mjs",
     "cap:sync": "vite build && cap sync"

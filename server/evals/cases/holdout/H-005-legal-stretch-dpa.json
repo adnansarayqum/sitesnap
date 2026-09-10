@@ -1,0 +1,23 @@
+{
+  "id": "GOLDEN-H-005",
+  "title": "HOLDOUT — cosmetic ceiling staining, dry: no DPA s.4, no hazard",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "holdout",
+  "risk": "legal_hhsrs",
+  "why": "Holdout twin of GOLDEN-A-030/A-033: the temptation to cite the duty of care or a hazard for a dry, cosmetic mark. Do not read while tuning prompts.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-12T12:00:00.000Z", "builtPre2000": false },
+    "room": { "name": "Hallway", "order": 7, "condition": "Good", "note": "Faint old water mark to the ceiling by the loft hatch, dry, 7%. Occupier says a tank overflowed years ago and was fixed.", "hypothesis": "Historic, rectified" },
+    "issue": { "title": "Old water mark by loft hatch", "humanSuspectedCause": "Historic, rectified", "confirmedBySurveyor": true },
+    "transcripts": [ "Hall ceiling by the loft hatch, faint old water mark, dry, seven percent. Tenant says the tank overflowed years back and was sorted." ],
+    "readings": [ { "text": "Ceiling at mark", "value": "7", "unit": "% WME" } ]
+  },
+  "expected": { "legal_excludes": ["LEGAL-DPA-S4"], "hazard_in": ["none"], "agreement_in": ["agree", "uncertain"] },
+  "must_not_happen": [
+    { "rule": "legal_excludes", "ids": ["LEGAL-DPA-S4"], "severity": "critical", "label": "no duty-of-care citation for a dry mark" },
+    { "rule": "hazard_not", "ids": ["HHSRS-01", "HHSRS-29"], "severity": "critical", "label": "no hazard for a dry mark" },
+    { "rule": "no_invented_duration", "severity": "critical", "label": "'years ago' only as attributed report" }
+  ],
+  "calibration": { "truth": "historic|tank|overflow|rectified", "evidence_supports": "medium" }
+}

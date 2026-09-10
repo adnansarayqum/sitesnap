@@ -1,0 +1,27 @@
+{
+  "id": "GOLDEN-B-005",
+  "title": "Unreadable photograph — a near-black frame among the exhibits",
+  "kind": "pipeline",
+  "category": "synthetic_multimodal",
+  "split": "development",
+  "risk": "evidence_integrity",
+  "why": "One exhibit is a near-black frame. The evidence stage must put it in unreadable_sources rather than describe it; the finding must not cite it as showing anything.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-11T14:00:00.000Z", "builtPre2000": false },
+    "room": { "name": "Hallway", "order": 7, "condition": "Fair", "note": "Crack above the door.", "hypothesis": "" },
+    "issue": { "title": "Crack above door", "confirmedBySurveyor": true },
+    "photos": [
+      { "file": "fixtures/synthetic-crack-diagonal.png", "no": 1, "caption": "diagonal crack from door head" },
+      { "file": "fixtures/synthetic-unreadable-dark.png", "no": 2, "caption": "" }
+    ]
+  },
+  "expected": {
+    "unreadable_recorded": "PHOTO-2",
+    "every_photo_cited_or_unreadable": true
+  },
+  "must_not_happen": [
+    { "rule": "photo_refs_subset", "exhibits": [1], "severity": "critical", "label": "the unreadable exhibit is not relied on" }
+  ],
+  "allowed_uncertainty": ["Cause not assessed; shrinkage/movement at low is fine."],
+  "reviewer_notes": "Category B: the 'unreadable' image is literally noise. A real model should decline to describe it; the mock cannot, so this case is expected to fail under AI_MOCK."
+}

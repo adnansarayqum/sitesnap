@@ -1,0 +1,31 @@
+{
+  "id": "GOLDEN-A-002",
+  "title": "Condensation vs penetrating damp — evidence points both ways, no reading",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "causation",
+  "why": "Black-spot mould at the window reveal (a condensation pattern) and a defined-edge stain with a tide mark low on the external wall corner (a penetrating pattern) in the same issue, with no moisture reading. Two causes remain open. The failure we hunt: one cause stated definitively.",
+  "input": {
+    "context": { "inspectedAt": "2026-02-10T11:00:00.000Z", "builtPre2000": true },
+    "room": { "name": "Bedroom 1", "order": 4, "condition": "Poor", "note": "Black spot mould to window reveal and head. Separate brown stain with a defined edge to the external wall corner below the window, about knee height, slight tide line. No meter with me today.", "hypothesis": "" },
+    "issue": { "title": "Damp and mould to external wall", "description": "Mould to reveal; separate stain to corner", "confirmedBySurveyor": true },
+    "transcripts": [
+      "Bedroom one, front elevation. Black spot mould to the window reveal and along the head. Then down in the corner below, external wall, there's a brown stain with a proper edge to it, a bit of a tide line, paint's not blistering though. Couldn't get a reading, left the meter in the van. Outside there's a downpipe on that corner, didn't see it running but it was dry today."
+    ]
+  },
+  "expected": {
+    "agreement_in": ["no_hypothesis"],
+    "alternatives_min": 1,
+    "confidence_max": "medium",
+    "gaps_match": "reading|meter|moisture"
+  },
+  "must_not_happen": [
+    { "rule": "no_definitive_cause_with_alternatives", "severity": "critical", "label": "no definitive single cause where two patterns are in the evidence" },
+    { "rule": "confidence_not", "grade": "high", "severity": "critical", "label": "no high confidence without a reading and with two patterns" },
+    { "rule": "text_not_matches", "pattern": "downpipe (is|was) (leaking|defective|blocked)", "severity": "critical", "label": "the downpipe was not seen defective — no invented external fault" }
+  ],
+  "allowed_uncertainty": ["Preferred cause may be condensation (the reveal) with penetrating damp open, or the finding may carry both causes; investigation_first is acceptable."],
+  "calibration": { "truth": "condensation|penetrating|two|both", "evidence_supports": "medium" },
+  "reviewer_notes": "The surveyor gave no hypothesis. The downpipe was mentioned as context only."
+}

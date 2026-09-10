@@ -1,0 +1,22 @@
+{
+  "id": "GOLDEN-A-020",
+  "title": "Unconfirmed evidence association — AI-suggested photo links, issue not confirmed",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "eligibility",
+  "why": "An AI-created issue with a human-typed description whose only photographs were linked by AI suggestion and never confirmed. Eligibility must refuse to draft: photo links are AI-suggested and not yet confirmed.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-05T11:00:00.000Z", "builtPre2000": false },
+    "room": { "name": "Kitchen", "order": 1, "condition": "Fair", "note": "", "hypothesis": "" },
+    "issue": { "title": "Wall staining", "description": "Staining to wall by cooker", "descriptionSource": "human_typed", "confirmedBySurveyor": false, "createdBy": "ai" },
+    "photos": [
+      { "file": "fixtures/synthetic-wall-stain.png", "linkSource": "ai_suggested" },
+      { "file": "fixtures/synthetic-blank-wall.png", "linkSource": "ai_suggested" }
+    ]
+  },
+  "expected": { "eligibility_rejected": true },
+  "must_not_happen": [],
+  "allowed_uncertainty": [],
+  "reviewer_notes": "shared/eligibility.js: photos whose links are all ai_suggested add a missing reason unless the issue is confirmed."
+}

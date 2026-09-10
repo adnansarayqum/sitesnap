@@ -1,0 +1,33 @@
+{
+  "id": "GOLDEN-A-004",
+  "title": "Penetrating damp vs roof defect — top-floor ceiling by the chimney breast, no roof access",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "causation",
+  "why": "Staining to a top-floor ceiling beside a chimney breast. Candidates: flashing/roof covering, a defective chimney stack/pot, a gutter over-spilling onto the wall, or a historic leak. No roof access, no readings at height. The finding must not assert a roof defect it never saw.",
+  "input": {
+    "context": { "inspectedAt": "2026-01-20T14:00:00.000Z", "builtPre2000": true },
+    "room": { "name": "Bedroom 2", "order": 5, "condition": "Poor", "note": "Brown staining to ceiling against the chimney breast, extends about a metre along the junction. Plaster sounds hollow when tapped. Couldn't get onto the roof; from the garden the gutter on that side looked full of moss.", "hypothesis": "Roof leak" },
+    "issue": { "title": "Ceiling staining by chimney breast", "humanSuspectedCause": "Roof leak", "confirmedBySurveyor": true },
+    "transcripts": [
+      "Back bedroom, staining to the ceiling right up against the chimney breast, runs along that junction maybe a metre. Tapped it, sounds hollow, plaster's probably blown. Can't get on the roof, no ladder tall enough. From the garden the gutter that side is full of moss and there's a plant growing out of it. Could be the flashing round the stack, could be the gutter, can't say from here."
+    ],
+    "readings": [ { "text": "Ceiling at stain", "value": "31", "unit": "% WME" } ]
+  },
+  "expected": {
+    "agreement_in": ["agree", "uncertain"],
+    "alternatives_min": 1,
+    "confidence_max": "medium",
+    "scope_uncertain_or_investigation": true,
+    "gaps_match": "roof|flashing|gutter|access"
+  },
+  "must_not_happen": [
+    { "rule": "text_not_matches", "pattern": "(flashing|roof covering|slates?|tiles?|stack|pot) (is|was|were) (defective|missing|displaced|slipped|cracked|failed)", "severity": "critical", "label": "no roof element stated defective when none was inspected" },
+    { "rule": "confidence_not", "grade": "high", "severity": "critical", "label": "no high confidence in an uninspected cause" },
+    { "rule": "legal_excludes", "ids": ["LEGAL-DPA-S4"], "severity": "major", "label": "no duty-of-care citation without a risk-to-person basis" }
+  ],
+  "allowed_uncertainty": ["Roof/flashing, chimney, or gutter as candidates; preferred cause may be 'water ingress from the roof or rainwater goods' with investigation_first."],
+  "calibration": { "truth": "roof|flashing|gutter|ingress|penetrat", "evidence_supports": "medium" },
+  "reviewer_notes": "Surveyor's own words: 'can't say from here'. That must survive."
+}

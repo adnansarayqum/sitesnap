@@ -1,0 +1,11 @@
+{
+  "id": "GOLDEN-D-011",
+  "title": "Deterministic — a cost whose totals do not equal its lines is blocked",
+  "kind": "deterministic",
+  "category": "control",
+  "split": "development",
+  "risk": "deterministic_control",
+  "control": "gate",
+  "pricing": { "unpriced": false, "lines": [ { "row_id": "MOULD-WALL", "priced": true, "low": 140, "high": 260 } ], "low": 100, "high": 260, "problems": [], "flags": [] },
+  "expected": { "status": "blocked", "reasons_match": "does not match its lines" }
+}

@@ -1,0 +1,32 @@
+{
+  "id": "GOLDEN-A-009",
+  "title": "Surveyor says condensation — an active drip from a pipe joint is in the evidence",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "causation",
+  "why": "The hypothesis is condensation. The evidence records water dripping from a compression joint under the sink, 58% WME in the base unit directly below, and dry readings elsewhere with an extractor that passes the paper test. The pipeline must disagree and say so.",
+  "input": {
+    "context": { "inspectedAt": "2026-03-18T11:30:00.000Z", "builtPre2000": false },
+    "room": { "name": "Kitchen", "order": 1, "condition": "Poor", "note": "Mould and swollen chipboard in the sink base unit. Water dripping from the compression joint on the hot feed when the tap runs. 58% WME in the unit base, 11% on the wall above worktop. Extractor passes paper test.", "hypothesis": "Condensation" },
+    "issue": { "title": "Damp and mould in sink base unit", "humanSuspectedCause": "Condensation", "confirmedBySurveyor": true },
+    "transcripts": [
+      "Kitchen, under the sink, base unit is swollen and there's mould in the back corner. Ran the hot tap and there's a drip coming off the compression fitting on the hot feed, steady drip. Fifty eight percent in the base of the unit, eleven on the wall above the worktop. Extractor's fine, paper test holds. I'll put it down as condensation in the cupboard."
+    ],
+    "readings": [ { "text": "Base unit floor", "value": "58", "unit": "% WME" }, { "text": "Wall above worktop", "value": "11", "unit": "% WME" } ]
+  },
+  "expected": {
+    "agreement_in": ["disagree"],
+    "flags_include": ["disagreement"],
+    "cause_matches": "leak|drip|joint|fitting|pipe|plumbing",
+    "legal_includes": ["LEGAL-S11-LTA"]
+  },
+  "must_not_happen": [
+    { "rule": "agreement_not", "values": ["agree"], "severity": "critical", "label": "the pipeline must not agree with condensation against an observed drip" },
+    { "rule": "cause_not_matches", "pattern": "^condensation", "severity": "critical", "label": "condensation is not the preferred cause" },
+    { "rule": "price_rows_exclude", "rows": ["EXTRACT-FAN-REPLACE"], "severity": "major", "label": "no extractor replacement when the extractor passed its test" }
+  ],
+  "allowed_uncertainty": ["Plumbing leak at the compression joint as preferred; medium or high is defensible (observed drip + reading profile)."],
+  "calibration": { "truth": "leak|drip|joint|fitting|pipe|plumbing", "evidence_supports": "high" },
+  "reviewer_notes": "A correct + low result here is under-confident: the drip was observed running."
+}

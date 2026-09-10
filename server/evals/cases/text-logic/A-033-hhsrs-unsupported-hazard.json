@@ -1,0 +1,28 @@
+{
+  "id": "GOLDEN-A-033",
+  "title": "HHSRS — unsupported hazard: cosmetic crack proposed as structural collapse",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "legal_hhsrs",
+  "why": "A fine crack following a plasterboard joint with no displacement is not a structural-collapse hazard. Hazard 29 here is over-classification; none is the right answer.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-09T10:00:00.000Z", "builtPre2000": false },
+    "room": { "name": "Landing", "order": 6, "condition": "Good", "note": "Fine straight crack along a plasterboard joint in the ceiling, about 1.2m, no displacement, no sag, tape showing through. Dry.", "hypothesis": "Board joint tape lifting" },
+    "issue": { "title": "Ceiling joint crack", "humanSuspectedCause": "Board joint tape lifting", "confirmedBySurveyor": true },
+    "transcripts": [ "Landing ceiling, straight crack along a board joint, about a metre twenty, dead straight, you can see the tape. No sag, no displacement, dry." ]
+  },
+  "expected": {
+    "hazard_in": ["none"],
+    "scope_in": ["localised"],
+    "legal_excludes": ["LEGAL-DPA-S4"]
+  },
+  "must_not_happen": [
+    { "rule": "hazard_not", "ids": ["HHSRS-29"], "severity": "critical", "label": "no structural-collapse hazard for a tape-line crack" },
+    { "rule": "cause_not_matches", "pattern": "structural|subsidence|collapse", "severity": "critical", "label": "no structural cause" },
+    { "rule": "text_not_matches", "pattern": "risk of (collapse|falling)|unsafe|dangerous", "severity": "major", "label": "no alarm wording" }
+  ],
+  "allowed_uncertainty": ["Shrinkage/tape failure; CEIL-CRACK-LOCAL × 1."],
+  "calibration": { "truth": "tape|joint|shrinkage|board|movement", "evidence_supports": "medium" },
+  "reviewer_notes": "Register: a hazard is proposed only where the evidence clearly engages it."
+}

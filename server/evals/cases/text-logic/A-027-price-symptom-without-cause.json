@@ -1,0 +1,27 @@
+{
+  "id": "GOLDEN-A-027",
+  "title": "Pricing — missing preparatory/causal works: mould treated but the leak behind it not addressed",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "pricing",
+  "why": "Mould to a wall with an evidenced leak behind it (reading profile, staining below the cistern). MOULD-WALL alone treats the symptom; the remedy must address the cause (LEAK-TRACE) or be framed as investigation first. Price-book note on MOULD-WALL says exactly this.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-07T11:00:00.000Z", "builtPre2000": false },
+    "room": { "name": "Bathroom", "order": 2, "condition": "Poor", "note": "Mould and staining to the wall behind and below the WC cistern, staining has a defined lower edge. 48% at the stain, 13% at the other side of the room. Cistern overflow connection looks wet.", "hypothesis": "Leak from the cistern connection" },
+    "issue": { "title": "Damp and mould behind WC", "humanSuspectedCause": "Leak from the cistern connection", "confirmedBySurveyor": true },
+    "transcripts": [ "Bathroom, behind the toilet, mould and staining behind and below the cistern, defined edge to the stain. Forty eight percent there, thirteen the other side of the room. The connection on the cistern looks wet to me." ],
+    "readings": [ { "text": "Wall behind cistern", "value": "48", "unit": "% WME" }, { "text": "Opposite wall", "value": "13", "unit": "% WME" } ]
+  },
+  "expected": {
+    "agreement_in": ["agree", "uncertain"],
+    "legal_includes": ["LEGAL-S11-LTA"]
+  },
+  "must_not_happen": [
+    { "rule": "if_row_then", "row": "MOULD-WALL", "then_rows_any": ["LEAK-TRACE"], "or_scope": ["investigation_first"], "severity": "major", "label": "mould treatment is not proposed without the leak being addressed" },
+    { "rule": "price_rows_exclude", "rows": ["EXTRACT-FAN-REPLACE"], "severity": "major", "label": "no ventilation remedy for a leak" }
+  ],
+  "allowed_uncertainty": ["LEAK-TRACE + MOULD-WALL, or investigation_first with LEAK-TRACE alone."],
+  "calibration": { "truth": "leak|cistern|connection|plumbing|installation", "evidence_supports": "medium" },
+  "reviewer_notes": "Playbook: 'Remedial always addresses the cause first, then the finish.'"
+}

@@ -1,0 +1,32 @@
+{
+  "id": "GOLDEN-A-011",
+  "title": "No surveyor hypothesis — agreement must be no_hypothesis, no disagreement flag",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "causation",
+  "why": "Straightforward condensation pattern (mould to external-wall corners and reveal, extractor failed paper test, 16% surface reading) with no hypothesis given. The comparison must report no_hypothesis and must not manufacture a disagreement.",
+  "input": {
+    "context": { "inspectedAt": "2026-11-05T09:00:00.000Z", "builtPre2000": false },
+    "room": { "name": "Bedroom 3", "order": 5, "condition": "Poor", "note": "Black spot mould to both external wall corners at ceiling level and the window reveal. Extractor in adjacent bathroom fails paper test. Surface reading 16% at mould, 9% mid-wall. No staining, no tide marks.", "hypothesis": "" },
+    "issue": { "title": "Mould to corners and reveal", "confirmedBySurveyor": true },
+    "transcripts": [
+      "Small bedroom, black spot mould top corners of both external walls and in the window reveal. Bathroom extractor next door fails the paper test. Sixteen percent at the mould, nine mid wall. No staining pattern, no tide marks, just the cold spots."
+    ],
+    "readings": [ { "text": "At mould, surface", "value": "16", "unit": "% WME" }, { "text": "Mid wall", "value": "9", "unit": "% WME" } ]
+  },
+  "expected": {
+    "agreement_in": ["no_hypothesis"],
+    "flags_exclude": ["disagreement"],
+    "cause_matches": "condensation",
+    "legal_includes": ["LEGAL-S9A-LTA", "LEGAL-S10-LTA"],
+    "hazard_in": ["HHSRS-01"]
+  },
+  "must_not_happen": [
+    { "rule": "legal_excludes", "ids": ["LEGAL-S11-LTA"], "severity": "major", "label": "condensation with the fabric in repair is not s.11 disrepair (corrections 10)" },
+    { "rule": "agreement_not", "values": ["disagree", "agree"], "severity": "major", "label": "nothing to agree or disagree with" }
+  ],
+  "allowed_uncertainty": ["Medium or high confidence in condensation are both defensible here: pattern, reading profile and a failed extractor test agree."],
+  "calibration": { "truth": "condensation", "evidence_supports": "high" },
+  "reviewer_notes": "A clean positive case: the controls should be quiet."
+}

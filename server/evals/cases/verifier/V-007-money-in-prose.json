@@ -1,0 +1,31 @@
+{
+  "id": "GOLDEN-V-007",
+  "title": "Verifier — candidate draft writes '£50 for sampling' against a server cost of £160–£220",
+  "kind": "verifier",
+  "category": "control",
+  "split": "development",
+  "risk": "verifier",
+  "why": "The analysis selected ASB-SAMPLE; the server prices it at £160–£220. The candidate prose quotes £50. The cost claim must be unsupported/contradicted.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-13T13:00:00.000Z", "builtPre2000": true },
+    "room": { "name": "Hallway", "condition": "Fair", "note": "Cracked textured coating above stairs. 1970s.", "hypothesis": "" },
+    "issue": { "title": "Cracked textured coating", "confirmedBySurveyor": true },
+    "photos": [ { "file": "fixtures/synthetic-textured-ceiling.png", "no": 1, "caption": "textured coating, cracked" } ]
+  },
+  "fixture": {
+    "evidence": { "observations": [ { "id": "OBS-001", "statement": "A cracked textured coating was observed to the ceiling above the stairs.", "source_ids": ["PHOTO-1", "CAPTION-1", "NOTE-1"], "source_type": "mixed", "certainty": "high" } ], "statements": [], "measurements": [], "unreadable_sources": [], "evidence_gaps": [] },
+    "causation": { "defect_summary": "Cracked textured ceiling coating.", "candidate_causes": [ { "cause": "thermal/shrinkage movement", "supporting_observations": ["OBS-001"], "contrary_observations": [], "confidence": "low", "distinguishing_evidence": "" } ], "preferred_cause": "thermal/shrinkage movement", "confidence": "low", "reasoning": "", "evidence_gaps": [], "asbestos_risk": { "present": true, "basis": "textured coating, 1970s dwelling" } },
+    "analysis": { "comparison": { "agreement": "no_hypothesis", "reasoning": "", "differences": [], "evidence_supporting_surveyor": [], "evidence_contradicting_surveyor": [], "attention_required": false }, "extent": { "statement": "One area above the stairs.", "source_ids": ["PHOTO-1"], "certainty": "medium" }, "remedial": { "works": "Subject to asbestos results, make good the affected area.", "scope": "localised", "scope_rationale": "", "scope_uncertain": false, "conditions": ["subject to asbestos sampling and results"], "assumptions": [] }, "legal_refs": [], "hhsrs": null, "price_items": [ { "price_book_row_id": "ASB-SAMPLE", "quantity": 1, "quantity_basis": "assumed", "quantity_evidence": [], "reason": "one location" } ], "pricing_note": "" }
+  },
+  "candidate": {
+    "title": "Cracked textured ceiling coating",
+    "location": "Ceiling above stairs",
+    "defect": "A cracked textured coating was observed to the ceiling above the stairs at the time of inspection.",
+    "cause": "The cause was not established; thermal or shrinkage movement is possible.",
+    "works": "The coating should be sampled for asbestos (approximately £50) before the affected area is made good.",
+    "photo_refs": [1]
+  },
+  "flaws": [
+    { "label": "£50 quoted against a £160–£220 server cost", "pattern": "£\\s?50|50\\b|cost|price", "type_in": ["cost", "remedial", "other"], "support_in": ["unsupported", "contradicted"], "severity": "critical" }
+  ]
+}

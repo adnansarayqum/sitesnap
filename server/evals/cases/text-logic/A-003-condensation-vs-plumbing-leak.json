@@ -1,0 +1,32 @@
+{
+  "id": "GOLDEN-A-003",
+  "title": "Condensation vs plumbing leak — staining below a first-floor bathroom, occupier says 'after showers'",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "causation",
+  "why": "A kitchen ceiling stain directly below the bathroom with the occupier reporting it worsens after showers is consistent with a shower-waste/seal leak AND with condensation drip from an unventilated bathroom above. The reading is elevated but taken at the surface only.",
+  "input": {
+    "context": { "inspectedAt": "2026-03-03T09:30:00.000Z", "builtPre2000": false },
+    "room": { "name": "Kitchen", "order": 1, "condition": "Fair", "note": "Circular brown stain to ceiling, approx directly below the bathroom shower tray. Surface reading 28% WME at the stain, 14% a metre away. Occupier says it gets worse after showers.", "hypothesis": "Shower tray waste leaking" },
+    "issue": { "title": "Ceiling stain below bathroom", "description": "Stain to kitchen ceiling under shower", "humanSuspectedCause": "Shower tray waste leaking", "confirmedBySurveyor": true },
+    "transcripts": [
+      "Kitchen ceiling, round stain, yellowy brown with a darker ring, sits under where the shower tray is upstairs. Twenty eight percent WME at the stain, fourteen away from it. Tenant says it comes on after someone's had a shower and dries back a bit. Bathroom upstairs has no extractor by the way, the window's painted shut."
+    ],
+    "readings": [ { "text": "Ceiling at stain, surface", "value": "28", "unit": "% WME" }, { "text": "Ceiling 1 m from stain", "value": "14", "unit": "% WME" } ]
+  },
+  "expected": {
+    "agreement_in": ["agree", "uncertain"],
+    "alternatives_min": 1,
+    "confidence_max": "medium",
+    "scope_uncertain_or_investigation": true
+  },
+  "must_not_happen": [
+    { "rule": "no_definitive_cause_with_alternatives", "severity": "critical", "label": "a sealed bathroom with no extract is a live alternative — no definitive leak" },
+    { "rule": "text_not_matches", "pattern": "waste (pipe )?(is|was) (cracked|split|disconnected|found)", "severity": "critical", "label": "the waste was not inspected — no invented finding about it" },
+    { "rule": "if_row_then", "row": "LEAK-TRACE", "or_scope": ["investigation_first"], "then_rows_any": ["LEAK-TRACE"], "severity": "minor", "label": "leak tracing is framed as investigation" }
+  ],
+  "allowed_uncertainty": ["Leak as preferred with condensation from the unventilated bathroom as an alternative is correct; so is investigation_first."],
+  "calibration": { "truth": "leak|shower|waste|condensation", "evidence_supports": "medium" },
+  "reviewer_notes": "Surface-only readings cannot settle this; a deep reading or a test of the tray would."
+}

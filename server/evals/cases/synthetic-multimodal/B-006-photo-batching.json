@@ -1,0 +1,42 @@
+{
+  "id": "GOLDEN-B-006",
+  "title": "Photo batching — twelve exhibits, two evidence batches, every exhibit reaches the sources",
+  "kind": "pipeline",
+  "category": "synthetic_multimodal",
+  "split": "development",
+  "risk": "evidence_integrity",
+  "why": "With AI_EVIDENCE_BATCH at its default of 10, twelve photographs run as two evidence calls. Ids must be renumbered without collision, every exhibit must appear in the sources, the causation stage must receive at most its photo cap, and the finding must cite only real exhibit numbers.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-11T15:00:00.000Z", "builtPre2000": true },
+    "room": { "name": "Living Room", "order": 3, "condition": "Poor", "note": "Cracking and staining across the textured ceiling.", "hypothesis": "Historic leak" },
+    "issue": { "title": "Ceiling cracking and staining", "humanSuspectedCause": "Historic leak", "confirmedBySurveyor": true },
+    "photos": [
+      { "file": "fixtures/synthetic-textured-ceiling.png", "no": 1, "caption": "textured coating, general view" },
+      { "file": "fixtures/synthetic-crack-diagonal.png", "no": 2, "caption": "crack from rose" },
+      { "file": "fixtures/synthetic-textured-ceiling.png", "no": 3, "caption": "coating detail" },
+      { "file": "fixtures/synthetic-crack-diagonal.png", "no": 4, "caption": "crack, bay end" },
+      { "file": "fixtures/synthetic-wall-stain.png", "no": 5, "caption": "staining near rose" },
+      { "file": "fixtures/synthetic-textured-ceiling.png", "no": 6, "caption": "coating, corner" },
+      { "file": "fixtures/synthetic-crack-diagonal.png", "no": 7, "caption": "crack continues" },
+      { "file": "fixtures/synthetic-blank-wall.png", "no": 8, "caption": "wall below, unaffected" },
+      { "file": "fixtures/synthetic-textured-ceiling.png", "no": 9, "caption": "coating near window" },
+      { "file": "fixtures/synthetic-crack-diagonal.png", "no": 10, "caption": "hairline branch" },
+      { "file": "fixtures/synthetic-wall-stain.png", "no": 11, "caption": "second stain" },
+      { "file": "fixtures/synthetic-textured-ceiling.png", "no": 12, "caption": "coating, door end" }
+    ],
+    "transcripts": [ "Living room ceiling, artex, cracks across it and a couple of stains near the rose. Readings normal, eight percent." ],
+    "readings": [ { "text": "Ceiling at stain", "value": "8", "unit": "% WME" } ]
+  },
+  "expected": {
+    "evidence_batches_min": 2,
+    "photos_analysed_equals": 12,
+    "all_photos_in_sources": true,
+    "flags_include": ["asbestos"]
+  },
+  "must_not_happen": [
+    { "rule": "photo_refs_valid", "severity": "critical", "label": "cites only exhibits 1–12" },
+    { "rule": "no_unknown_source_ids", "severity": "critical", "label": "no renumbering collision leaves an orphan id" }
+  ],
+  "allowed_uncertainty": ["Any cause at any confidence; this is a plumbing test."],
+  "reviewer_notes": "Category B: synthetic images, several repeated deliberately — the pipeline must still treat each exhibit number as its own source."
+}

@@ -1,0 +1,32 @@
+{
+  "id": "GOLDEN-V-003",
+  "title": "Verifier / gate — candidate draft cites exhibit 7; the issue has exhibits 1 and 2",
+  "kind": "verifier",
+  "category": "control",
+  "split": "development",
+  "risk": "verifier",
+  "why": "A photo reference to an exhibit that is not linked to the issue. The deterministic id check should block this regardless of what the verifier says.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-13T11:00:00.000Z", "builtPre2000": false },
+    "room": { "name": "Kitchen", "condition": "Fair", "note": "Staining to wall.", "hypothesis": "" },
+    "issue": { "title": "Wall staining", "confirmedBySurveyor": true },
+    "photos": [ { "file": "fixtures/synthetic-wall-stain.png", "no": 1, "caption": "tide line to wall" }, { "file": "fixtures/synthetic-blank-wall.png", "no": 2, "caption": "adjacent wall, unaffected" } ]
+  },
+  "fixture": {
+    "evidence": { "observations": [ { "id": "OBS-001", "statement": "Brown staining with a tide line was observed to the wall.", "source_ids": ["PHOTO-1", "CAPTION-1"], "source_type": "mixed", "certainty": "high" } ], "statements": [], "measurements": [], "unreadable_sources": [], "evidence_gaps": [] },
+    "causation": { "defect_summary": "Staining to the wall.", "candidate_causes": [ { "cause": "penetrating damp", "supporting_observations": ["OBS-001"], "contrary_observations": [], "confidence": "low", "distinguishing_evidence": "" } ], "preferred_cause": "penetrating damp", "confidence": "low", "reasoning": "", "evidence_gaps": [], "asbestos_risk": { "present": false, "basis": "" } },
+    "analysis": { "comparison": { "agreement": "no_hypothesis", "reasoning": "", "differences": [], "evidence_supporting_surveyor": [], "evidence_contradicting_surveyor": [], "attention_required": false }, "extent": { "statement": "One wall area.", "source_ids": ["PHOTO-1"], "certainty": "medium" }, "remedial": { "works": "Investigate the source.", "scope": "investigation_first", "scope_rationale": "", "scope_uncertain": true, "conditions": [], "assumptions": [] }, "legal_refs": [], "hhsrs": null, "price_items": [], "pricing_note": "" }
+  },
+  "candidate": {
+    "title": "Staining to kitchen wall",
+    "location": "External wall",
+    "defect": "Brown staining with a tide line was observed to the wall at the time of inspection (exhibit 7).",
+    "cause": "The source of moisture was not established.",
+    "works": "The source should be investigated before remedial works are specified.",
+    "photo_refs": [7]
+  },
+  "flaws": [
+    { "label": "cites exhibit 7, not linked to the issue", "pattern": "exhibit 7|photograph 7", "support_in": ["unsupported", "contradicted"], "deterministic_reason": "cites exhibit 7", "severity": "critical" }
+  ],
+  "reviewer_notes": "Expected to be caught by the deterministic gate even under AI_MOCK."
+}

@@ -1,0 +1,21 @@
+{
+  "id": "GOLDEN-H-004",
+  "title": "HOLDOUT — broken window latch: no row fits, nothing may be priced",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "holdout",
+  "risk": "pricing",
+  "why": "Holdout twin of GOLDEN-A-024. Do not read while tuning prompts.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-12T11:00:00.000Z", "builtPre2000": false },
+    "room": { "name": "Bedroom 1", "order": 4, "condition": "Fair", "note": "Window latch broken, sash won't lock. Frame otherwise sound.", "hypothesis": "Mechanical failure of the latch" },
+    "issue": { "title": "Broken window latch", "humanSuspectedCause": "Mechanical failure of the latch", "confirmedBySurveyor": true },
+    "transcripts": [ "Bedroom one, window latch is broken, the sash won't lock shut. Frame's fine." ]
+  },
+  "expected": { "unpriced": true, "no_price_rows": true },
+  "must_not_happen": [
+    { "rule": "no_price_rows", "severity": "critical", "label": "no loosely related row" },
+    { "rule": "flags_include", "flags": ["unpriced"], "severity": "major", "label": "unpriced flag raised" }
+  ],
+  "calibration": { "truth": "latch|mechanical|wear|failure", "evidence_supports": "medium" }
+}

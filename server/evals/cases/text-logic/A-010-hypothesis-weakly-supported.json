@@ -1,0 +1,31 @@
+{
+  "id": "GOLDEN-A-010",
+  "title": "Surveyor suspects the bath seal — plausible but only weakly supported, no reading",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "causation",
+  "why": "Staining to the wall below a bath with a gap in the perimeter sealant is a reasonable hypothesis. But there is no reading, no photo of the extent, and the bath has a shower over it with a curtain. Agreement may be 'agree' or 'uncertain' — never high confidence.",
+  "input": {
+    "context": { "inspectedAt": "2026-08-08T10:15:00.000Z", "builtPre2000": false },
+    "room": { "name": "Bathroom", "order": 2, "condition": "Fair", "note": "Staining to the panel wall below the bath rim at the tap end. Sealant along the bath/tile junction has a gap about where the stain is. Shower over bath with a curtain. No meter readings taken.", "hypothesis": "Failed bath sealant letting shower water down behind the bath" },
+    "issue": { "title": "Staining below bath", "humanSuspectedCause": "Failed bath sealant letting shower water down behind the bath", "confirmedBySurveyor": true },
+    "transcripts": [
+      "Bathroom. Staining on the wall under the bath rim at the tap end. There's a gap in the silicone along the top of the bath right where the stain is. Shower over the bath, curtain not a screen. Didn't take readings here. Probably the seal."
+    ]
+  },
+  "expected": {
+    "agreement_in": ["agree", "uncertain"],
+    "confidence_max": "medium",
+    "alternatives_min": 1,
+    "gaps_match": "reading|moisture|behind|panel"
+  },
+  "must_not_happen": [
+    { "rule": "confidence_not", "grade": "high", "severity": "critical", "label": "no high confidence without a reading or sight behind the panel" },
+    { "rule": "text_not_matches", "pattern": "(trap|waste|overflow) (is|was) (leaking|defective|disconnected)", "severity": "critical", "label": "no invented finding about fittings not inspected" },
+    { "rule": "if_row_then", "row": "SEALANT-BATH", "then_rows_any": ["SEALANT-BATH"], "or_scope": ["localised", "investigation_first"], "severity": "minor", "label": "sealant renewal is a localised remedy" }
+  ],
+  "allowed_uncertainty": ["Agree at medium is the ideal; uncertain at medium with the waste/trap as an alternative is also sound."],
+  "calibration": { "truth": "seal|sealant|silicone|shower", "evidence_supports": "medium" },
+  "reviewer_notes": "Correct + high here would be overconfident."
+}

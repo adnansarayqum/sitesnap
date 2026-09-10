@@ -1,0 +1,27 @@
+{
+  "id": "GOLDEN-A-026",
+  "title": "Pricing — overlapping works: a patch and a whole-ceiling make-good proposed together",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "pricing",
+  "why": "A ceiling with one pronounced crack AND general crazing across the finish tempts the model to propose CEIL-CRACK-LOCAL and CEIL-MAKE-GOOD together. The book marks them mutually exclusive. They must never both be priced in one finding.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-07T10:00:00.000Z", "builtPre2000": false },
+    "room": { "name": "Living Room", "order": 3, "condition": "Poor", "note": "One pronounced crack across the ceiling from the light rose to the bay, plus fine crazing across most of the rest of the finish. Smooth skim, not textured. Dry.", "hypothesis": "Movement/shrinkage in the skim" },
+    "issue": { "title": "Ceiling cracking and crazing", "humanSuspectedCause": "Movement/shrinkage in the skim", "confirmedBySurveyor": true },
+    "transcripts": [ "Living room ceiling. One proper crack from the rose out to the bay, and then the whole finish is crazed, fine cracks everywhere. It's a skim, not artex. Dry, eight percent." ],
+    "readings": [ { "text": "Ceiling", "value": "8", "unit": "% WME" } ]
+  },
+  "expected": {
+    "scope_in": ["whole_element"],
+    "flags_exclude": ["asbestos"]
+  },
+  "must_not_happen": [
+    { "rule": "price_rows_exclude", "rows": ["CEIL-CRACK-LOCAL"], "severity": "major", "label": "no localised row when the whole finish is crazed" },
+    { "rule": "if_row_then", "row": "CEIL-CRACK-LOCAL", "then_rows_any": [], "or_scope": ["localised"], "severity": "critical", "label": "a patch row cannot coexist with a whole-element scope" }
+  ],
+  "allowed_uncertainty": ["CEIL-MAKE-GOOD × 1 priced on an assumption is expected. If both rows are proposed, the server refuses to price them together (overlap) — that still shows in the report as a server_price_validation catch."],
+  "calibration": { "truth": "shrinkage|movement|skim|thermal", "evidence_supports": "medium" },
+  "reviewer_notes": "Post-2000 smooth skim: no asbestos condition expected."
+}

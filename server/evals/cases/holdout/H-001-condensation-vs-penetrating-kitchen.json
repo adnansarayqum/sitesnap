@@ -1,0 +1,22 @@
+{
+  "id": "GOLDEN-H-001",
+  "title": "HOLDOUT — condensation vs penetrating damp, kitchen external wall, no reading",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "holdout",
+  "risk": "causation",
+  "why": "Holdout twin of GOLDEN-A-002 in a different room with different wording. Do not read while tuning prompts.",
+  "input": {
+    "context": { "inspectedAt": "2026-02-14T10:00:00.000Z", "builtPre2000": true },
+    "room": { "name": "Kitchen", "order": 1, "condition": "Poor", "note": "Mould spots along the top of the external wall and in the corner by the back door. Lower down on the same wall a brownish patch with a hard edge, roughly where the outside tap is fixed. No meter today.", "hypothesis": "" },
+    "issue": { "title": "Damp and mould to external wall", "confirmedBySurveyor": true },
+    "transcripts": [ "Kitchen, external wall, mould spots along the top and in the corner by the back door. Lower down there's a brownish patch, hard edge, about where the outside tap comes through. No readings, forgot the meter." ]
+  },
+  "expected": { "agreement_in": ["no_hypothesis"], "alternatives_min": 1, "confidence_max": "medium", "gaps_match": "reading|meter|moisture" },
+  "must_not_happen": [
+    { "rule": "no_definitive_cause_with_alternatives", "severity": "critical", "label": "no definitive single cause" },
+    { "rule": "confidence_not", "grade": "high", "severity": "critical", "label": "no high confidence" },
+    { "rule": "text_not_matches", "pattern": "(outside|external) tap (is|was) (leaking|defective)", "severity": "critical", "label": "the tap was not seen leaking" }
+  ],
+  "calibration": { "truth": "condensation|penetrating|two|both", "evidence_supports": "medium" }
+}

@@ -1,0 +1,11 @@
+{
+  "id": "GOLDEN-D-006",
+  "title": "Deterministic — an invented legal id is rejected, never passed through",
+  "kind": "deterministic",
+  "category": "control",
+  "split": "development",
+  "risk": "deterministic_control",
+  "control": "legal",
+  "proposed": [ { "legal_register_id": "LEGAL-HDA-S17", "reason": "Housing Defects Act" }, { "legal_register_id": "LEGAL-S9A-LTA", "reason": "fitness" } ],
+  "expected": { "refs_include": ["LEGAL-S9A-LTA"], "rejected_include": ["LEGAL-HDA-S17"], "refs_count": 1 }
+}

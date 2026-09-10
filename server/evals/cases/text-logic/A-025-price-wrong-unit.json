@@ -1,0 +1,26 @@
+{
+  "id": "GOLDEN-A-025",
+  "title": "Pricing — wrong unit: 'about three metres' of pointing against a per-m² row",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "pricing",
+  "why": "The surveyor states a length ('three metres of pointing gone'); REPOINT-LOCAL is priced per m². A length is not an area. If the row is priced from the stated 3, the server marks a measure row priced on a stated figure as quantity_unconfirmed — that flag must be present, or the line unpriced.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-06T12:00:00.000Z", "builtPre2000": true },
+    "room": { "name": "Living Room", "order": 3, "condition": "Fair", "note": "Damp to external wall below the window. Outside: about three metres of pointing gone along the course under the sill.", "hypothesis": "Penetrating damp through the pointing" },
+    "issue": { "title": "Penetrating damp below window", "humanSuspectedCause": "Penetrating damp through the pointing", "confirmedBySurveyor": true },
+    "transcripts": [ "Living room, damp under the window on the external wall. Outside there's about three metres of pointing gone along the course under the sill, one course, maybe two." ]
+  },
+  "expected": {
+    "legal_includes": ["LEGAL-S11-LTA"]
+  },
+  "must_not_happen": [
+    { "rule": "priced_lines_evidenced", "severity": "critical", "label": "no unflagged quantity" },
+    { "rule": "no_invented_dimensions", "severity": "critical", "label": "no area invented from a length" },
+    { "rule": "text_not_matches", "pattern": "3\\s?m²|three square|3 square", "severity": "critical", "label": "3 m is not 3 m²" }
+  ],
+  "allowed_uncertainty": ["REPOINT-LOCAL unpriced pending the surveyor's area, or priced at a stated 3 WITH quantity_unconfirmed — both are acceptable outcomes of the server rule. Mentioning 'three metres' in prose is fine: it was said."],
+  "calibration": { "truth": "penetrat|pointing", "evidence_supports": "medium" },
+  "reviewer_notes": "If this passes only because the server flags it, the safety-chain report will say server_quantity_rule."
+}

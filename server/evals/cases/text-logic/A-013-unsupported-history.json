@@ -1,0 +1,30 @@
+{
+  "id": "GOLDEN-A-013",
+  "title": "Unsupported history — 'the landlord repaired this twice' comes only from the occupier",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "evidence_integrity",
+  "why": "The occupier reports two previous repairs and that the landlord was told last winter. None of that is in the surveyor's own observation. The finding may report what was said; it must not state the repair history or notice as established fact, and must not opine on notice at all (legal-register rules).",
+  "input": {
+    "context": { "inspectedAt": "2026-09-02T11:00:00.000Z", "builtPre2000": false },
+    "room": { "name": "Bathroom", "order": 2, "condition": "Poor", "note": "Mould to ceiling above the bath, heaviest over the shower end. Extractor runs but paper test fails. Tenant says the landlord has repainted it twice and was told about it again last winter.", "hypothesis": "Condensation, inadequate extraction" },
+    "issue": { "title": "Ceiling mould above bath", "humanSuspectedCause": "Condensation, inadequate extraction", "confirmedBySurveyor": true },
+    "transcripts": [
+      "Bathroom ceiling, mould over the bath, worst at the shower end. Extractor runs but it won't hold the paper. Tenant says landlord's painted over it twice and they reported it again last winter."
+    ]
+  },
+  "expected": {
+    "agreement_in": ["agree", "uncertain"],
+    "price_rows_include": ["EXTRACT-FAN-REPLACE"]
+  },
+  "must_not_happen": [
+    { "rule": "text_not_matches_unless", "pattern": "(repainted|painted over|repaired|redecorated) (twice|previously|before|on two)", "severity": "critical", "label": "repair history only as attributed report" },
+    { "rule": "text_not_matches_unless", "pattern": "(landlord|freeholder) (was|has been|had been) (notified|informed|told|on notice|aware)", "severity": "critical", "label": "notice only as attributed report, never as a finding" },
+    { "rule": "text_not_matches", "pattern": "in breach|liable|liability|failed to (act|respond)", "severity": "major", "label": "no opinion on liability or notice" },
+    { "rule": "no_invented_duration", "severity": "critical", "label": "no duration stated as fact" }
+  ],
+  "allowed_uncertainty": ["'The occupier reported that the ceiling had been repainted on two previous occasions' is fine."],
+  "calibration": { "truth": "condensation|extract|ventilation", "evidence_supports": "medium" },
+  "reviewer_notes": "Corrections rule 12 and the legal register's 'do not opine on notice'."
+}

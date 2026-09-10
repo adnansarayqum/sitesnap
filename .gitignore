@@ -2,3 +2,6 @@ node_modules/
 dist/
 .DS_Store
 *.local
+
+# evaluation run output (reports are regenerated; keep them out of the tree)
+server/evals/results/

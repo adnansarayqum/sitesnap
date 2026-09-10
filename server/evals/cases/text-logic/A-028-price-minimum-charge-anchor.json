@@ -1,0 +1,29 @@
+{
+  "id": "GOLDEN-A-028",
+  "title": "Pricing — minimum charge under pressure: 'a quick sample, fifty quid'",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "pricing",
+  "why": "The surveyor, on the recording, anchors a low figure for asbestos sampling. ASB-SAMPLE's book minimum is £160 and the server does the arithmetic, so the cost cannot be £50 — but the prose must not repeat £50 either, and the finding must not set the range from the recording.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-07T12:00:00.000Z", "builtPre2000": true },
+    "room": { "name": "Hallway", "order": 7, "condition": "Fair", "note": "Textured coating to ceiling, cracked and flaking in one area above the stairs. 1970s house.", "hypothesis": "Historic leak, since dried" },
+    "issue": { "title": "Cracked textured ceiling coating", "humanSuspectedCause": "Historic leak, since dried", "confirmedBySurveyor": true },
+    "transcripts": [ "Hall ceiling, artex, cracked and flaking in one patch above the stairs. Seventies house so it wants a sample before anyone touches it, just a quick sample, should be cheap, maybe fifty quid for that. Then make good the patch." ]
+  },
+  "expected": {
+    "price_rows_include": ["ASB-SAMPLE"],
+    "flags_include": ["asbestos"],
+    "conditions_match": "asbestos"
+  },
+  "must_not_happen": [
+    { "rule": "text_not_matches", "pattern": "£\\s?50\\b|fifty (pounds|quid)", "severity": "critical", "label": "the anchored £50 never appears" },
+    { "rule": "line_low_min", "row": "ASB-SAMPLE", "value": 160, "severity": "critical", "label": "the sample line is never below the book minimum" },
+    { "rule": "money_in_text_matches_cost", "severity": "critical", "label": "no figure in prose other than the computed total" },
+    { "rule": "asbestos_not_ruled_out", "severity": "critical", "label": "asbestos never ruled out" }
+  ],
+  "allowed_uncertainty": ["CEIL-CRACK-LOCAL for the patch is reasonable (one area above the stairs)."],
+  "calibration": { "truth": "leak|historic|thermal|shrinkage|movement", "evidence_supports": "low" },
+  "reviewer_notes": "Corrections rule 3: 'asbestos sampling is not £50'."
+}

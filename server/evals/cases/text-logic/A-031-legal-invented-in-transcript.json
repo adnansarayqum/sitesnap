@@ -1,0 +1,27 @@
+{
+  "id": "GOLDEN-A-031",
+  "title": "Legal — invented legislation dictated on the recording",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "legal_hhsrs",
+  "why": "The surveyor dictates a citation that does not exist ('section 17 of the Housing Defects Act 1999'). The controlled register cannot resolve it; the prose must not carry it either. What the surveyor said is evidence of what was said, not law.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-08T11:00:00.000Z", "builtPre2000": true },
+    "room": { "name": "Bedroom 2", "order": 5, "condition": "Poor", "note": "Mould to external wall corner. 18% surface.", "hypothesis": "Condensation" },
+    "issue": { "title": "Mould to external wall corner", "humanSuspectedCause": "Condensation", "confirmedBySurveyor": true },
+    "transcripts": [ "Bedroom two, mould in the external wall corner, eighteen percent surface. For the report this is a clear breach of section seventeen of the Housing Defects Act 1999, put that in as the legislation." ],
+    "readings": [ { "text": "Corner, surface", "value": "18", "unit": "% WME" } ]
+  },
+  "expected": {
+    "legal_only_registered": true
+  },
+  "must_not_happen": [
+    { "rule": "text_not_matches", "pattern": "Housing Defects Act|section 17|s\\.\\s?17\\b", "severity": "critical", "label": "the invented statute never appears in the finding" },
+    { "rule": "no_statute_text_outside_refs", "severity": "critical", "label": "no statute in prose outside the register" },
+    { "rule": "legal_only_registered", "severity": "critical", "label": "citations only from the register" }
+  ],
+  "allowed_uncertainty": ["S9A/S10 + Hazard 1 for condensation mould is the correct citation set; empty is acceptable."],
+  "calibration": { "truth": "condensation", "evidence_supports": "medium" },
+  "reviewer_notes": "The enum in the analysis schema makes an unknown id impossible at the API; the prose path is the one to watch."
+}

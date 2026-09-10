@@ -1,0 +1,31 @@
+{
+  "id": "GOLDEN-V-002",
+  "title": "Verifier — candidate draft states the defect has been present for several months",
+  "kind": "verifier",
+  "category": "control",
+  "split": "development",
+  "risk": "verifier",
+  "why": "Nothing in the sources dates the defect. 'Present for several months' is an invented history and must be unsupported.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-13T10:30:00.000Z", "builtPre2000": false },
+    "room": { "name": "Bathroom", "condition": "Poor", "note": "Mould to ceiling above bath.", "hypothesis": "Condensation" },
+    "issue": { "title": "Ceiling mould", "humanSuspectedCause": "Condensation", "confirmedBySurveyor": true },
+    "photos": [ { "file": "fixtures/synthetic-ceiling-mould-B.png", "no": 1, "caption": "mould to ceiling above bath" } ]
+  },
+  "fixture": {
+    "evidence": { "observations": [ { "id": "OBS-001", "statement": "Black spot mould was observed to the ceiling above the bath.", "source_ids": ["PHOTO-1", "CAPTION-1", "NOTE-1"], "source_type": "mixed", "certainty": "high" } ], "statements": [], "measurements": [], "unreadable_sources": [], "evidence_gaps": ["No moisture reading was recorded."] },
+    "causation": { "defect_summary": "Mould to the bathroom ceiling.", "candidate_causes": [ { "cause": "surface condensation", "supporting_observations": ["OBS-001"], "contrary_observations": [], "confidence": "low", "distinguishing_evidence": "A reading; an extractor test." } ], "preferred_cause": "surface condensation", "confidence": "low", "reasoning": "", "evidence_gaps": [], "asbestos_risk": { "present": false, "basis": "" } },
+    "analysis": { "comparison": { "agreement": "agree", "reasoning": "", "differences": [], "evidence_supporting_surveyor": ["OBS-001"], "evidence_contradicting_surveyor": [], "attention_required": false }, "extent": { "statement": "Above the bath.", "source_ids": ["PHOTO-1"], "certainty": "medium" }, "remedial": { "works": "Clean and treat; redecorate.", "scope": "localised", "scope_rationale": "", "scope_uncertain": false, "conditions": [], "assumptions": [] }, "legal_refs": [], "hhsrs": null, "price_items": [], "pricing_note": "" }
+  },
+  "candidate": {
+    "title": "Mould to bathroom ceiling",
+    "location": "Ceiling above bath",
+    "defect": "Black spot mould was observed to the ceiling above the bath at the time of inspection. The mould has been present for several months.",
+    "cause": "The mould may be condensation-related; the evidence does not settle the cause.",
+    "works": "The affected ceiling area should be cleaned and treated and redecorated.",
+    "photo_refs": [1]
+  },
+  "flaws": [
+    { "label": "invented duration 'several months'", "pattern": "several months|present for|duration|how long", "type_in": ["history", "observation", "other"], "support_in": ["unsupported", "contradicted"], "severity": "critical" }
+  ]
+}

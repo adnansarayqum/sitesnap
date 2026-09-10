@@ -1,0 +1,31 @@
+{
+  "id": "GOLDEN-V-008",
+  "title": "Verifier — candidate draft says 'three window reveals'; the evidence shows one",
+  "kind": "verifier",
+  "category": "control",
+  "split": "development",
+  "risk": "verifier",
+  "why": "Quantity inflation. One reveal is in evidence; the draft says three. The extent/measurement claim must be unsupported.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-13T13:30:00.000Z", "builtPre2000": false },
+    "room": { "name": "Living Room", "condition": "Fair", "note": "Mould to the window reveal, one window in this room.", "hypothesis": "Condensation" },
+    "issue": { "title": "Mould to reveal", "humanSuspectedCause": "Condensation", "confirmedBySurveyor": true },
+    "photos": [ { "file": "fixtures/synthetic-ceiling-mould-A.png", "no": 1, "caption": "mould to the reveal" } ]
+  },
+  "fixture": {
+    "evidence": { "observations": [ { "id": "OBS-001", "statement": "Mould was observed to the window reveal; the room has one window.", "source_ids": ["PHOTO-1", "NOTE-1"], "source_type": "mixed", "certainty": "high" } ], "statements": [], "measurements": [], "unreadable_sources": [], "evidence_gaps": [] },
+    "causation": { "defect_summary": "Mould to one reveal.", "candidate_causes": [ { "cause": "surface condensation", "supporting_observations": ["OBS-001"], "contrary_observations": [], "confidence": "medium", "distinguishing_evidence": "" } ], "preferred_cause": "surface condensation", "confidence": "medium", "reasoning": "", "evidence_gaps": [], "asbestos_risk": { "present": false, "basis": "" } },
+    "analysis": { "comparison": { "agreement": "agree", "reasoning": "", "differences": [], "evidence_supporting_surveyor": ["OBS-001"], "evidence_contradicting_surveyor": [], "attention_required": false }, "extent": { "statement": "One reveal.", "source_ids": ["PHOTO-1", "NOTE-1"], "certainty": "high" }, "remedial": { "works": "Clean, treat and redecorate the reveal.", "scope": "localised", "scope_rationale": "", "scope_uncertain": false, "conditions": [], "assumptions": [] }, "legal_refs": [], "hhsrs": null, "price_items": [ { "price_book_row_id": "MOULD-REVEAL", "quantity": 1, "quantity_basis": "stated", "quantity_evidence": ["NOTE-1"], "reason": "one window" } ], "pricing_note": "" }
+  },
+  "candidate": {
+    "title": "Mould to window reveals",
+    "location": "Window reveals",
+    "defect": "Mould was observed to three window reveals at the time of inspection.",
+    "cause": "On the balance of probabilities the mould is condensation-related.",
+    "works": "The three mould-affected reveals should be cleaned, treated and redecorated.",
+    "photo_refs": [1]
+  },
+  "flaws": [
+    { "label": "three reveals claimed, one in evidence", "pattern": "three|3 |reveals", "type_in": ["observation", "extent", "measurement", "remedial"], "support_in": ["unsupported", "contradicted"], "severity": "critical" }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "GOLDEN-A-043",
+  "title": "Photographs alone, issue not confirmed — not eligible",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "eligibility",
+  "why": "Two capture-session photographs, no note, no memo, no reading, no description, issue not confirmed. Photos alone never make an issue eligible (shared/eligibility.js).",
+  "input": {
+    "context": { "inspectedAt": "2026-09-10T13:00:00.000Z", "builtPre2000": false },
+    "room": { "name": "Kitchen", "order": 1, "condition": "Good", "note": "", "hypothesis": "" },
+    "issue": { "title": "Untitled issue", "description": "", "confirmedBySurveyor": false, "createdBy": "surveyor" },
+    "photos": [ "fixtures/synthetic-blank-wall.png", "fixtures/synthetic-wall-stain.png" ]
+  },
+  "expected": { "eligibility_rejected": true },
+  "must_not_happen": [],
+  "allowed_uncertainty": [],
+  "reviewer_notes": "Room condition Good: the rated_issue source does not apply either."
+}

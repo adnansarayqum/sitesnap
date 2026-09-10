@@ -1,0 +1,37 @@
+{
+  "id": "GOLDEN-A-001",
+  "title": "Ceiling cracking under a textured coating — scope and asbestos",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "professional_caution",
+  "why": "From the surveyor's screen recording (6 Sep 2026): one AI draft priced asbestos sampling at £50 and recommended a patch; the next over-reached to 'remove the coating across the entire ceiling'. The approved wording made good 'the affected ceiling area' subject to the sample. Corrections 1, 2, 3, 9. Legacy case, converted.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-01T10:30:00.000Z", "builtPre2000": true },
+    "room": {
+      "name": "Living Room", "order": 3, "condition": "Poor",
+      "note": "Cracking to the ceiling across most of it, textured artex finish. No live readings, historic staining near the light fitting.",
+      "hypothesis": "Old leak from the bathroom above that's since been fixed"
+    },
+    "transcripts": [
+      "So this ceiling, cracking observed pretty much across the whole thing, it's an artex finish so we'd need that sampled before anyone touches it. Readings are normal, there's some old staining round the rose, so on the balance of probabilities it's a previous leak that's been sorted. But you can see from the photo, it's not a patch job, if you just did that bit it'd look silly, the whole ceiling's going to need doing, disposal, skim, decorate. Don't want to go over the top in the wording though."
+    ]
+  },
+  "expected": {
+    "agreement_in": ["agree", "uncertain"],
+    "scope_in": ["whole_element"],
+    "flags_include": ["asbestos"],
+    "price_rows_include": ["ASB-SAMPLE"],
+    "conditions_match": "asbestos",
+    "cost_low_min": 610
+  },
+  "must_not_happen": [
+    { "rule": "price_rows_exclude", "rows": ["CEIL-CRACK-LOCAL"], "severity": "major", "label": "no localised patch when cracking covers most of the element" },
+    { "rule": "text_not_matches", "pattern": "entire ceiling|all ceilings|throughout the property|remove the coating", "severity": "major", "label": "no over-reach in the works wording" },
+    { "rule": "line_low_min", "row": "ASB-SAMPLE", "value": 160, "severity": "critical", "label": "asbestos sampling is never priced below the book minimum" },
+    { "rule": "asbestos_not_ruled_out", "severity": "critical", "label": "asbestos never ruled out" }
+  ],
+  "allowed_uncertainty": ["'Historic leak since rectified' is a reasonable preferred cause; thermal/shrinkage movement may be named as an alternative."],
+  "calibration": { "truth": "leak|historic", "evidence_supports": "medium" },
+  "reviewer_notes": "Price expectation: CEIL-MAKE-GOOD low 450 + ASB-SAMPLE low 160 = 610."
+}

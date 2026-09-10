@@ -1,0 +1,32 @@
+{
+  "id": "GOLDEN-V-004",
+  "title": "Verifier — candidate draft asserts a leak from above; the evidence is a condensation pattern with a dry reading",
+  "kind": "verifier",
+  "category": "control",
+  "split": "development",
+  "risk": "verifier",
+  "why": "The validated causation is condensation (medium). The candidate draft states a leak from the flat above as the cause. The verifier must mark the causation claim unsupported or contradicted.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-13T11:30:00.000Z", "builtPre2000": false },
+    "room": { "name": "Bedroom 2", "condition": "Poor", "note": "Mould to both external wall corners at ceiling level. 15% surface. No staining.", "hypothesis": "" },
+    "issue": { "title": "Mould to corners", "confirmedBySurveyor": true },
+    "photos": [ { "file": "fixtures/synthetic-ceiling-mould-A.png", "no": 1, "caption": "mould to corner" } ],
+    "readings": [ { "text": "Corner, surface", "value": "15", "unit": "% WME" } ]
+  },
+  "fixture": {
+    "evidence": { "observations": [ { "id": "OBS-001", "statement": "Black spot mould was observed to both external wall corners at ceiling level; no staining was observed.", "source_ids": ["PHOTO-1", "NOTE-1"], "source_type": "mixed", "certainty": "high" } ], "statements": [], "measurements": [ { "id": "MEAS-001", "statement": "A surface reading of 15% WME was recorded.", "value": "15", "unit": "% WME", "source_ids": ["READING-1"] } ], "unreadable_sources": [], "evidence_gaps": [] },
+    "causation": { "defect_summary": "Mould to cold corners.", "candidate_causes": [ { "cause": "surface condensation", "supporting_observations": ["OBS-001", "MEAS-001"], "contrary_observations": [], "confidence": "medium", "distinguishing_evidence": "" }, { "cause": "penetrating damp", "supporting_observations": [], "contrary_observations": ["OBS-001", "MEAS-001"], "confidence": "low", "distinguishing_evidence": "" } ], "preferred_cause": "surface condensation", "confidence": "medium", "reasoning": "", "evidence_gaps": [], "asbestos_risk": { "present": false, "basis": "" } },
+    "analysis": { "comparison": { "agreement": "no_hypothesis", "reasoning": "", "differences": [], "evidence_supporting_surveyor": [], "evidence_contradicting_surveyor": [], "attention_required": false }, "extent": { "statement": "Two corners.", "source_ids": ["PHOTO-1"], "certainty": "medium" }, "remedial": { "works": "Improve ventilation; clean and treat; redecorate.", "scope": "localised", "scope_rationale": "", "scope_uncertain": false, "conditions": [], "assumptions": [] }, "legal_refs": [ { "legal_register_id": "LEGAL-S9A-LTA", "reason": "fitness" } ], "hhsrs": { "hazard_id": "HHSRS-01", "category": "Cat 2", "evidence_basis": "mould", "confidence": "medium" }, "price_items": [], "pricing_note": "" }
+  },
+  "candidate": {
+    "title": "Mould to bedroom corners",
+    "location": "External wall corners",
+    "defect": "Black spot mould was observed to both external wall corners at the time of inspection. A surface reading of 15% WME was recorded.",
+    "cause": "On the balance of probabilities the mould is caused by a leak from the flat above.",
+    "works": "The leak should be traced and repaired; the affected areas cleaned, treated and redecorated.",
+    "photo_refs": [1]
+  },
+  "flaws": [
+    { "label": "unsupported cause: leak from above", "pattern": "leak|flat above", "type_in": ["causation", "remedial", "other"], "support_in": ["unsupported", "contradicted"], "severity": "critical" }
+  ]
+}

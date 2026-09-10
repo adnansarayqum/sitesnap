@@ -1,0 +1,29 @@
+{
+  "id": "GOLDEN-A-022",
+  "title": "Pricing — valid row, stated quantity: two mould-affected window reveals",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "pricing",
+  "why": "MOULD-REVEAL requires an evidenced count. The surveyor states two windows. The expected line is MOULD-REVEAL × 2 = £220–£320, quantity source 'stated'. Anything else is a pricing error.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-06T10:00:00.000Z", "builtPre2000": false },
+    "room": { "name": "Bedroom 1", "order": 4, "condition": "Fair", "note": "Mould to both window reveals, front elevation. Two windows in this room, both affected, reveals and heads. Extractor n/a. 15% surface.", "hypothesis": "Condensation" },
+    "issue": { "title": "Mould to two window reveals", "humanSuspectedCause": "Condensation", "confirmedBySurveyor": true },
+    "transcripts": [ "Bedroom one, two windows on the front, both reveals have got mould to them and along the heads. Two windows, both need doing. Fifteen percent surface reading." ],
+    "readings": [ { "text": "Reveal, surface", "value": "15", "unit": "% WME" } ]
+  },
+  "expected": {
+    "price_rows_include": ["MOULD-REVEAL"],
+    "unpriced": false
+  },
+  "must_not_happen": [
+    { "rule": "line_quantity", "row": "MOULD-REVEAL", "qty": 2, "severity": "critical", "label": "MOULD-REVEAL × 2, from the stated count" },
+    { "rule": "cost_low_min", "value": 220, "severity": "critical", "label": "cost low ≥ £220" },
+    { "rule": "cost_high_max", "value": 900, "severity": "major", "label": "no run-away additional rows" },
+    { "rule": "price_rows_exclude", "rows": ["MOULD-WALL", "CEIL-MAKE-GOOD", "REDEC-ROOM"], "severity": "major", "label": "no wall/ceiling/room rows for reveals" }
+  ],
+  "allowed_uncertainty": ["EXTRACT-FAN-REPLACE is not in evidence (bedroom, 'n/a') and should not appear; if the model adds it that is a major pricing error."],
+  "calibration": { "truth": "condensation", "evidence_supports": "medium" },
+  "reviewer_notes": "Arithmetic is the server's: 2 × 110 = 220, 2 × 160 = 320."
+}

@@ -1,0 +1,38 @@
+{
+  "id": "GOLDEN-V-001",
+  "title": "Verifier — candidate draft asserts a tide mark no source records",
+  "kind": "verifier",
+  "category": "control",
+  "split": "development",
+  "risk": "verifier",
+  "why": "The evidence has mould to a reveal and one surface reading. The candidate draft adds 'a tide mark to approximately 1 m'. That observation appears in no source and must be marked unsupported.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-13T10:00:00.000Z", "builtPre2000": false },
+    "room": { "name": "Bedroom 1", "condition": "Fair", "note": "Mould to window reveal. 16% surface.", "hypothesis": "" },
+    "issue": { "title": "Mould to reveal", "confirmedBySurveyor": true },
+    "photos": [ { "file": "fixtures/synthetic-ceiling-mould-A.png", "no": 1, "caption": "mould to reveal" } ],
+    "readings": [ { "text": "Reveal, surface", "value": "16", "unit": "% WME" } ]
+  },
+  "fixture": {
+    "evidence": {
+      "observations": [ { "id": "OBS-001", "statement": "Black spot mould was observed to the window reveal.", "source_ids": ["PHOTO-1", "CAPTION-1", "NOTE-1"], "source_type": "mixed", "certainty": "high" } ],
+      "statements": [],
+      "measurements": [ { "id": "MEAS-001", "statement": "A surface moisture reading of 16% WME was recorded to the reveal.", "value": "16", "unit": "% WME", "source_ids": ["READING-1"] } ],
+      "unreadable_sources": [], "evidence_gaps": []
+    },
+    "causation": { "defect_summary": "Mould to the window reveal.", "candidate_causes": [ { "cause": "surface condensation", "supporting_observations": ["OBS-001", "MEAS-001"], "contrary_observations": [], "confidence": "medium", "distinguishing_evidence": "" } ], "preferred_cause": "surface condensation", "confidence": "medium", "reasoning": "", "evidence_gaps": [], "asbestos_risk": { "present": false, "basis": "" } },
+    "analysis": { "comparison": { "agreement": "no_hypothesis", "reasoning": "", "differences": [], "evidence_supporting_surveyor": [], "evidence_contradicting_surveyor": [], "attention_required": false }, "extent": { "statement": "The reveal.", "source_ids": ["PHOTO-1"], "certainty": "medium" }, "remedial": { "works": "Clean and treat the reveal; redecorate.", "scope": "localised", "scope_rationale": "", "scope_uncertain": false, "conditions": [], "assumptions": [] }, "legal_refs": [], "hhsrs": null, "price_items": [], "pricing_note": "" }
+  },
+  "candidate": {
+    "title": "Damp and mould to window reveal",
+    "location": "Window reveal, front elevation",
+    "defect": "Black spot mould was observed to the window reveal at the time of inspection. A tide mark was observed to the wall below the window to a height of approximately 1 m. A surface moisture reading of 16% WME was recorded.",
+    "cause": "On the balance of probabilities the mould is considered to be condensation-related.",
+    "works": "The mould-affected reveal should be cleaned and treated and the finishes redecorated.",
+    "photo_refs": [1]
+  },
+  "flaws": [
+    { "label": "invented tide mark to 1 m", "pattern": "tide mark|1 m|height", "type_in": ["observation", "extent", "measurement"], "support_in": ["unsupported", "contradicted"], "severity": "critical" }
+  ],
+  "reviewer_notes": "Under AI_MOCK the verifier is a stand-in and cannot detect this; the case is meaningful only on a real run."
+}

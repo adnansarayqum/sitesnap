@@ -1,0 +1,30 @@
+{
+  "id": "GOLDEN-A-018",
+  "title": "Missing voice transcription — a memo failed to transcribe",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "evidence_integrity",
+  "why": "One of two voice notes has transcript status 'failed'. The packet is incomplete. The gate must not be review_ready: material evidence was not available to the analysis.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-05T09:00:00.000Z", "builtPre2000": true },
+    "room": { "name": "Bathroom", "order": 2, "condition": "Poor", "note": "Mould to ceiling.", "hypothesis": "Condensation" },
+    "issue": { "title": "Ceiling mould", "humanSuspectedCause": "Condensation", "confirmedBySurveyor": true },
+    "transcripts": [
+      "Bathroom, mould to the ceiling over the bath, black spot pattern.",
+      { "text": "", "status": "failed" }
+    ]
+  },
+  "expected": {
+    "incomplete_detected": true,
+    "gate_not": ["review_ready"],
+    "flags_include": ["incomplete_evidence"]
+  },
+  "must_not_happen": [
+    { "rule": "gate_not", "values": ["review_ready"], "severity": "critical", "label": "never review-ready with an untranscribed voice note" },
+    { "rule": "confidence_not", "grade": "high", "severity": "critical", "label": "incomplete evidence caps confidence" }
+  ],
+  "allowed_uncertainty": ["incomplete_evidence is the designed result; blocked is also acceptable."],
+  "calibration": { "truth": "condensation", "evidence_supports": "low" },
+  "reviewer_notes": "A deterministic control case in pipeline clothing: packet.complete drives this."
+}

@@ -1,0 +1,35 @@
+{
+  "id": "GOLDEN-A-000",
+  "title": "Bathroom damp — condensation stated, a leak also in the evidence",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "causation",
+  "why": "From the surveyor's voice note (6 Sep 2026): he called it condensation (4.5% readings, dead extractor, paper test) but described blistering and a defined stain opposite the bath that suggests a leak too. The draft must carry both causes or flag the second, not silently pick one. Corrections 6, 8, 10. Legacy case, converted to the golden format.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-01T10:30:00.000Z", "builtPre2000": false },
+    "room": {
+      "name": "Bathroom", "order": 2, "condition": "Poor",
+      "note": "Mould to wall adjacent to bath. Extractor not working. Readings 4.5%. Staining and blistering to the wall opposite the bath.",
+      "hypothesis": "Condensation"
+    },
+    "transcripts": [
+      "Right so we're in the bathroom, there's mould and damp there yeah. Damp and mould was observed to areas of the wall adjacent to the bathtub. On the balance of probabilities I'm thinking it's probably related to condensation because the readings were showing four point five percent and I've also checked the extractor fan, it's not working, really underpowered, checked it with the paper test and with the device. But also there is a bit of staining on the wall on the left hand side opposite the bathtub, not adjacent, opposite, and there's a bit of blistering of the paint, and that to me suggests there's an underlying leak, so there's a combination of two things potentially here."
+    ]
+  },
+  "expected": {
+    "agreement_in": ["agree", "uncertain"],
+    "alternatives_min": 1,
+    "legal_includes": ["LEGAL-S9A-LTA"],
+    "price_rows_include": ["EXTRACT-FAN-REPLACE"],
+    "text_matches": "extract"
+  },
+  "must_not_happen": [
+    { "rule": "confidence_not", "grade": "high", "severity": "critical", "label": "two causes in the evidence — never high confidence in one" },
+    { "rule": "cause_not_matches", "pattern": "^$", "severity": "major", "label": "a cause is carried (the evidence supports at least condensation)" },
+    { "rule": "text_not_matches", "pattern": "entire|throughout the property", "severity": "major", "label": "no over-reaching scope wording" }
+  ],
+  "allowed_uncertainty": ["Either condensation as preferred with the leak as an open alternative, or both causes stated together (corrections rule 8)."],
+  "calibration": { "truth": "condensation", "evidence_supports": "medium" },
+  "reviewer_notes": "The surveyor's own reading of 4.5% is low for a leak; the blistering opposite the bath is the point that must survive into review."
+}

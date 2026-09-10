@@ -1,0 +1,18 @@
+{
+  "id": "GOLDEN-A-042",
+  "title": "AI-generated room note as the only text — not eligible",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "eligibility",
+  "why": "The room note was written by the caption pass (noteSource ai_generated) and the surveyor never adopted it. The issue has no photos, memos or readings and is not confirmed. Nothing a person did is in the chain: the server must refuse to draft.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-10T12:30:00.000Z", "builtPre2000": false },
+    "room": { "name": "Bedroom 2", "order": 5, "condition": "Fair", "note": "Mould growth visible to the ceiling corner and window reveal; general condition fair.", "noteSource": "ai_generated", "hypothesis": "" },
+    "issue": { "title": "Mould to corner", "description": "", "confirmedBySurveyor": false, "createdBy": "ai" }
+  },
+  "expected": { "eligibility_rejected": true },
+  "must_not_happen": [],
+  "allowed_uncertainty": [],
+  "reviewer_notes": "shared/eligibility.js: 'the only note is AI-generated — adopt or rewrite it'."
+}

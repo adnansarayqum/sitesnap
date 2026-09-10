@@ -1,0 +1,32 @@
+{
+  "id": "GOLDEN-V-006",
+  "title": "Verifier — candidate draft names a statute the analysis did not select",
+  "kind": "verifier",
+  "category": "control",
+  "split": "development",
+  "risk": "verifier",
+  "why": "legal_refs is empty for this wear-and-tear item, but the candidate prose says 'in breach of section 11'. The verifier should mark the legal claim unsupported; the suite's invariant on statute text is the second line of defence.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-13T12:30:00.000Z", "builtPre2000": false },
+    "room": { "name": "Hallway", "condition": "Fair", "note": "Scuffed paintwork along the hall.", "hypothesis": "Wear and tear" },
+    "issue": { "title": "Scuffed decoration", "humanSuspectedCause": "Wear and tear", "confirmedBySurveyor": true },
+    "photos": [ { "file": "fixtures/synthetic-blank-wall.png", "no": 1, "caption": "scuffed wall" } ]
+  },
+  "fixture": {
+    "evidence": { "observations": [ { "id": "OBS-001", "statement": "Scuffing was observed to the painted wall.", "source_ids": ["PHOTO-1", "NOTE-1"], "source_type": "mixed", "certainty": "high" } ], "statements": [], "measurements": [], "unreadable_sources": [], "evidence_gaps": [] },
+    "causation": { "defect_summary": "Scuffed decoration.", "candidate_causes": [ { "cause": "wear and tear in use", "supporting_observations": ["OBS-001"], "contrary_observations": [], "confidence": "medium", "distinguishing_evidence": "" } ], "preferred_cause": "wear and tear in use", "confidence": "medium", "reasoning": "", "evidence_gaps": [], "asbestos_risk": { "present": false, "basis": "" } },
+    "analysis": { "comparison": { "agreement": "agree", "reasoning": "", "differences": [], "evidence_supporting_surveyor": ["OBS-001"], "evidence_contradicting_surveyor": [], "attention_required": false }, "extent": { "statement": "Along the hall.", "source_ids": ["PHOTO-1"], "certainty": "medium" }, "remedial": { "works": "None required as disrepair.", "scope": "localised", "scope_rationale": "", "scope_uncertain": false, "conditions": [], "assumptions": [] }, "legal_refs": [], "hhsrs": null, "price_items": [], "pricing_note": "no landlord repair" }
+  },
+  "candidate": {
+    "title": "Scuffed decoration to hallway",
+    "location": "Hallway walls",
+    "defect": "Scuffing was observed to the painted walls at the time of inspection. The condition of the decoration is in breach of section 11 of the Landlord and Tenant Act 1985.",
+    "cause": "The scuffing is considered to be wear and tear in use.",
+    "works": "No remedial works are proposed as disrepair.",
+    "photo_refs": [1]
+  },
+  "flaws": [
+    { "label": "statute named in prose with no register entry selected", "pattern": "section 11|breach|Landlord and Tenant", "type_in": ["legal", "other"], "support_in": ["unsupported", "contradicted", "not_applicable"], "severity": "critical" }
+  ],
+  "reviewer_notes": "Verifier may classify the legal sentence as not_applicable (checked elsewhere); the suite's no_statute_text_outside_refs invariant on pipeline cases covers the final finding. Both are recorded."
+}

@@ -3,6 +3,14 @@
 > **Status:** Option A is built, on Railway Postgres with the app's own auth
 > rather than Supabase — see `docs/enterprise-setup.md`. The case register
 > (metadata + thumbnails on the server) is the next stage.
+>
+> **Positioning (September 2026):** accounts mode is the primary commercial
+> product. Local mode (no database) remains supported as a lightweight
+> trial / demo / local-inspection mode and is not required to keep feature
+> parity with accounts mode for future audit, telemetry, organisation,
+> approval, analytics or enterprise functionality. Offline-first support
+> within accounts mode is a core requirement and is a separate concern from
+> local-only mode. Nothing is removed; this directs future engineering effort.
 
 SiteSnap today has no backend. It is a static page plus the browser's own
 storage, and every upload goes to a webhook the user controls. That is why it

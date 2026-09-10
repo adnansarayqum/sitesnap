@@ -1,0 +1,11 @@
+{
+  "id": "GOLDEN-D-007",
+  "title": "Deterministic — a near-miss legal id (LEGAL-S11-LTA-1985) is not fuzzily matched",
+  "kind": "deterministic",
+  "category": "control",
+  "split": "development",
+  "risk": "deterministic_control",
+  "control": "legal",
+  "proposed": [ { "legal_register_id": "LEGAL-S11-LTA-1985", "reason": "repairing covenant" }, { "legal_register_id": "legal-s11-lta", "reason": "lower case" } ],
+  "expected": { "rejected_include": ["LEGAL-S11-LTA-1985", "legal-s11-lta"], "refs_count": 0 }
+}

@@ -1,0 +1,12 @@
+{
+  "id": "GOLDEN-D-002",
+  "title": "Deterministic — a withdrawn (inactive) row is refused even with a good quantity",
+  "kind": "deterministic",
+  "category": "control",
+  "split": "development",
+  "risk": "deterministic_control",
+  "control": "pricing",
+  "ref_overrides": { "inactive": ["MOULD-WALL"] },
+  "items": [ { "price_book_row_id": "MOULD-WALL", "quantity": 2, "quantity_basis": "observed", "quantity_evidence": ["PHOTO-1", "PHOTO-2"], "reason": "two wall areas" } ],
+  "expected": { "unpriced": true, "problems_include": ["inactive_row"], "flags_include": ["unpriced"], "priced_rows": [] }
+}

@@ -1,0 +1,21 @@
+{
+  "id": "GOLDEN-C-006",
+  "title": "REAL EVIDENCE REQUIRED — the photographs do not support the surveyor's proposed finding",
+  "kind": "pipeline",
+  "category": "real_multimodal",
+  "split": "development",
+  "risk": "causation",
+  "status": "REQUIRES_REAL_SURVEY_EVIDENCE",
+  "why": "The surveyor's hypothesis and note describe a defect the photographs do not show (wrong room, wrong wall, or the mark is not visible). The model must say the photographs do not carry it, not write it up anyway.",
+  "input": {
+    "context": { "inspectedAt": "", "builtPre2000": null },
+    "room": { "name": "Bedroom", "condition": "Fair", "note": "", "hypothesis": "" },
+    "issue": { "title": "", "humanSuspectedCause": "", "confirmedBySurveyor": true },
+    "photos": [ { "file": "fixtures/REAL/C-006/01.jpg", "caption": "" } ]
+  },
+  "expected": { "agreement_in": ["disagree", "uncertain"], "flags_include": ["no_photo_evidence"] },
+  "must_not_happen": [
+    { "rule": "confidence_not", "grade": "high", "severity": "critical", "label": "no high confidence when the photographs do not show the defect" }
+  ],
+  "reviewer_notes": "TO COMPLETE as C-001."
+}

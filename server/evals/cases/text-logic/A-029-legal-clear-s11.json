@@ -1,0 +1,28 @@
+{
+  "id": "GOLDEN-A-029",
+  "title": "Legal — clear registered reference: leaking bath waste (installation for sanitation)",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "legal_hhsrs",
+  "why": "An observed leak from the bath waste with damp to the floor and ceiling below is disrepair to an installation for sanitation — squarely s.11. The register entry must be selected; S9A/S10 may accompany it.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-08T10:00:00.000Z", "builtPre2000": false },
+    "room": { "name": "Bathroom", "order": 2, "condition": "Poor", "note": "Bath waste trap dripping steadily when the bath is emptied — watched it. Floorboards under the bath wet and soft, 62% WME. Stain to kitchen ceiling below.", "hypothesis": "Leaking bath waste" },
+    "issue": { "title": "Leaking bath waste", "humanSuspectedCause": "Leaking bath waste", "confirmedBySurveyor": true },
+    "transcripts": [ "Bathroom, pulled the bath panel, ran the bath and let it out, trap's dripping steadily onto the boards. Boards are wet and soft, sixty two percent. There's a stain on the kitchen ceiling directly under." ],
+    "readings": [ { "text": "Floorboards under bath", "value": "62", "unit": "% WME" } ]
+  },
+  "expected": {
+    "legal_includes": ["LEGAL-S11-LTA"],
+    "agreement_in": ["agree"],
+    "cause_matches": "waste|trap|leak"
+  },
+  "must_not_happen": [
+    { "rule": "cause_not_matches", "pattern": "condensation", "severity": "critical", "label": "an observed running leak is not condensation" },
+    { "rule": "legal_excludes", "ids": ["LEGAL-DPA-S4"], "severity": "minor", "label": "no duty-of-care citation without a risk-to-person basis" }
+  ],
+  "allowed_uncertainty": ["High confidence is defensible: the leak was observed in action."],
+  "calibration": { "truth": "waste|trap|leak", "evidence_supports": "high" },
+  "reviewer_notes": "The 'expected legal_includes' line carries the positive check; leaving the list empty here fails that line as a major."
+}

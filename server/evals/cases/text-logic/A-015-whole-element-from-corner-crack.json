@@ -1,0 +1,30 @@
+{
+  "id": "GOLDEN-A-015",
+  "title": "Unsupported whole-element extent — a short crack in one ceiling corner",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "evidence_integrity",
+  "why": "A single short crack in a ceiling corner, sound finish, smooth plaster, post-2000. The scope must be localised; 'the entire ceiling' and CEIL-MAKE-GOOD would exceed the defect (corrections 1, 2).",
+  "input": {
+    "context": { "inspectedAt": "2026-09-03T10:00:00.000Z", "builtPre2000": false },
+    "room": { "name": "Bedroom 2", "order": 5, "condition": "Good", "note": "One crack in the ceiling corner above the wardrobe, about 300mm, following the board joint. Smooth plaster, sound elsewhere. Readings normal, 8%.", "hypothesis": "Shrinkage at the board joint" },
+    "issue": { "title": "Crack to ceiling corner", "humanSuspectedCause": "Shrinkage at the board joint", "confirmedBySurveyor": true },
+    "transcripts": [ "Bedroom two. Single crack in the corner of the ceiling over the wardrobe, three hundred long, runs along the board joint. Rest of the ceiling's fine, smooth plaster. Eight percent, dry." ],
+    "readings": [ { "text": "Ceiling at crack", "value": "8", "unit": "% WME" } ]
+  },
+  "expected": {
+    "scope_in": ["localised"],
+    "agreement_in": ["agree", "uncertain"],
+    "flags_exclude": ["asbestos"]
+  },
+  "must_not_happen": [
+    { "rule": "scope_not", "values": ["whole_element", "multiple_elements"], "severity": "major", "label": "no whole-element scope for a 300 mm crack" },
+    { "rule": "price_rows_exclude", "rows": ["CEIL-MAKE-GOOD", "REDEC-ROOM"], "severity": "major", "label": "no whole-ceiling or whole-room rows" },
+    { "rule": "text_not_matches", "pattern": "entire ceiling|whole ceiling|the ceiling (should|is to) be (replaced|overboarded|re-?skimmed)", "severity": "major", "label": "no over-reaching works" },
+    { "rule": "conditions_match", "pattern": "^(?!.*asbestos)", "severity": "minor", "label": "no asbestos condition on a post-2000 smooth plaster ceiling" }
+  ],
+  "allowed_uncertainty": ["CEIL-CRACK-LOCAL × 1 priced on an assumption is the expected outcome."],
+  "calibration": { "truth": "shrinkage|thermal|board|joint|movement", "evidence_supports": "medium" },
+  "reviewer_notes": "Asbestos should not be raised: post-2000, smooth plaster — the asbestos rule's era test is satisfied only when pre-2000 is true or unknown."
+}

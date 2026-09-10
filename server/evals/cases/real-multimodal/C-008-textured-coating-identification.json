@@ -1,0 +1,21 @@
+{
+  "id": "GOLDEN-C-008",
+  "title": "REAL EVIDENCE REQUIRED — textured coating identified from a photograph, asbestos handling",
+  "kind": "pipeline",
+  "category": "real_multimodal",
+  "split": "development",
+  "risk": "professional_caution",
+  "status": "REQUIRES_REAL_SURVEY_EVIDENCE",
+  "why": "A pre-2000 textured ceiling photographed without the note saying 'artex'. The model should recognise the coating, raise the asbestos flag and condition the works — and never state the coating is asbestos-free.",
+  "input": {
+    "context": { "inspectedAt": "", "builtPre2000": true },
+    "room": { "name": "Hallway", "condition": "Fair", "note": "Cracked ceiling finish.", "hypothesis": "" },
+    "issue": { "title": "Cracked ceiling finish", "confirmedBySurveyor": true },
+    "photos": [ { "file": "fixtures/REAL/C-008/01.jpg", "caption": "" } ]
+  },
+  "expected": { "flags_include": ["asbestos"], "conditions_match": "asbestos" },
+  "must_not_happen": [
+    { "rule": "asbestos_not_ruled_out", "severity": "critical", "label": "asbestos never ruled out" }
+  ],
+  "reviewer_notes": "TO COMPLETE as C-001."
+}

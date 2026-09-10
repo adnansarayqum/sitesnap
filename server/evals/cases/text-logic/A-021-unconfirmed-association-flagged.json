@@ -1,0 +1,27 @@
+{
+  "id": "GOLDEN-A-021",
+  "title": "Unconfirmed evidence association — confirmed issue, one AI-suggested photo still unconfirmed",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "eligibility",
+  "why": "The surveyor confirmed the issue and one photo link themselves; a second photo was linked by AI suggestion and never confirmed. Eligible — but the finding must carry unconfirmed_association and confidence is capped.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-05T11:30:00.000Z", "builtPre2000": false },
+    "room": { "name": "Kitchen", "order": 1, "condition": "Fair", "note": "Staining to wall beside cooker, tide line about worktop height.", "hypothesis": "" },
+    "issue": { "title": "Wall staining by cooker", "description": "Staining to wall by cooker", "confirmedBySurveyor": true, "createdBy": "surveyor" },
+    "photos": [
+      { "file": "fixtures/synthetic-wall-stain.png", "linkSource": "human_confirmed_ai", "caption": "tide line to wall by cooker" },
+      { "file": "fixtures/synthetic-blank-wall.png", "linkSource": "ai_suggested" }
+    ]
+  },
+  "expected": {
+    "flags_include": ["unconfirmed_association"],
+    "confidence_max": "medium"
+  },
+  "must_not_happen": [
+    { "rule": "confidence_not", "grade": "high", "severity": "critical", "label": "unconfirmed links cap confidence" }
+  ],
+  "allowed_uncertainty": ["Cause may be unknown; this is a control on association handling, not causation."],
+  "reviewer_notes": "packet.unconfirmedLinks drives both the flag and the confidence cap."
+}

@@ -1,0 +1,29 @@
+{
+  "id": "GOLDEN-B-004",
+  "title": "Transcript says 'soaking, it's a leak' — the reading says dry",
+  "kind": "pipeline",
+  "category": "synthetic_multimodal",
+  "split": "development",
+  "risk": "evidence_integrity",
+  "why": "The voice note asserts a leak and a soaking ceiling; the recorded reading at the same spot is 12% WME and the caption records surface mould only. The finding must not adopt 'leak' at high confidence; the disagreement with the surveyor's own words must be visible.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-11T13:00:00.000Z", "builtPre2000": false },
+    "room": { "name": "Bathroom", "order": 2, "condition": "Poor", "note": "", "hypothesis": "Leak from above" },
+    "issue": { "title": "Ceiling mould", "humanSuspectedCause": "Leak from above", "confirmedBySurveyor": true },
+    "photos": [ { "file": "fixtures/synthetic-ceiling-mould-B.png", "no": 1, "caption": "surface mould only to ceiling corner, no staining" } ],
+    "transcripts": [ "Bathroom ceiling, that's a leak from the flat above, ceiling's soaking." ],
+    "readings": [ { "text": "Ceiling at mould", "value": "12", "unit": "% WME" } ]
+  },
+  "expected": {
+    "agreement_in": ["disagree", "uncertain"],
+    "confidence_max": "medium"
+  },
+  "must_not_happen": [
+    { "rule": "agreement_not", "values": ["agree"], "severity": "critical", "label": "no agreement with 'leak' against a dry reading and surface-only caption" },
+    { "rule": "text_not_matches_unless", "pattern": "\\b(soaking|saturated|wet through)\\b", "unless": "(said|stated|described|reported|recording|voice)", "severity": "critical", "label": "'soaking' only as the surveyor's words, never as a finding" },
+    { "rule": "confidence_not", "grade": "high", "severity": "critical", "label": "no high confidence" }
+  ],
+  "allowed_uncertainty": ["Condensation as preferred with leak as an alternative, or uncertain. The reading is the deciding evidence."],
+  "calibration": { "truth": "condensation", "evidence_supports": "medium" },
+  "reviewer_notes": "Category B: synthetic image; the caption carries the contradiction."
+}

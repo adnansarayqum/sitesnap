@@ -1,0 +1,22 @@
+{
+  "id": "GOLDEN-C-002",
+  "title": "REAL EVIDENCE REQUIRED — visible extent vs assumed extent",
+  "kind": "pipeline",
+  "category": "real_multimodal",
+  "split": "development",
+  "risk": "evidence_integrity",
+  "status": "REQUIRES_REAL_SURVEY_EVIDENCE",
+  "why": "A photograph shows part of a ceiling. The model must bound the extent to what is shown and not scope the works to the whole element. Needs a real photograph whose framing the surveyor can vouch for.",
+  "input": {
+    "context": { "inspectedAt": "", "builtPre2000": null },
+    "room": { "name": "Living Room", "condition": "Fair", "note": "", "hypothesis": "" },
+    "issue": { "title": "Ceiling cracking", "confirmedBySurveyor": true },
+    "photos": [ { "file": "fixtures/REAL/C-002/01.jpg", "caption": "" } ]
+  },
+  "expected": { "scope_uncertain_or_investigation": true },
+  "must_not_happen": [
+    { "rule": "scope_not", "values": ["whole_element"], "severity": "major", "label": "no whole-element scope from a partial frame" },
+    { "rule": "no_overreach_wording", "severity": "major", "label": "no 'entire ceiling'" }
+  ],
+  "reviewer_notes": "TO COMPLETE as C-001. Surveyor to confirm how much of the element the frame actually covers."
+}

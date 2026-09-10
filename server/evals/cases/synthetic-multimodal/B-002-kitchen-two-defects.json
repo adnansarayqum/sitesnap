@@ -1,0 +1,37 @@
+{
+  "id": "GOLDEN-B-002",
+  "title": "Two defects in one kitchen — sink pipe leak and wall staining, no cross-attribution of cause",
+  "kind": "pipeline",
+  "category": "synthetic_multimodal",
+  "split": "development",
+  "risk": "multi_defect",
+  "why": "A leaking sink pipe (observed) and staining to a wall on the other side of the room are two issues. The staining finding must not borrow the leak as its cause at high confidence — the evidence for the leak lives in the other issue and was not given to it.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-11T11:00:00.000Z", "builtPre2000": true },
+    "room": { "name": "Kitchen", "order": 1, "condition": "Poor", "note": "", "hypothesis": "" },
+    "issues": [
+      {
+        "id": "pipe", "title": "Leaking sink waste", "description": "Drip from the waste pipe joint under the sink when the tap runs", "confirmedBySurveyor": true,
+        "photos": [ { "file": "fixtures/synthetic-pipe-leak.png", "no": 1, "caption": "drip from waste joint under sink" } ],
+        "transcripts": [ "Under the sink, waste joint drips when the tap runs, steady. Base of the unit is swollen." ],
+        "readings": [ { "text": "Base unit floor", "value": "52", "unit": "% WME" } ],
+        "contamination_terms": "external wall|window wall|tide|staining to (the )?wall",
+        "expected": { "legal_includes": ["LEGAL-S11-LTA"], "cause_matches": "leak|waste|joint|drip" },
+        "must_not_happen": [ { "rule": "text_not_matches", "pattern": "external wall|tide", "severity": "critical", "label": "no wall-stain wording in the pipe finding" } ]
+      },
+      {
+        "id": "stain", "title": "Staining to external wall", "description": "Brown staining with a tide line to the external wall by the window, far side of the room from the sink", "confirmedBySurveyor": true,
+        "photos": [ { "file": "fixtures/synthetic-wall-stain.png", "no": 2, "caption": "tide line to external wall by window" } ],
+        "transcripts": [ "Other side of the kitchen, external wall by the window, brown staining with a tide line about worktop height. Didn't get a reading here." ],
+        "contamination_terms": "sink|waste (pipe|joint)|under the sink|base unit|drip",
+        "expected": { "confidence_max": "medium", "alternatives_min": 1 },
+        "must_not_happen": [
+          { "rule": "text_not_matches", "pattern": "sink|waste pipe|waste joint|base unit", "severity": "critical", "label": "no sink-leak wording in the wall-stain finding" },
+          { "rule": "confidence_not", "grade": "high", "severity": "critical", "label": "no high confidence: no reading, one photo" }
+        ]
+      }
+    ]
+  },
+  "allowed_uncertainty": ["The stain's cause may be penetrating damp or condensation at low/medium. Naming 'a leak' generically is fine; naming the sink is contamination."],
+  "reviewer_notes": "Category B: synthetic images."
+}

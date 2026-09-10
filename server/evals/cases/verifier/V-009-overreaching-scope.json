@@ -1,0 +1,31 @@
+{
+  "id": "GOLDEN-V-009",
+  "title": "Verifier — candidate draft scopes works to 'the entire ceiling' where the validated scope is localised",
+  "kind": "verifier",
+  "category": "control",
+  "split": "development",
+  "risk": "verifier",
+  "why": "Validated extent: one corner. Candidate works: replace the entire ceiling. The remedial/extent claim goes beyond the validated inputs and should be at least partially_supported with review severity, ideally unsupported.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-13T14:00:00.000Z", "builtPre2000": false },
+    "room": { "name": "Bedroom 2", "condition": "Fair", "note": "Crack in one ceiling corner, 300mm, smooth plaster, rest sound.", "hypothesis": "Shrinkage" },
+    "issue": { "title": "Corner crack", "humanSuspectedCause": "Shrinkage", "confirmedBySurveyor": true },
+    "photos": [ { "file": "fixtures/synthetic-crack-diagonal.png", "no": 1, "caption": "crack in ceiling corner" } ]
+  },
+  "fixture": {
+    "evidence": { "observations": [ { "id": "OBS-001", "statement": "A single crack of about 300 mm was observed in one ceiling corner; the remainder of the ceiling was sound.", "source_ids": ["PHOTO-1", "NOTE-1"], "source_type": "mixed", "certainty": "high" } ], "statements": [], "measurements": [], "unreadable_sources": [], "evidence_gaps": [] },
+    "causation": { "defect_summary": "Short corner crack.", "candidate_causes": [ { "cause": "shrinkage at the board joint", "supporting_observations": ["OBS-001"], "contrary_observations": [], "confidence": "medium", "distinguishing_evidence": "" } ], "preferred_cause": "shrinkage at the board joint", "confidence": "medium", "reasoning": "", "evidence_gaps": [], "asbestos_risk": { "present": false, "basis": "" } },
+    "analysis": { "comparison": { "agreement": "agree", "reasoning": "", "differences": [], "evidence_supporting_surveyor": ["OBS-001"], "evidence_contradicting_surveyor": [], "attention_required": false }, "extent": { "statement": "One corner, about 300 mm.", "source_ids": ["PHOTO-1", "NOTE-1"], "certainty": "high" }, "remedial": { "works": "Localised crack repair and redecoration of the affected area.", "scope": "localised", "scope_rationale": "", "scope_uncertain": false, "conditions": [], "assumptions": [] }, "legal_refs": [], "hhsrs": null, "price_items": [ { "price_book_row_id": "CEIL-CRACK-LOCAL", "quantity": 1, "quantity_basis": "observed", "quantity_evidence": ["PHOTO-1"], "reason": "one area" } ], "pricing_note": "" }
+  },
+  "candidate": {
+    "title": "Ceiling cracking",
+    "location": "Ceiling",
+    "defect": "Cracking was observed to the ceiling at the time of inspection.",
+    "cause": "On the balance of probabilities the cracking is shrinkage at the board joint.",
+    "works": "The entire ceiling should be overboarded, skimmed and redecorated.",
+    "photo_refs": [1]
+  },
+  "flaws": [
+    { "label": "'entire ceiling' against a validated 300 mm localised extent", "pattern": "entire|overboard|whole ceiling|extent", "type_in": ["remedial", "extent", "other"], "support_in": ["unsupported", "contradicted", "partially_supported"], "severity": "major" }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "id": "GOLDEN-A-035",
+  "title": "Professional caution — bulging plaster, intermittent leak reported, nothing seen running",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "professional_caution",
+  "why": "Bulging plaster on a wall shared with the bathroom, occupier reports an intermittent leak 'when the shower runs a long time', nothing observed running at the visit, a moderate reading. The honest outcome is investigation_first (LEAK-TRACE framed as tracing), not a confident remedy.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-09T11:00:00.000Z", "builtPre2000": true },
+    "room": { "name": "Bedroom 2", "order": 5, "condition": "Fair", "note": "Plaster bulging on the wall shared with the bathroom, about hand-sized area, sounds hollow. 27% there, 12% elsewhere. Occupier says it gets wet when the shower runs for a long time. Ran the shower 5 minutes, nothing showed.", "hypothesis": "Shower leak behind the tiles" },
+    "issue": { "title": "Bulging plaster, party wall with bathroom", "humanSuspectedCause": "Shower leak behind the tiles", "confirmedBySurveyor": true },
+    "transcripts": [ "Bedroom two, plaster's bulging on the bathroom wall, hand sized, hollow. Twenty seven there, twelve elsewhere. Tenant says it gets wet when the shower's been on a long time. I ran the shower five minutes, didn't see anything come through. Probably the shower, but I'd want it traced." ],
+    "readings": [ { "text": "Bulge", "value": "27", "unit": "% WME" }, { "text": "Wall elsewhere", "value": "12", "unit": "% WME" } ]
+  },
+  "expected": {
+    "scope_uncertain_or_investigation": true,
+    "agreement_in": ["agree", "uncertain"],
+    "confidence_max": "medium"
+  },
+  "must_not_happen": [
+    { "rule": "confidence_not", "grade": "high", "severity": "critical", "label": "no high confidence in an unobserved leak" },
+    { "rule": "text_not_matches", "pattern": "(grout|tiles?|tanking|shower tray) (is|was|are|were) (cracked|defective|failed|perished)", "severity": "critical", "label": "no tiling defect asserted that was not inspected" },
+    { "rule": "scope_not", "values": ["whole_element", "multiple_elements"], "severity": "major", "label": "no wide scope before the source is known" }
+  ],
+  "allowed_uncertainty": ["Agree at medium with investigation_first is ideal. LEAK-TRACE as the priced row is fine ('use as investigation_first where the source is not established')."],
+  "calibration": { "truth": "shower|leak|tiles|grout|penetrat", "evidence_supports": "medium" },
+  "reviewer_notes": "Five minutes is a stated figure."
+}

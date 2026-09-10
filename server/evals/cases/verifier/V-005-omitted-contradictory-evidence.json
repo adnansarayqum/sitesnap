@@ -1,0 +1,33 @@
+{
+  "id": "GOLDEN-V-005",
+  "title": "Verifier — candidate draft says 'no other moisture source'; a 48% reading below a pipe is in the evidence",
+  "kind": "verifier",
+  "category": "control",
+  "split": "development",
+  "risk": "verifier",
+  "why": "The draft leaves out the one measurement that points away from its conclusion. The verifier is told to look for evidence the draft omitted; this claim must be contradicted.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-13T12:00:00.000Z", "builtPre2000": false },
+    "room": { "name": "Bathroom", "condition": "Poor", "note": "Mould to ceiling. Boxed-in pipework in the corner, 48% WME on the boxing, 13% elsewhere.", "hypothesis": "Condensation" },
+    "issue": { "title": "Ceiling mould and damp boxing", "humanSuspectedCause": "Condensation", "confirmedBySurveyor": true },
+    "photos": [ { "file": "fixtures/synthetic-ceiling-mould-B.png", "no": 1, "caption": "mould to ceiling" } ],
+    "readings": [ { "text": "Pipe boxing, corner", "value": "48", "unit": "% WME" }, { "text": "Ceiling elsewhere", "value": "13", "unit": "% WME" } ]
+  },
+  "fixture": {
+    "evidence": { "observations": [ { "id": "OBS-001", "statement": "Mould was observed to the ceiling.", "source_ids": ["PHOTO-1", "NOTE-1"], "source_type": "mixed", "certainty": "high" } ], "statements": [ { "id": "STMT-001", "statement": "The surveyor noted boxed-in pipework in the corner.", "source_ids": ["NOTE-1"], "asserts_cause": false } ], "measurements": [ { "id": "MEAS-001", "statement": "48% WME was recorded on the pipe boxing in the corner.", "value": "48", "unit": "% WME", "source_ids": ["READING-1", "NOTE-1"] }, { "id": "MEAS-002", "statement": "13% WME was recorded to the ceiling elsewhere.", "value": "13", "unit": "% WME", "source_ids": ["READING-2"] } ], "unreadable_sources": [], "evidence_gaps": [] },
+    "causation": { "defect_summary": "Mould to the ceiling with an elevated reading at boxed pipework.", "candidate_causes": [ { "cause": "surface condensation", "supporting_observations": ["OBS-001", "MEAS-002"], "contrary_observations": ["MEAS-001"], "confidence": "low", "distinguishing_evidence": "" }, { "cause": "leak from concealed pipework", "supporting_observations": ["MEAS-001", "STMT-001"], "contrary_observations": [], "confidence": "medium", "distinguishing_evidence": "Open the boxing." } ], "preferred_cause": "leak from concealed pipework", "confidence": "medium", "reasoning": "", "evidence_gaps": [], "asbestos_risk": { "present": false, "basis": "" } },
+    "analysis": { "comparison": { "agreement": "disagree", "reasoning": "", "differences": ["elevated reading at pipework"], "evidence_supporting_surveyor": ["OBS-001"], "evidence_contradicting_surveyor": ["MEAS-001"], "attention_required": true }, "extent": { "statement": "Ceiling and corner.", "source_ids": ["PHOTO-1"], "certainty": "medium" }, "remedial": { "works": "Open the boxing and trace the leak.", "scope": "investigation_first", "scope_rationale": "", "scope_uncertain": true, "conditions": [], "assumptions": [] }, "legal_refs": [], "hhsrs": null, "price_items": [], "pricing_note": "" }
+  },
+  "candidate": {
+    "title": "Condensation mould to bathroom ceiling",
+    "location": "Ceiling",
+    "defect": "Mould was observed to the ceiling at the time of inspection. Readings to the ceiling were recorded at 13% WME. No other moisture source was identified.",
+    "cause": "On the balance of probabilities the mould is condensation-related.",
+    "works": "The affected ceiling area should be cleaned, treated and redecorated.",
+    "photo_refs": [1]
+  },
+  "flaws": [
+    { "label": "'no other moisture source' against a 48% reading", "pattern": "no other moisture source|other moisture|48|boxing|pipework", "support_in": ["contradicted", "unsupported"], "severity": "critical" },
+    { "label": "condensation stated against the validated cause (leak)", "pattern": "condensation", "type_in": ["causation"], "support_in": ["contradicted", "unsupported", "partially_supported"], "severity": "major" }
+  ]
+}

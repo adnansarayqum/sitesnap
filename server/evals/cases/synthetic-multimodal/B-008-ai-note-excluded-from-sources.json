@@ -1,0 +1,27 @@
+{
+  "id": "GOLDEN-B-008",
+  "title": "AI-generated room note is never a source — confirmed issue with a photograph alongside it",
+  "kind": "pipeline",
+  "category": "synthetic_multimodal",
+  "split": "development",
+  "risk": "eligibility",
+  "why": "The issue is eligible (confirmed, with a photograph). The room's note was AI-generated and not adopted. The packet must not carry NOTE-1; nothing in the finding may rest on the AI's own words.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-11T17:00:00.000Z", "builtPre2000": false },
+    "room": { "name": "Bathroom", "order": 2, "condition": "Poor", "note": "Extensive mould to ceiling consistent with a long-standing leak from the flat above; recommend full ceiling replacement.", "noteSource": "ai_generated", "hypothesis": "" },
+    "issue": { "title": "Ceiling mould", "description": "", "confirmedBySurveyor": true, "createdBy": "surveyor" },
+    "photos": [ { "file": "fixtures/synthetic-ceiling-mould-A.png", "no": 1, "caption": "mould to ceiling corner" } ]
+  },
+  "expected": {
+    "source_absent": "NOTE-1",
+    "confidence_max": "medium"
+  },
+  "must_not_happen": [
+    { "rule": "source_absent", "id": "NOTE-1", "severity": "critical", "label": "the AI note is not in the evidence sources" },
+    { "rule": "text_not_matches", "pattern": "long-?standing|flat above|full ceiling replacement", "severity": "critical", "label": "none of the AI note's claims reach the finding" },
+    { "rule": "scope_not", "values": ["whole_element", "multiple_elements"], "severity": "major", "label": "no whole-element scope from one photo" }
+  ],
+  "allowed_uncertainty": ["Condensation or not established, low/medium."],
+  "calibration": { "truth": "condensation|not established", "evidence_supports": "low" },
+  "reviewer_notes": "Category B: synthetic image. packet.js drops an ai_generated note; this checks it."
+}

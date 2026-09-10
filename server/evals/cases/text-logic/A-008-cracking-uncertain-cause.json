@@ -1,0 +1,32 @@
+{
+  "id": "GOLDEN-A-008",
+  "title": "Hairline diagonal cracking above a door — cause uncertain, no hypothesis",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "causation",
+  "why": "Hairline diagonal cracking from a door head is consistent with shrinkage/thermal movement, with lintel deflection, or with structural movement. Nothing distinguishes them here. The finding must not call it structural, must not propose Hazard 29, and must not price a make-good as if the cause were settled.",
+  "input": {
+    "context": { "inspectedAt": "2026-07-02T10:00:00.000Z", "builtPre2000": true },
+    "room": { "name": "Hallway", "order": 7, "condition": "Fair", "note": "Hairline diagonal crack from the top corner of the living room door frame up towards the ceiling, maybe 600mm long. Not stepped, no displacement, decoration intact either side. No other cracking seen in the house.", "hypothesis": "" },
+    "issue": { "title": "Cracking above door", "confirmedBySurveyor": true },
+    "transcripts": [
+      "Hall, hairline crack coming off the top corner of the door into the living room, runs diagonally up maybe six hundred. Not stepped, no displacement, can't get a coin in it. Nothing else like it anywhere in the property that I saw."
+    ]
+  },
+  "expected": {
+    "agreement_in": ["no_hypothesis"],
+    "confidence_max": "medium",
+    "hazard_in": ["none"],
+    "alternatives_min": 1
+  },
+  "must_not_happen": [
+    { "rule": "cause_not_matches", "pattern": "subsidence|structural (movement|failure)|foundation", "severity": "critical", "label": "no structural diagnosis from a hairline crack" },
+    { "rule": "hazard_not", "ids": ["HHSRS-29"], "severity": "critical", "label": "no structural-collapse hazard from a hairline crack" },
+    { "rule": "price_rows_exclude", "rows": ["CEIL-MAKE-GOOD"], "severity": "major", "label": "no whole-ceiling make-good for a 600 mm wall crack" },
+    { "rule": "text_not_matches", "pattern": "monitor(ed|ing) (over|for) \\d+ (months|years)", "severity": "major", "label": "no invented monitoring period" }
+  ],
+  "allowed_uncertainty": ["Shrinkage/thermal movement as preferred at low/medium with lintel deflection and structural movement open; or no preferred cause."],
+  "calibration": { "truth": "shrinkage|thermal|movement|lintel|not established", "evidence_supports": "low" },
+  "reviewer_notes": "600 mm is a stated figure and may appear in the prose; any other dimension would be invented."
+}

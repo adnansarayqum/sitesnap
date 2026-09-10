@@ -1,0 +1,23 @@
+{
+  "id": "GOLDEN-H-003",
+  "title": "HOLDOUT — occupier's history of 'years' and 'three complaints' must stay attributed",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "holdout",
+  "risk": "evidence_integrity",
+  "why": "Holdout twin of GOLDEN-A-012/A-013. Do not read while tuning prompts.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-12T10:00:00.000Z", "builtPre2000": true },
+    "room": { "name": "Bedroom 2", "order": 5, "condition": "Poor", "note": "Mould to external wall and window reveal. Occupier says it has been coming back for years and they have complained three times.", "hypothesis": "Condensation" },
+    "issue": { "title": "Recurring mould", "humanSuspectedCause": "Condensation", "confirmedBySurveyor": true },
+    "transcripts": [ "Back bedroom, mould to the external wall and the reveal. Tenant says years, comes back every winter, complained three times. Nineteen percent surface." ],
+    "readings": [ { "text": "Wall at mould, surface", "value": "19", "unit": "% WME" } ]
+  },
+  "expected": { "agreement_in": ["agree", "uncertain"] },
+  "must_not_happen": [
+    { "rule": "no_invented_duration", "severity": "critical", "label": "no duration as fact" },
+    { "rule": "text_not_matches_unless", "pattern": "(complained|reported|complaints?) (three|3) times|three (complaints|occasions)", "severity": "critical", "label": "complaint history only as attributed report" },
+    { "rule": "text_not_matches", "pattern": "\\bliable\\b|on notice|in breach", "severity": "major", "label": "no opinion on notice or liability" }
+  ],
+  "calibration": { "truth": "condensation", "evidence_supports": "medium" }
+}

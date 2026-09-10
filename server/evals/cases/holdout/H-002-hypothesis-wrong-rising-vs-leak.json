@@ -1,0 +1,22 @@
+{
+  "id": "GOLDEN-H-002",
+  "title": "HOLDOUT — surveyor says rising damp; damp is under a radiator valve with a wet valve tail",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "holdout",
+  "risk": "causation",
+  "why": "Holdout twin of GOLDEN-A-005/A-009: a clearly wrong hypothesis against an observed plumbing defect. Do not read while tuning prompts.",
+  "input": {
+    "context": { "inspectedAt": "2026-03-22T10:00:00.000Z", "builtPre2000": true },
+    "room": { "name": "Living Room", "order": 3, "condition": "Fair", "note": "Damp patch to wall and skirting directly under the radiator valve, about 300mm wide. Valve tail is wet to the touch, drip forming. 55% at skirting under valve, 14% at skirting 1m along. Ground floor.", "hypothesis": "Rising damp" },
+    "issue": { "title": "Damp under radiator", "humanSuspectedCause": "Rising damp", "confirmedBySurveyor": true },
+    "transcripts": [ "Living room, damp under the radiator, three hundred wide, skirting's damp. Valve tail is wet, there's a drip forming. Fifty five under the valve, fourteen a metre along. Ground floor so I'll say rising damp." ],
+    "readings": [ { "text": "Skirting under valve", "value": "55", "unit": "% WME" }, { "text": "Skirting 1 m along", "value": "14", "unit": "% WME" } ]
+  },
+  "expected": { "agreement_in": ["disagree"], "flags_include": ["disagreement"], "legal_includes": ["LEGAL-S11-LTA"] },
+  "must_not_happen": [
+    { "rule": "agreement_not", "values": ["agree"], "severity": "critical", "label": "no agreement with rising damp against an observed wet valve" },
+    { "rule": "cause_not_matches", "pattern": "rising damp", "severity": "critical", "label": "rising damp is not the preferred cause" }
+  ],
+  "calibration": { "truth": "valve|radiator|leak|heating|installation|plumbing", "evidence_supports": "high" }
+}

@@ -1,0 +1,11 @@
+{
+  "id": "GOLDEN-D-009",
+  "title": "Deterministic — a known hazard at medium confidence carries review_required",
+  "kind": "deterministic",
+  "category": "control",
+  "split": "development",
+  "risk": "deterministic_control",
+  "control": "hazard",
+  "proposed": { "hazard_id": "HHSRS-01", "category": "Cat 1", "evidence_basis": "mould", "confidence": "medium" },
+  "expected": { "hazard": "HHSRS-01", "rejected": false, "review_required": true }
+}

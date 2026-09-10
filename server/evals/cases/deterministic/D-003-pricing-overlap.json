@@ -1,0 +1,14 @@
+{
+  "id": "GOLDEN-D-003",
+  "title": "Deterministic — mutually exclusive rows are not priced together",
+  "kind": "deterministic",
+  "category": "control",
+  "split": "development",
+  "risk": "deterministic_control",
+  "control": "pricing",
+  "items": [
+    { "price_book_row_id": "CEIL-CRACK-LOCAL", "quantity": 1, "quantity_basis": "observed", "quantity_evidence": ["PHOTO-1"], "reason": "patch" },
+    { "price_book_row_id": "CEIL-MAKE-GOOD", "quantity": 1, "quantity_basis": "observed", "quantity_evidence": ["PHOTO-1"], "reason": "whole ceiling" }
+  ],
+  "expected": { "unpriced": true, "problems_include": ["overlap"], "flags_include": ["unpriced"] }
+}

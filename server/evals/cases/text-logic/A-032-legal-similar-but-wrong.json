@@ -1,0 +1,28 @@
+{
+  "id": "GOLDEN-A-032",
+  "title": "Legal — superficially right, wrong section: condensation mould cited as s.11 disrepair",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "legal_hhsrs",
+  "why": "Condensation mould with the fabric in repair and the extractor working is the textbook case for S9A/S10 (fitness: freedom from damp / ventilation) and Hazard 1 — not s.11, which needs disrepair to structure, exterior or an installation (corrections 10; register 'not_when').",
+  "input": {
+    "context": { "inspectedAt": "2026-09-08T11:30:00.000Z", "builtPre2000": false },
+    "room": { "name": "Bedroom 1", "order": 4, "condition": "Poor", "note": "Black spot mould to external wall corners and behind the wardrobe. Extractor in en-suite works, paper test holds. No staining, no tide marks, walls otherwise sound. 17% surface at mould, 9% elsewhere. Tenant dries washing on radiators.", "hypothesis": "Condensation" },
+    "issue": { "title": "Mould to external wall corners", "humanSuspectedCause": "Condensation", "confirmedBySurveyor": true },
+    "transcripts": [ "Bedroom one, mould in both external corners and behind the wardrobe. En-suite extractor's fine. No staining, no tide marks. Seventeen at the mould, nine elsewhere. Washing on the radiators." ],
+    "readings": [ { "text": "Corner at mould, surface", "value": "17", "unit": "% WME" }, { "text": "Wall elsewhere", "value": "9", "unit": "% WME" } ]
+  },
+  "expected": {
+    "legal_includes": ["LEGAL-S9A-LTA", "LEGAL-S10-LTA"],
+    "hazard_in": ["HHSRS-01"],
+    "agreement_in": ["agree"]
+  },
+  "must_not_happen": [
+    { "rule": "legal_excludes", "ids": ["LEGAL-S11-LTA"], "severity": "critical", "label": "s.11 is not cited for condensation with the fabric in repair" },
+    { "rule": "price_rows_exclude", "rows": ["EXTRACT-FAN-REPLACE", "LEAK-TRACE", "REPOINT-LOCAL", "GUTTER-CLEAR-REPAIR"], "severity": "major", "label": "no fabric or ventilation-replacement rows when both are in order" }
+  ],
+  "allowed_uncertainty": ["S9A + S10 with Hazard 1 Cat 2 is the ideal. Omitting legislation entirely is acceptable but weaker."],
+  "calibration": { "truth": "condensation", "evidence_supports": "high" },
+  "reviewer_notes": "Whether the absence of a bedroom extract or heating regime amounts to unfitness is a professional judgement; the reviewer may refine this expectation."
+}

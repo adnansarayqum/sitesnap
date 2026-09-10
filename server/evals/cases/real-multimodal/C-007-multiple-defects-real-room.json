@@ -1,0 +1,19 @@
+{
+  "id": "GOLDEN-C-007",
+  "title": "REAL EVIDENCE REQUIRED — multiple unrelated defects in one real room",
+  "kind": "pipeline",
+  "category": "real_multimodal",
+  "split": "development",
+  "risk": "multi_defect",
+  "status": "REQUIRES_REAL_SURVEY_EVIDENCE",
+  "why": "Real photographs of two or three unrelated defects captured in one room, organised into issues by the surveyor. Tests attribution on genuine imagery (GOLDEN-B-001/B-002 test it on synthetic fields).",
+  "input": {
+    "context": { "inspectedAt": "", "builtPre2000": null },
+    "room": { "name": "Kitchen", "condition": "Poor", "note": "", "hypothesis": "" },
+    "issues": [
+      { "id": "one", "title": "", "confirmedBySurveyor": true, "photos": [ { "file": "fixtures/REAL/C-007/one-01.jpg" } ], "contamination_terms": "", "expected": {}, "must_not_happen": [] },
+      { "id": "two", "title": "", "confirmedBySurveyor": true, "photos": [ { "file": "fixtures/REAL/C-007/two-01.jpg" } ], "contamination_terms": "", "expected": {}, "must_not_happen": [] }
+    ]
+  },
+  "reviewer_notes": "TO COMPLETE as C-001; fill titles and contamination_terms (words that belong only to the other defect)."
+}

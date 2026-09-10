@@ -1,0 +1,11 @@
+{
+  "id": "GOLDEN-D-004",
+  "title": "Deterministic — a per-m² row with an unevidenced area stays unpriced; an 'observed' area with no evidence ids is not believed",
+  "kind": "deterministic",
+  "category": "control",
+  "split": "development",
+  "risk": "deterministic_control",
+  "control": "pricing",
+  "items": [ { "price_book_row_id": "REPOINT-LOCAL", "quantity": 6, "quantity_basis": "observed", "quantity_evidence": [], "reason": "looks about 6 m²" } ],
+  "expected": { "unpriced": true, "problems_include": ["quantity_required"], "flags_include": ["quantity_unconfirmed", "unpriced"], "priced_rows": [] }
+}

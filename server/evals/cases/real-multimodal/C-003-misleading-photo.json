@@ -1,0 +1,22 @@
+{
+  "id": "GOLDEN-C-003",
+  "title": "REAL EVIDENCE REQUIRED — misleading photograph (shadow, soot or paint that reads as damp)",
+  "kind": "pipeline",
+  "category": "real_multimodal",
+  "split": "development",
+  "risk": "causation",
+  "status": "REQUIRES_REAL_SURVEY_EVIDENCE",
+  "why": "A mark that looks like damp staining but is soot, shadow or a paint repair, with a dry reading recorded. The model must defer to the reading and the surveyor's words, not the appearance.",
+  "input": {
+    "context": { "inspectedAt": "", "builtPre2000": null },
+    "room": { "name": "Living Room", "condition": "Fair", "note": "", "hypothesis": "" },
+    "issue": { "title": "Dark mark to wall", "confirmedBySurveyor": true },
+    "photos": [ { "file": "fixtures/REAL/C-003/01.jpg", "caption": "" } ],
+    "readings": [ { "text": "Wall at mark", "value": "", "unit": "% WME" } ]
+  },
+  "expected": { "confidence_max": "medium" },
+  "must_not_happen": [
+    { "rule": "cause_not_matches", "pattern": "damp|leak|condensation", "severity": "critical", "label": "no damp diagnosis against a dry reading" }
+  ],
+  "reviewer_notes": "TO COMPLETE as C-001. Fill in the recorded reading value."
+}

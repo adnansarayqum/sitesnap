@@ -1,0 +1,29 @@
+{
+  "id": "GOLDEN-A-016",
+  "title": "Conflicting transcripts — one says the extractor works, the next says it does not",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "evidence_integrity",
+  "why": "Two voice notes from the same room contradict each other on the extractor. The finding must not state either as fact; the verifier should surface the conflict; if EXTRACT-FAN-REPLACE is proposed it must be flagged for the surveyor, not silently priced.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-04T10:00:00.000Z", "builtPre2000": false },
+    "room": { "name": "Bathroom", "order": 2, "condition": "Poor", "note": "Mould to ceiling and upper walls.", "hypothesis": "Condensation" },
+    "issue": { "title": "Mould to ceiling and walls", "humanSuspectedCause": "Condensation", "confirmedBySurveyor": true },
+    "transcripts": [
+      "Bathroom, mould to the ceiling and top of the walls. Extractor fan's working fine, holds the paper, good draw.",
+      "Sorry, correction on the bathroom, extractor fan isn't working at all, it's not even spinning, no draw whatsoever."
+    ]
+  },
+  "expected": {
+    "verification_claim": { "pattern": "extract|fan", "support_in": ["partially_supported", "unsupported", "contradicted", "supported"] }
+  },
+  "must_not_happen": [
+    { "rule": "text_not_matches_unless", "pattern": "extractor( fan)? (was|is) (found|noted|observed) to be (working|operational|functioning)", "unless": "(second|later|corrected|however|although|conflict|recording)", "severity": "critical", "label": "no flat statement that the fan works" },
+    { "rule": "text_not_matches_unless", "pattern": "extractor( fan)? (was|is) (found|noted|observed) to be (not working|non-?operational|inoperative|not functioning)", "unless": "(first|earlier|corrected|however|although|conflict|recording|second)", "severity": "critical", "label": "no flat statement that the fan is dead, without acknowledging the conflict" },
+    { "rule": "priced_lines_evidenced", "severity": "critical", "label": "any fan line is an evidenced or flagged quantity" }
+  ],
+  "allowed_uncertainty": ["Either the later note is treated as a correction (and the prose says so) or the conflict is recorded and the fan line left for the surveyor. Both are acceptable. What is not acceptable is picking one silently."],
+  "calibration": { "truth": "condensation", "evidence_supports": "medium" },
+  "reviewer_notes": "Real surveyors do correct themselves on the next recording. The pipeline has no way to know which is right; it must show the surveyor both."
+}

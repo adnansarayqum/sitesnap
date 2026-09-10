@@ -1,0 +1,32 @@
+{
+  "id": "GOLDEN-A-007",
+  "title": "Water staining with three plausible origins — bathroom above, flat-roof junction, boiler flue",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "causation",
+  "why": "A kitchen ceiling stain sits where three things meet: the bathroom above, the junction with a flat-roofed rear extension, and the boiler flue penetration. Each is a plausible origin. At least two alternatives must be carried; confidence cannot exceed medium.",
+  "input": {
+    "context": { "inspectedAt": "2026-06-15T13:00:00.000Z", "builtPre2000": true },
+    "room": { "name": "Kitchen", "order": 1, "condition": "Poor", "note": "Large irregular stain to ceiling at rear. Bathroom is above the front part of it, the flat roof of the extension meets the main roof above the back part, and the boiler flue goes out through the wall right there. Reading 35% at centre.", "hypothesis": "Flat roof junction leaking" },
+    "issue": { "title": "Ceiling staining, rear kitchen", "humanSuspectedCause": "Flat roof junction leaking", "confirmedBySurveyor": true },
+    "transcripts": [
+      "Kitchen ceiling at the back, big stain, irregular. Three things going on above it: bathroom's over the front edge of the stain, the flat roof of the extension ties into the main roof right about there, and the boiler flue penetrates the wall just to the side. Thirty five percent at the centre. My gut says the flat roof junction but honestly any of the three."
+    ],
+    "readings": [ { "text": "Ceiling stain centre", "value": "35", "unit": "% WME" } ]
+  },
+  "expected": {
+    "alternatives_min": 2,
+    "confidence_max": "medium",
+    "agreement_in": ["agree", "uncertain"],
+    "scope_uncertain_or_investigation": true
+  },
+  "must_not_happen": [
+    { "rule": "no_definitive_cause_with_alternatives", "severity": "critical", "label": "three candidates — no definitive cause" },
+    { "rule": "confidence_not", "grade": "high", "severity": "critical", "label": "no high confidence" },
+    { "rule": "text_not_matches", "pattern": "flue (is|was) (defective|leaking|corroded)|felt (is|was) (split|torn|failed)", "severity": "critical", "label": "no element stated defective without inspection" }
+  ],
+  "allowed_uncertainty": ["Any of the three as preferred at medium/low with the other two open; investigation_first preferred."],
+  "calibration": { "truth": "roof|junction|bathroom|flue|ingress|leak", "evidence_supports": "low" },
+  "reviewer_notes": "The surveyor said 'honestly any of the three'. A confident single cause here is the anchoring failure."
+}

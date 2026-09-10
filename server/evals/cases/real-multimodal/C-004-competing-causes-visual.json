@@ -1,0 +1,21 @@
+{
+  "id": "GOLDEN-C-004",
+  "title": "REAL EVIDENCE REQUIRED — competing causes visible in the same frame",
+  "kind": "pipeline",
+  "category": "real_multimodal",
+  "split": "development",
+  "risk": "causation",
+  "status": "REQUIRES_REAL_SURVEY_EVIDENCE",
+  "why": "A bathroom wall with both a condensation mould pattern and a defined stain below a fitting. The model must carry both (corrections rule 8) or flag the second, from the photographs alone.",
+  "input": {
+    "context": { "inspectedAt": "", "builtPre2000": null },
+    "room": { "name": "Bathroom", "condition": "Poor", "note": "", "hypothesis": "" },
+    "issue": { "title": "Damp and mould", "confirmedBySurveyor": true },
+    "photos": [ { "file": "fixtures/REAL/C-004/01.jpg", "caption": "" }, { "file": "fixtures/REAL/C-004/02.jpg", "caption": "" } ]
+  },
+  "expected": { "alternatives_min": 1 },
+  "must_not_happen": [
+    { "rule": "no_definitive_cause_with_alternatives", "severity": "critical", "label": "no single definitive cause" }
+  ],
+  "reviewer_notes": "TO COMPLETE as C-001."
+}

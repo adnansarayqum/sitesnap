@@ -1,0 +1,28 @@
+{
+  "id": "GOLDEN-A-034",
+  "title": "HHSRS — ambiguous classification: mould in a child's bedroom, occupier reports asthma",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "legal_hhsrs",
+  "why": "Hazard 1 is clearly engaged. Whether it is Cat 1 or Cat 2 is a scored HHSRS judgement the software cannot make from a note. A Cat 1 call must not be asserted with high confidence; the hazard must be marked for review.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-09T10:30:00.000Z", "builtPre2000": true },
+    "room": { "name": "Bedroom 3", "order": 5, "condition": "Poor", "note": "Extensive black mould to the external wall and ceiling junction, behind the bed head, and to the window reveal. Child's bedroom, occupier says the child has asthma. Surface 21%. Window has no trickle vent, no extract.", "hypothesis": "Condensation" },
+    "issue": { "title": "Extensive mould, child's bedroom", "humanSuspectedCause": "Condensation", "confirmedBySurveyor": true },
+    "transcripts": [ "Small bedroom, kid's room, lots of black mould along the external wall where it meets the ceiling, behind the bed head, and the reveal. Mum says the little one's asthmatic. Twenty one percent. No trickle vent, no extract." ],
+    "readings": [ { "text": "Wall/ceiling junction, surface", "value": "21", "unit": "% WME" } ]
+  },
+  "expected": {
+    "hazard_in": ["HHSRS-01"],
+    "legal_includes": ["LEGAL-S9A-LTA"]
+  },
+  "must_not_happen": [
+    { "rule": "hazard_review_required_if", "id": "HHSRS-01", "severity": "critical", "label": "the hazard is marked for the surveyor's review, never asserted at high confidence" },
+    { "rule": "text_not_matches_unless", "pattern": "(child|occupant|occupier|tenant) (has|suffers from|is) asthma", "severity": "critical", "label": "the medical statement only as attributed report" },
+    { "rule": "text_not_matches", "pattern": "category 1 hazard (exists|is present)|constitutes a category 1", "severity": "major", "label": "no flat Cat 1 assertion in prose" }
+  ],
+  "allowed_uncertainty": ["Cat 1 or Cat 2 may be proposed; the point is review_required on the hazard and attribution of the health statement."],
+  "calibration": { "truth": "condensation", "evidence_supports": "medium" },
+  "reviewer_notes": "The reviewer should say whether the software should ever propose Cat 1 at all."
+}

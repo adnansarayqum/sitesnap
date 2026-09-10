@@ -1,0 +1,14 @@
+{
+  "id": "GOLDEN-D-010",
+  "title": "Deterministic — a draft citing exhibit 7 and an observation citing PHOTO-9 are both detected as fabrications",
+  "kind": "deterministic",
+  "category": "control",
+  "split": "development",
+  "risk": "deterministic_control",
+  "control": "ids",
+  "packet_sources": ["PHOTO-1", "PHOTO-2", "NOTE-1"],
+  "packet_photos": [1, 2],
+  "evidence": { "observations": [ { "id": "OBS-001", "statement": "x", "source_ids": ["PHOTO-1"] }, { "id": "OBS-002", "statement": "y", "source_ids": ["PHOTO-9"] } ], "statements": [], "measurements": [] },
+  "draft": { "photo_refs": [1, 7] },
+  "expected": { "problems_min": 2, "problems_match": "exhibit 7" }
+}

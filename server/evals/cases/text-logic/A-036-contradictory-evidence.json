@@ -1,0 +1,28 @@
+{
+  "id": "GOLDEN-A-036",
+  "title": "Contradictory evidence — note says 'dry, historic', the reading says 60%",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "evidence_integrity",
+  "why": "The typed note calls the staining historic and the ceiling dry. The recorded reading at the stain is 60% WME. The finding must not present 'dry' or 'historic' as fact; the verifier should find the contradiction; confidence must be low or the gate must hold it.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-09T12:00:00.000Z", "builtPre2000": true },
+    "room": { "name": "Living Room", "order": 3, "condition": "Fair", "note": "Historic staining to ceiling by the window, dry now, old leak long since fixed.", "hypothesis": "Historic leak, rectified" },
+    "issue": { "title": "Ceiling staining by window", "humanSuspectedCause": "Historic leak, rectified", "confirmedBySurveyor": true },
+    "transcripts": [ "Living room ceiling by the window, brown staining, looks old. Reading at the stain sixty percent, hmm, that's high. Away from it nine." ],
+    "readings": [ { "text": "Ceiling at stain", "value": "60", "unit": "% WME" }, { "text": "Ceiling away from stain", "value": "9", "unit": "% WME" } ]
+  },
+  "expected": {
+    "agreement_in": ["disagree", "uncertain"],
+    "confidence_max": "medium"
+  },
+  "must_not_happen": [
+    { "rule": "text_not_matches_unless", "pattern": "\\b(is|was|were) dry\\b|\\bhistoric(al)? (staining|leak)\\b(?! .*(reading|60))", "unless": "(however|although|but|despite|notwithstanding|reading|60|contrary|recorded)", "severity": "critical", "label": "'dry' or 'historic' never stated as fact against a 60% reading" },
+    { "rule": "agreement_not", "values": ["agree"], "severity": "critical", "label": "the pipeline does not agree the leak is historic with a live 60% reading" },
+    { "rule": "cause_not_matches", "pattern": "historic|rectified|previous leak", "severity": "critical", "label": "a rectified historic leak is not the preferred cause" }
+  ],
+  "allowed_uncertainty": ["Active water ingress (live leak) as preferred at medium, or uncertain. Either way the surveyor must see the disagreement."],
+  "calibration": { "truth": "live|active|ongoing|current|ingress|leak(?!.*historic)", "evidence_supports": "medium" },
+  "reviewer_notes": "The surveyor noticed ('hmm, that's high') but typed the opposite. Real life."
+}

@@ -1,0 +1,30 @@
+{
+  "id": "GOLDEN-A-014",
+  "title": "Unsupported dimensions — 'a big patch' of defective pointing, no measurement",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "pricing",
+  "why": "Penetrating damp inside with 'a big patch' of eroded pointing outside. REPOINT-LOCAL is a per-m² row with quantity evidence required. No area was recorded. The line must stay unpriced (or be left unproposed); no area may appear in the prose.",
+  "input": {
+    "context": { "inspectedAt": "2026-10-10T14:00:00.000Z", "builtPre2000": true },
+    "room": { "name": "Dining Room", "order": 4, "condition": "Fair", "note": "Damp patch to the external wall at low level, right of the window. Outside, a big patch of eroded pointing at the same spot, mortar falling out. 33% inside at the patch.", "hypothesis": "Penetrating damp through the defective pointing" },
+    "issue": { "title": "Penetrating damp, external wall", "humanSuspectedCause": "Penetrating damp through the defective pointing", "confirmedBySurveyor": true },
+    "transcripts": [
+      "Dining room, damp to the external wall low down to the right of the window. Went outside, there's a big patch of pointing gone right where it lines up, mortar's crumbling out. Thirty three percent inside. Didn't measure the area of pointing."
+    ],
+    "readings": [ { "text": "Internal wall at patch", "value": "33", "unit": "% WME" } ]
+  },
+  "expected": {
+    "agreement_in": ["agree", "uncertain"],
+    "legal_includes": ["LEGAL-S11-LTA"]
+  },
+  "must_not_happen": [
+    { "rule": "row_not_priced", "row": "REPOINT-LOCAL", "severity": "critical", "label": "no m² priced without an evidenced area" },
+    { "rule": "no_invented_dimensions", "severity": "critical", "label": "no area or length in the prose" },
+    { "rule": "text_not_matches", "pattern": "\\d+\\s*(m²|m2|sq)", "severity": "critical", "label": "no square-metre figure" }
+  ],
+  "allowed_uncertainty": ["REPOINT-LOCAL may be proposed and left unpriced pending the surveyor's quantity; that is the designed outcome (quantity_unconfirmed / unpriced flags)."],
+  "calibration": { "truth": "penetrat|pointing", "evidence_supports": "medium" },
+  "reviewer_notes": "The server's quantity rule should catch a guessed area even if the model proposes one."
+}

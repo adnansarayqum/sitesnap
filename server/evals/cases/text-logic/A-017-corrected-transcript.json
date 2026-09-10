@@ -1,0 +1,29 @@
+{
+  "id": "GOLDEN-A-017",
+  "title": "Corrected transcript — Whisper heard '4.5%', the surveyor corrected it to '45%'",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "evidence_integrity",
+  "why": "The transcript record is status 'corrected' with the surveyor's text. Only the corrected text reaches the pipeline. The finding must carry 45, not 4.5, and the reading-dependent reasoning must follow the corrected figure (a 45% reading does not read as condensation-only).",
+  "input": {
+    "context": { "inspectedAt": "2026-09-04T11:00:00.000Z", "builtPre2000": false },
+    "room": { "name": "Kitchen", "order": 1, "condition": "Poor", "note": "Damp to wall behind washing machine.", "hypothesis": "" },
+    "issue": { "title": "Damp behind washing machine", "confirmedBySurveyor": true },
+    "transcripts": [
+      { "text": "Kitchen, damp to the wall behind the washing machine, reading forty five percent at the skirting, the standpipe for the machine waste is right there and the hose connection looks perished.", "status": "corrected", "version": 2 }
+    ],
+    "readings": [ { "text": "Wall behind washing machine at skirting", "value": "45", "unit": "% WME" } ]
+  },
+  "expected": {
+    "text_matches": "45",
+    "agreement_in": ["no_hypothesis"]
+  },
+  "must_not_happen": [
+    { "rule": "text_not_matches", "pattern": "4\\.5\\s?%|four point five", "severity": "critical", "label": "the superseded 4.5% figure never appears" },
+    { "rule": "cause_not_matches", "pattern": "^(surface )?condensation$", "severity": "major", "label": "a 45% reading beside a waste connection is not condensation-only" }
+  ],
+  "allowed_uncertainty": ["Leak from the waste/hose connection as preferred, with condensation behind an appliance as an alternative, is right."],
+  "calibration": { "truth": "leak|waste|hose|standpipe|connection|plumbing|penetrat", "evidence_supports": "medium" },
+  "reviewer_notes": "Structural check as much as a reasoning check: the pipeline must use the corrected version."
+}

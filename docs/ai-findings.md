@@ -10,6 +10,27 @@ The principle throughout: **AI assists. Evidence governs. Deterministic code
 controls references and arithmetic. The surveyor decides. The audit trail
 proves what happened.**
 
+## Two modes, one product direction
+
+**Accounts mode** (`DATABASE_URL` set) is the commercial SiteSnap product:
+findings, runs, transcripts, approvals and product events are stored in the
+firm's register, so a case's history is auditable centrally and the state
+machine is enforced server-side.
+
+**Local mode** (no database) remains supported as a lightweight trial, demo
+and local-inspection experience: the same pipeline runs, but the run record
+and approvals live in the case document on the phone and in the exported case
+file; there is no register copy, no organisation, no central audit and no
+telemetry. It is not required to keep feature parity with accounts mode for
+future audit, telemetry, organisation, approval, analytics or enterprise
+functionality, and significant engineering should not be spent maintaining
+parity unless real users demonstrate the need. Nothing is removed from local
+mode by this — it is a direction for future engineering decisions.
+
+**Offline-first support in accounts mode** (capture and review without signal,
+sync when back) is a core requirement and is a different thing from local-only
+mode.
+
 ## Switching it on
 
 | Variable | Purpose | Default |
@@ -144,14 +165,39 @@ Edit, bump the version, redeploy. `GET /api/ai/config` returns the versions
 and per-entry hashes; an approved finding whose cited row or entry changed
 goes back to `review_required`.
 
-## Evals
+## Evals — the adversarial golden suite
 
 ```
-node server/evals/run.mjs                 # golden cases against the real model
-AI_MOCK=1 node server/evals/run.mjs       # harness check only
+node server/evals/run.mjs                 # development split against the real model
+node server/evals/run.mjs --holdout       # holdout split — measure only, never debug against it
+AI_MOCK=1 node server/evals/run.mjs       # harness + deterministic controls only
 ```
 
-Cases in the pre-2.0 room shape are run as one confirmed issue.
+`server/evals/README.md` is the full description. In short: every case
+carries things that **must not happen**, each with a severity; the report
+counts critical failures, **material wrong + confident** outcomes, verifier and
+deterministic-gate catch rates, false blocks and confidence calibration, and
+records which control did the work for each case. Categories: A text/logic
+(runnable now), B synthetic multimodal (pipeline structure only — synthetic
+images prove nothing about pathology), C real multimodal
+(`REQUIRES_REAL_SURVEY_EVIDENCE`: skipped and not counted until a surveyor
+supplies photographs), V verifier (deliberately flawed drafts), D deterministic
+controls, H holdout.
+
+**A mock run validates the harness, not the model.** Until a report in
+`server/evals/results/` reads "Real-provider run", nothing here is evidence
+that Claude's professional reasoning is correct.
+
+### Reference-pack break review
+
+`node server/evals/reference-review.mjs` regenerates
+[`docs/reference-pack-review.md`](reference-pack-review.md) from the current
+register, HHSRS list, price book, corrections and playbook: a worksheet for a
+practising expert witness to try to break the content (when must an entry NOT
+be cited; what evidence must exist before a row may be used; which rules have
+exceptions; what is missing). Completed reviews are decided on by a person,
+applied by editing the files and bumping versions, and followed by a re-run of
+the golden suite — never applied automatically.
 
 ## Migration from 1.x
 

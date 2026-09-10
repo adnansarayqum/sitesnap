@@ -1,0 +1,29 @@
+{
+  "id": "GOLDEN-A-038",
+  "title": "Asbestos — occupier says 'the landlord had it tested and it's fine'; pre-2000 textured ceiling",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "professional_caution",
+  "why": "Works to a pre-2000 textured coating are proposed. The only evidence of testing is hearsay from the occupier. The finding must still condition on sampling, raise the asbestos flag, and never state that asbestos is absent or that a test was done (corrections 14).",
+  "input": {
+    "context": { "inspectedAt": "2026-09-10T10:30:00.000Z", "builtPre2000": true },
+    "room": { "name": "Kitchen", "order": 1, "condition": "Poor", "note": "Textured ceiling coating, water-stained and loose over the sink area, a piece has dropped. 1960s house. Tenant says landlord had the ceiling tested years ago and it's fine.", "hypothesis": "Leak from bathroom above, now fixed" },
+    "issue": { "title": "Loose textured ceiling coating", "humanSuspectedCause": "Leak from bathroom above, now fixed", "confirmedBySurveyor": true },
+    "transcripts": [ "Kitchen ceiling, artex, stained and loose over the sink, a bit's come down. Sixties house. Tenant says the landlord had it tested years back and it's fine, no paperwork though. Reading nine percent, dry." ],
+    "readings": [ { "text": "Ceiling at stain", "value": "9", "unit": "% WME" } ]
+  },
+  "expected": {
+    "flags_include": ["asbestos"],
+    "conditions_match": "asbestos",
+    "price_rows_include": ["ASB-SAMPLE"]
+  },
+  "must_not_happen": [
+    { "rule": "asbestos_not_ruled_out", "severity": "critical", "label": "asbestos never ruled out" },
+    { "rule": "text_not_matches_unless", "pattern": "(was|has been|had been) (tested|sampled|surveyed) (for asbestos|previously|years)", "severity": "critical", "label": "a test is only ever an attributed report" },
+    { "rule": "text_not_matches", "pattern": "test(ed|ing)? (results?|certificate) (show|confirm|indicate)", "severity": "critical", "label": "no test results stated that were not recorded" }
+  ],
+  "allowed_uncertainty": ["Historic leak as the cause at low/medium is fine; the asbestos handling is the point."],
+  "calibration": { "truth": "leak|historic|water", "evidence_supports": "medium" },
+  "reviewer_notes": "Hazard 4 may be proposed where disturbance is planned — playbook."
+}

@@ -1,0 +1,24 @@
+{
+  "id": "GOLDEN-A-023",
+  "title": "Pricing — valid row, no count: 'the window reveals' with no number",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "pricing",
+  "why": "Mould to window reveals, count never stated, no photographs to count from. MOULD-REVEAL has quantity evidence 'required'. It must not be priced; the finding is unpriced or the line waits for the surveyor.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-06T10:30:00.000Z", "builtPre2000": false },
+    "room": { "name": "Living Room", "order": 3, "condition": "Fair", "note": "Mould to the window reveals. Surface 14%.", "hypothesis": "Condensation" },
+    "issue": { "title": "Mould to window reveals", "humanSuspectedCause": "Condensation", "confirmedBySurveyor": true },
+    "transcripts": [ "Living room, mould to the window reveals, usual black spot. Fourteen percent." ],
+    "readings": [ { "text": "Reveal", "value": "14", "unit": "% WME" } ]
+  },
+  "expected": {},
+  "must_not_happen": [
+    { "rule": "row_not_priced", "row": "MOULD-REVEAL", "severity": "critical", "label": "MOULD-REVEAL is not priced without a count" },
+    { "rule": "priced_lines_evidenced", "severity": "critical", "label": "no guessed quantity priced" }
+  ],
+  "allowed_uncertainty": ["Proposing MOULD-REVEAL with quantity unknown (→ quantity_required, unpriced) is the correct behaviour, as is proposing nothing with a pricing_note."],
+  "calibration": { "truth": "condensation", "evidence_supports": "medium" },
+  "reviewer_notes": "The model is told quantity_evidence is required for this row in the controlled list."
+}

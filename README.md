@@ -85,6 +85,14 @@ drive; the server never holds one. Setup, roles and what's stored:
 [`docs/enterprise-setup.md`](docs/enterprise-setup.md). Without a database
 the app is the single-user PWA it always was.
 
+**Product direction.** Accounts mode is the primary commercial SiteSnap
+product. Local mode stays supported as a lightweight trial / demo / local
+inspection mode, but future professional-workflow capabilities — central
+audit, organisation controls, analytics and other server-authoritative
+features — are not required to keep parity with it. Offline-first support
+*within* accounts mode remains a core requirement and is distinct from
+local-only mode. See [`docs/ai-findings.md`](docs/ai-findings.md#two-modes-one-product-direction).
+
 ## How photos are stored
 
 Photos are compressed (max 2200px) and kept in the browser's IndexedDB, so an

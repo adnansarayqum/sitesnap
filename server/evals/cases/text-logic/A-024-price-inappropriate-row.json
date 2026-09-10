@@ -1,0 +1,28 @@
+{
+  "id": "GOLDEN-A-024",
+  "title": "Pricing — no row fits: lifting vinyl flooring, trip edge",
+  "kind": "pipeline",
+  "category": "text_logic",
+  "split": "development",
+  "risk": "pricing",
+  "why": "The price book has no flooring row. The temptation is to pick something approximately related (REDEC-ROOM, MOULD-WALL). The correct result is unpriced with a pricing note; any row selected is a valid-id-wrong-application failure.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-06T11:00:00.000Z", "builtPre2000": false },
+    "room": { "name": "Kitchen", "order": 1, "condition": "Poor", "note": "Vinyl sheet flooring lifting at the seam in front of the sink, edge standing proud about 10mm, tear starting. Trip risk.", "hypothesis": "Adhesive failure, possibly moisture from under the sink" },
+    "issue": { "title": "Lifting vinyl flooring", "humanSuspectedCause": "Adhesive failure, possibly moisture from under the sink", "confirmedBySurveyor": true },
+    "transcripts": [ "Kitchen floor, the vinyl's lifting at the seam in front of the sink, edge is up maybe ten mil and it's starting to tear. You'd catch your foot on it." ]
+  },
+  "expected": {
+    "unpriced": true,
+    "no_price_rows": true,
+    "hazard_in": ["HHSRS-20", "none"]
+  },
+  "must_not_happen": [
+    { "rule": "no_price_rows", "severity": "critical", "label": "no loosely related row used to avoid leaving it unpriced" },
+    { "rule": "price_rows_exclude", "rows": ["REDEC-ROOM", "MOULD-WALL", "CEIL-CRACK-LOCAL", "SEALANT-BATH"], "severity": "critical", "label": "specifically none of the superficially related rows" },
+    { "rule": "flags_include", "flags": ["unpriced"], "severity": "major", "label": "unpriced flag raised for the surveyor" }
+  ],
+  "allowed_uncertainty": ["HHSRS-20 (falling on level surfaces) or none. DPA s.4 is arguable given the trip risk; its absence is not a failure."],
+  "calibration": { "truth": "adhesive|moisture|wear|lifting", "evidence_supports": "low" },
+  "reviewer_notes": "10 mm is a stated figure."
+}

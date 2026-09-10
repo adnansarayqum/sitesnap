@@ -1,0 +1,34 @@
+{
+  "id": "GOLDEN-B-001",
+  "title": "Two defects in one bathroom — ceiling mould and broken flooring stay separate",
+  "kind": "pipeline",
+  "category": "synthetic_multimodal",
+  "split": "development",
+  "risk": "multi_defect",
+  "why": "Structural check, not a vision check: the room holds two issues with their own photographs and voice notes. Each finding may only rest on, and cite, its own evidence, and must carry no wording from the other defect. The images are synthetic colour fields — they prove attribution, not pathology.",
+  "input": {
+    "context": { "inspectedAt": "2026-09-11T10:00:00.000Z", "builtPre2000": false },
+    "room": { "name": "Bathroom", "order": 2, "condition": "Poor", "note": "Two separate problems in here: mould on the ceiling over the bath, and the vinyl floor is torn and lifting by the door.", "hypothesis": "" },
+    "issues": [
+      {
+        "id": "mould", "title": "Ceiling mould", "description": "Black spot mould to the ceiling above the bath", "confirmedBySurveyor": true,
+        "photos": [ { "file": "fixtures/synthetic-ceiling-mould-A.png", "no": 1, "caption": "mould to ceiling corner above bath" }, { "file": "fixtures/synthetic-ceiling-mould-B.png", "no": 2, "caption": "mould, shower end of ceiling" } ],
+        "transcripts": [ "Ceiling over the bath, black spot mould, worst at the shower end. Extractor fails the paper test." ],
+        "readings": [ { "text": "Ceiling at mould, surface", "value": "19", "unit": "% WME" } ],
+        "contamination_terms": "vinyl|floor(ing)?|trip|torn|lifting",
+        "expected": { "confidence_max": "medium" },
+        "must_not_happen": [ { "rule": "text_not_matches", "pattern": "vinyl|flooring|trip", "severity": "critical", "label": "no flooring wording in the mould finding" } ]
+      },
+      {
+        "id": "floor", "title": "Torn vinyl flooring", "description": "Vinyl sheet torn and lifting at the door threshold", "confirmedBySurveyor": true,
+        "photos": [ { "file": "fixtures/synthetic-floor-damage.png", "no": 3, "caption": "torn vinyl at door threshold" } ],
+        "transcripts": [ "Floor, vinyl's torn and lifting right at the door, you'd catch your foot on it." ],
+        "contamination_terms": "mould|extract(or)?|ceiling|condensation",
+        "expected": { "no_price_rows": true },
+        "must_not_happen": [ { "rule": "text_not_matches", "pattern": "mould|ceiling|extractor|condensation", "severity": "critical", "label": "no mould wording in the flooring finding" } ]
+      }
+    ]
+  },
+  "allowed_uncertainty": ["Causes are not assessed here; only isolation. Mould: condensation at any confidence. Floor: unpriced (no row)."],
+  "reviewer_notes": "Category B: synthetic images. The isolation rules (own exhibits only, own sources only, no sibling wording) are added automatically by the runner for multi-issue cases."
+}
