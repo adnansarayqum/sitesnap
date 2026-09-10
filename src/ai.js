@@ -58,8 +58,11 @@ export async function issueRequest({ inspection, room, issue, order, photoCache,
   const photos = [];
   for (const pid of issuePhotoIds(issue).slice(0, AI_MAX_PHOTOS)) {
     const p = await fullPhoto(pid);
-    if (!p || !p.dataUrl) continue;
     const link = (issue.evidence || []).find((e) => e.id === pid) || {};
+    // a linked photograph that cannot be read from storage still goes, as a
+    // stub with no image: the server records it as missing evidence rather
+    // than analysing the issue as if the photograph never existed
+    if (!p || !p.dataUrl) { photos.push({ id: pid, no: (p && p.no) || null, caption: (p && p.caption) || "", captionSource: p && p.captionAi ? "ai" : "human", linkSource: link.source || "unknown", takenAt: (p && p.takenAt) || null }); continue; }
     photos.push({ id: pid, no: p.no || null, caption: p.caption || "", captionSource: p.captionAi ? "ai" : "human", dataUrl: await aiPhotoCopy(p.dataUrl), linkSource: link.source || "unknown", takenAt: p.takenAt || null });
   }
   const memos = issueMemoIds(issue).map((mid) => {

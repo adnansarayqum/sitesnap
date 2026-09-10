@@ -38,7 +38,8 @@ const rank = (g) => ({ high: 2, medium: 1, low: 0 }[g] ?? 0);
 // observations it produced. Anything else is a fabrication and blocks.
 export function validateIds(packet, evidence, analysis, draft) {
   const problems = [];
-  const known = new Set([...Object.keys(packet.sources), ...(evidence.observations || []).map((o) => o.id), ...(evidence.statements || []).map((s) => s.id), ...(evidence.measurements || []).map((m) => m.id)]);
+  // a photograph recorded as missing was never shown to any stage; citing it is a fabrication too
+  const known = new Set([...Object.entries(packet.sources).filter(([, s]) => !s.missing).map(([id]) => id), ...(evidence.observations || []).map((o) => o.id), ...(evidence.statements || []).map((s) => s.id), ...(evidence.measurements || []).map((m) => m.id)]);
   const check = (list, where) => { for (const id of list || []) if (!known.has(id)) problems.push(`${where} cites unknown source ${id}`); };
   for (const o of evidence.observations || []) check(o.source_ids, o.id);
   for (const m of evidence.measurements || []) check(m.source_ids, m.id);

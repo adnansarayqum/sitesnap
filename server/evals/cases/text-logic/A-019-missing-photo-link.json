@@ -24,5 +24,5 @@
   ],
   "allowed_uncertainty": ["incomplete_evidence or a partial_visual_review/incomplete_evidence flag."],
   "calibration": { "truth": "condensation", "evidence_supports": "low" },
-  "reviewer_notes": "KNOWN GAP AT AUTHORING: the packet builder drops a photo without image data silently (server/ai/packet.js), and the app's issueRequest skips photos it cannot load. Unlike a failed transcription, a missing photograph does not mark the packet incomplete. This case is expected to FAIL until that is addressed; it is recorded here so the gap is measured, not forgotten. It is not a model failure."
+  "reviewer_notes": "History: when first written this case FAILED — the packet builder dropped a photo without image data silently and the app skipped photos it could not load, so the finding came out review_ready on partial evidence. Fixed 2026-09-10: linked photo ids are reconciled against what was supplied with an image; any missing one is recorded in incomplete[] (PHOTO-<exhibit>, 'linked photograph could not be loaded') and the gate returns incomplete_evidence. The case now passes for that reason and stays as the regression guard."
 }

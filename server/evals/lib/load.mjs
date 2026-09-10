@@ -117,8 +117,9 @@ export function toPipelineInput(c, unit = null) {
     room: { name: room.name || "Room", note: room.note || "", noteSource, hypothesis: room.hypothesis || "", condition: room.condition || "" },
     note: room.note ? { text: room.note, source: noteSource } : null,
     roomHypothesis: room.hypothesis || "",
-    // the packet ignores anything without an image, exactly as the server does
-    photos: photos.filter((p) => p.dataUrl),
+    // a photo whose file could not be read travels as a stub without an
+    // image, exactly as the app sends one it could not load from storage
+    photos,
     memos, readings,
     quantityOverrides: u.quantityOverrides || i.quantityOverrides || {},
     _missingPhotos: photos.filter((p) => p.missing).map((p) => p.id),

@@ -54,12 +54,19 @@ async function ownedCase(req, id) {
   return one("select id, org_id from cases where id = $1 and org_id = $2", [id, req.session.org_id]);
 }
 
+// A photograph without a usable image (the phone could not load it, or it is
+// over the per-photo cap) is kept as a stub rather than dropped: the packet
+// records it as missing evidence so the finding cannot claim a complete
+// analysis. `dropped` counts those stubs.
 function cleanPhotos(list) {
   const sent = Array.isArray(list) ? list : [];
   const photos = sent.slice(0, MAX_PHOTOS)
-    .filter((p) => p && typeof p.id === "string" && p.id && typeof p.dataUrl === "string" && p.dataUrl.length <= MAX_PHOTO_B64 && p.dataUrl.startsWith("data:image/"))
-    .map((p) => ({ id: p.id, no: Number.isFinite(p.no) ? p.no : null, caption: s(p.caption, 300), captionSource: p.captionSource === "ai" ? "ai" : "human", dataUrl: p.dataUrl, linkSource: s(p.linkSource, 30), takenAt: Number.isFinite(p.takenAt) ? p.takenAt : null }));
-  return { photos, dropped: sent.length - photos.length };
+    .filter((p) => p && typeof p.id === "string" && p.id)
+    .map((p) => {
+      const usable = typeof p.dataUrl === "string" && p.dataUrl.length <= MAX_PHOTO_B64 && p.dataUrl.startsWith("data:image/");
+      return { id: p.id, no: Number.isFinite(p.no) ? p.no : null, caption: s(p.caption, 300), captionSource: p.captionSource === "ai" ? "ai" : "human", dataUrl: usable ? p.dataUrl : undefined, linkSource: s(p.linkSource, 30), takenAt: Number.isFinite(p.takenAt) ? p.takenAt : null };
+    });
+  return { photos, dropped: photos.filter((p) => !p.dataUrl).length };
 }
 function cleanMemos(list) {
   return (Array.isArray(list) ? list : []).slice(0, MAX_MEMOS).filter((m) => m && typeof m.id === "string").map((m) => ({

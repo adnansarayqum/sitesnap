@@ -17,19 +17,38 @@ export function buildPacket(input) {
   const issue = input.issue || {};
   const sources = {};           // id -> { type, ...ref, hash }
   const photos = [];
+  const incomplete = [];
+  // Known evidence must never silently disappear from the analysis. A
+  // photograph the app could not load (or the server could not accept) still
+  // arrives as a stub, and every photo id the issue links is reconciled
+  // against what was actually supplied with an image; anything missing is
+  // recorded as incomplete, exactly as a failed transcription is.
+  const missing = [];
+  const loadedIds = new Set();
   for (const p of input.photos || []) {
-    if (!p || !p.dataUrl) continue;
+    if (!p) continue;
+    const img = p.dataUrl ? parseDataUrl(p.dataUrl) : null;
+    if (!img) { missing.push({ photoId: String(p.id), no: Number.isFinite(p.no) && p.no > 0 ? p.no : null, linkSource: p.linkSource || "unknown" }); continue; }
     const no = Number.isFinite(p.no) && p.no > 0 ? p.no : photos.length + 1;
     const id = `PHOTO-${no}`;
-    const img = parseDataUrl(p.dataUrl);
-    if (!img) continue;
     sources[id] = { type: "photo", photoId: String(p.id), no, hash: sha(img.data).slice(0, 16), linkSource: p.linkSource || "unknown" };
     const caption = text(p.caption);
     if (caption) sources[`CAPTION-${no}`] = { type: "caption", photoId: String(p.id), no, by: p.captionSource === "ai" ? "ai" : "surveyor", text: caption, hash: sha(caption).slice(0, 16) };
     photos.push({ id, no, photoId: String(p.id), img, caption, captionBy: p.captionSource === "ai" ? "ai" : "surveyor", takenAt: p.takenAt || null, linkSource: p.linkSource || "unknown" });
+    loadedIds.add(String(p.id));
   }
+  for (const e of Array.isArray(issue.evidence) ? issue.evidence : []) {
+    if (!e || e.kind !== "photo") continue;
+    const pid = String(e.id);
+    if (!loadedIds.has(pid) && !missing.some((m) => m.photoId === pid)) missing.push({ photoId: pid, no: null, linkSource: e.source || "unknown" });
+  }
+  missing.forEach((m, k) => {
+    // keep the exhibit number when the app knew it; otherwise a stable stand-in id
+    const id = m.no && !sources[`PHOTO-${m.no}`] ? `PHOTO-${m.no}` : `PHOTO-missing-${k + 1}`;
+    sources[id] = { type: "photo", photoId: m.photoId, no: m.no, hash: null, linkSource: m.linkSource, missing: true };
+    incomplete.push({ source_id: id, reason: "linked photograph could not be loaded — not analysed" });
+  });
   const memos = [];
-  const incomplete = [];
   (input.memos || []).forEach((m, i) => {
     if (!m) return;
     const id = `MEMO-${i + 1}`;

@@ -42,11 +42,13 @@ describe("golden evaluation harness", () => {
     for (const id of ["GOLDEN-A-020", "GOLDEN-A-042", "GOLDEN-A-043"]) expect(results.find((r) => r.id === id).units[0].error.code).toBe("not_eligible");
   }, 120000);
 
-  it("the known missing-photo gap is measured, not hidden (GOLDEN-A-019 fails by design until addressed)", async () => {
+  it("a linked photograph that could not be loaded makes the finding incomplete (GOLDEN-A-019)", async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "golden-"));
     const { results } = await runSuite({ filter: ["GOLDEN-A-019"], quiet: true, reportDir: dir });
     const unit = results[0].units[0];
     expect(unit.missingPhotos.length).toBe(1);
-    expect(unit.finding.gate.status).toBe("review_ready");
+    expect(unit.finding.gate.status).toBe("incomplete_evidence");
+    expect(unit.finding.gate.reasons.join(" ")).toMatch(/PHOTO-2/);
+    expect(unit.checks.filter((k) => k.severity === "critical").every((k) => k.pass)).toBe(true);
   }, 60000);
 });

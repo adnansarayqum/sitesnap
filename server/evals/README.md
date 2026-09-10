@@ -100,10 +100,12 @@ wrong+uncertain, **wrong+overconfident**).
 
 ## Known gaps this suite measures on purpose
 
-- **GOLDEN-A-019** (missing photo): the packet builder drops a photograph whose
-  image is unavailable without marking the packet incomplete (unlike a failed
-  transcription). The case fails by design until that is addressed. It is a
-  deterministic-control gap, not a model failure.
+- **GOLDEN-A-019** (missing photo) was a deterministic-control gap when first
+  written: a photograph whose image could not be loaded was dropped from the
+  packet without marking it incomplete. Fixed — linked photo ids are now
+  reconciled against what arrived with an image and any shortfall is recorded
+  as incomplete evidence, so the gate returns `incomplete_evidence`. The case
+  stays as the regression guard.
 - **GOLDEN-B-005** (unreadable frame) and every V case: cannot pass under
   `AI_MOCK`; the mock verifier cannot reason. Meaningful only on a real run.
 
