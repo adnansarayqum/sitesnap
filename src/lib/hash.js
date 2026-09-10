@@ -1,0 +1,15 @@
+// A small, fast, synchronous hash (cyrb53) for evidence fingerprints. Not
+// cryptographic — it only has to notice that something changed, on the
+// phone, without waiting on SubtleCrypto.
+export function hash53(str, seed = 0) {
+  let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (h2 >>> 0).toString(16).padStart(8, "0") + (h1 >>> 0).toString(16).padStart(8, "0");
+}
+export const hashJson = (v) => hash53(JSON.stringify(v));

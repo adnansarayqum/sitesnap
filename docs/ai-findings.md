@@ -1,149 +1,164 @@
-# Draft findings — the AI step
+# Findings — the evidence-to-report pipeline
 
-SiteSnap drafts each room's findings on Claude, from the surveyor's own notes,
-voice notes and photographs, and hands them back for review in the case's
-**Findings** tab. Nothing leaves the phone until the surveyor asks for a
-draft; nothing reaches the report or the workbook until they approve it.
+SiteSnap drafts a finding per **issue** (one defect in one room) from the
+evidence the surveyor linked to it — photographs, voice notes, readings and
+their own notes — and hands it back for review in the case's **Findings**
+tab. Nothing leaves the phone until the surveyor asks for a draft; nothing
+reaches the report until they explicitly approve it.
 
-This replaces the "notes → Make.com → ChatGPT" leg of `cloud-workflow.md`.
-The Make routes for filing photos still work unchanged; if a scenario also
-replies with findings in the old shape, they are lifted into the new tab
-marked for review — but SiteSnap's own drafts always take precedence.
+The principle throughout: **AI assists. Evidence governs. Deterministic code
+controls references and arithmetic. The surveyor decides. The audit trail
+proves what happened.**
 
 ## Switching it on
 
 | Variable | Purpose | Default |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | Enables drafting. Without it the Findings tab explains what's missing and the button is disabled. | — |
-| `AI_MODEL` | The Claude model. | `claude-fable-5-1` |
-| `AI_EFFORT` | Thinking depth: `low` `medium` `high` `xhigh` `max`. `high` is right for a court-facing document; `medium` for a quicker interactive pass. | `high` |
-| `OPENAI_API_KEY` | Enables voice-note transcription (Claude reads images and documents, not audio). Without it, typed notes and the stated cause still go through; voice notes are skipped and the tab says so. | — |
-| `OPENAI_TRANSCRIBE_MODEL` | Speech-to-text model. | `whisper-1` |
-| `AI_MOCK=1` | Deterministic stand-in for both calls — for tests and for running the app with no keys. Every mock draft is labelled as such. | off |
+| `ANTHROPIC_API_KEY` | Enables the pipeline, captions and issue suggestions. Without it the tabs explain what's missing. | — |
+| `AI_MODEL` | The Claude model for every stage. | `claude-fable-5-1` |
+| `AI_VERIFY_MODEL` | A different model for the verification stage, to de-correlate checker and drafter. | same as `AI_MODEL` |
+| `AI_EFFORT` | Thinking depth for the causation and analysis stages. | `high` |
+| `AI_EFFORT_EVIDENCE` / `_DRAFT` / `_VERIFY` / `_CLUSTER` | Per-stage overrides. | `medium` |
+| `AI_CAPTION_EFFORT` | The caption pass. | `low` |
+| `AI_EVIDENCE_BATCH` | Photographs per evidence-extraction call. Every linked photo is processed; this only sets the batch size. | `10` |
+| `AI_CAUSATION_PHOTOS` | Photographs shown to the causation stage alongside the observations (most-cited first). Fewer than linked → `partial_visual_review` flag. | `16` |
+| `AI_MAX_CONCURRENT_PIPELINES` | Pipelines this process runs at once (provider protection). | `4` |
+| `OPENAI_API_KEY` / `OPENAI_TRANSCRIBE_MODEL` | Voice-note transcription. Without it an issue with voice notes drafts as **incomplete evidence**, never as complete. | — / `whisper-1` |
+| `AI_MOCK=1` | Deterministic stand-ins for every stage, labelled `[MOCK]`; findings carry `mock: true` and are never reportable. Refused in `NODE_ENV=production` unless `AI_MOCK_ALLOW_PRODUCTION=1`. | off |
 
-Set them on the Railway service like the OneDrive variables. The boot log
-line reports `drafting: claude-fable-5-1` and `transcription: on` when both
-are live; `GET /api/ai/config` says the same to the app.
-
-Refusal fallbacks are on: if Anthropic's safety classifiers decline a request
-(`stop_reason: refusal`), the API re-runs it server-side on their recommended
-fallback model inside the same call. The Findings tab shows "· fallback"
-beside the model name when that happened.
-
-## What happens on "Draft findings"
-
-For every room with something to work from — a typed note, a stated cause, a
-voice note, or a Fair/Poor rating — the phone:
-
-1. Sends any untranscribed voice notes to `POST /api/ai/cases/:id/rooms/:roomId/transcribe`
-   and keeps the words in the case (`inspection.transcripts`), so a re-draft
-   never pays for the same transcription twice.
-2. Re-encodes the room's photographs at 1568px (the size Claude reads best)
-   and posts them with the note, the hypothesis and the transcripts to
-   `POST /api/ai/cases/:id/rooms/:roomId/draft`.
-3. Merges the reply into `inspection.findings` — the case doc, so it works
-   offline, syncs to the firm register like everything else, and survives
-   the server having no database.
-
-The server (`server/ai.js`) makes one Claude request per room with a
-**structured output schema** — the reply is always the same JSON shape — and
-the whole reference pack as a **cached system prefix**, so the firm's
-knowledge is paid for once per cache window, not per room.
-
-Each finding carries:
-
-- **defect** — the observation, court-facing, pinned to the time of inspection
-- **surveyor_hypothesis** vs **assessment.likely_cause**, with
-  **agreement**: `agree` / `disagree` / `uncertain` / `no_hypothesis`, and the
-  reasoning. The tab raises this as a flag the surveyor cannot scroll past.
-- **legislation** in the register's citation forms, and **hhsrs_hazard**
-- **remedial.works**, **scope** (`localised` / `whole_element` /
-  `multiple_elements` / `investigation_first`) and **scope_rationale**
-- **cost** — a range that must cite `price_book_refs`, or `unpriced: true`
-- **confidence** and **review_flags**
-  (`disagreement` `unpriced` `scope_uncertain` `no_photo_evidence` `legal_check` `asbestos`)
-
-In accounts mode every run and every finding is also stored server-side
-(`drafting_runs`, `findings`, `transcripts` — see `server/migrations.js`)
-with the surveyor's review decision, so a case is auditable and the evals can
-compare drafts to what was approved.
-
-## Reviewing
-
-Approve, Edit or Reject each finding. Edit opens the defect wording, the
-remedial works and the cost range; saving marks it `edited` — the AI's
-original is kept alongside, never overwritten. "Approve unflagged" approves
-everything the model raised no flag on, in one tap. Only `approved` and
-`edited` findings reach:
-
-- the printed report (`Report (print / save PDF)`), numbered through the
-  property as "Finding 1, 2, …"
-- `_Inspection/findings.csv` and `_Inspection/draft-findings.json` in the ZIP
-  export and on cloud upload — the CSV columns match the Scott Schedule the
-  workbook macro reads
-- the `findings` array in the webhook `notes` payload
-
-## The reference pack — where the firm's knowledge lives
-
-`server/reference/` is read on every request. Edit these files, redeploy,
-and the model's behaviour changes; there is no prompt hidden in a dashboard.
-
-| File | What it is |
-|---|---|
-| `legal-register.md` | Standard of proof, observation phrasing, statutes and the firm's citation forms (`S11 LTA`, `S9A LTA`, `Cat 2 Risk Hazard 1`), HHSRS hazard numbers, rules for when to cite and when to leave it blank. |
-| `playbook.md` | Per defect family: how to separate causes (condensation / penetrating / rising), how scope is decided, which price rows and citations usually apply. |
-| `corrections.md` | **Versioned.** Every mistake the surveyor had to fix by hand, written as the rule that prevents it. Append; never silently edit. Each rule should have an eval case. |
-| `price-book.json` | Every cost the model quotes must cite a row id here. Rows marked `example` are placeholders until the firm's rates replace them; `confirmed` rows came from the surveyor. |
-| `style-examples.md` | The surveyor's own approved wordings, for register — not templates. |
-
-The Findings tab shows which versions were used ("against corrections v1 ·
-price book v1"), and each stored run records it.
-
-## Evals — making the corrections list testable
+## The evidence model
 
 ```
-node server/evals/run.mjs                 # all golden cases against the real model
-node server/evals/run.mjs ceiling         # cases whose file name matches
-node server/evals/run.mjs --json out.json # keep every draft for reading side by side
-AI_MOCK=1 node server/evals/run.mjs       # harness check only; scores mean nothing
+Case
+└── Room                       note (with provenance), condition, readings
+    └── Issue (defect cluster) title, description, suspected cause, confirmed?
+        └── Evidence links     photo | memo | reading — each with how the link was made
 ```
 
-`server/evals/cases/*.json` holds one case per scenario the surveyor has
-corrected: the room input, the photos (paths, optional), and what a good
-draft must and must not do. The two shipped cases come from the 6 September
-recordings (ceiling cracking under a textured coating; bathroom damp with two
-causes). When the surveyor corrects a draft, the fix goes in three places:
-`corrections.md` (the rule), a case here (the test), and — if it's a price —
-`price-book.json`.
+- **Issues** are created by the surveyor in one tap while shooting; anything
+  captured while an issue is active is linked to it as `capture_session`.
+  Links made by hand are `human_created`; links the AI proposed are
+  `ai_suggested` until the surveyor confirms them (`human_confirmed_ai`).
+  Pre-2.0 evidence that was never organised is shown as one explicit
+  **Unassigned** bucket (`legacy_unassigned`) — no photo↔memo pairing is
+  ever invented; the surveyor adopts it as one issue, accepts suggestions,
+  or moves items by hand.
+- **Room notes** carry `noteSource`: `human_typed`, `human_adopted_ai`,
+  `ai_generated`, `voice_transcript`, or `legacy_unknown` for anything
+  written before 2.0 (the old caption pass wrote AI notes into the same
+  field with no marker, so we do not guess). An AI-suggested note is held
+  in `room.aiNote` with Use / Edit / Dismiss; adopting it keeps the original
+  text, the adopted text, who adopted it and when.
+- **Transcripts** are records: the machine's original, the surveyor's
+  correction beside it (never over it), provider, model, audio hash,
+  timestamp, status (`pending | complete | corrected | failed | unavailable`)
+  and version. Analysis uses the corrected text when there is one.
+- **Eligibility** (`shared/eligibility.js`, enforced on the server) needs
+  something a person did: a typed or adopted note, a stated cause, a voice
+  note, a reading, or the surveyor confirming the issue. AI text alone never
+  qualifies. Photos alone need the issue confirmed.
 
-## Cost and time
+## The pipeline (`server/ai/`)
 
-At `high` effort, a room with six photos is roughly 15–25k input tokens (most
-of it the cached reference pack, billed at the cache-read rate after the
-first room) and 2–4k output tokens; expect £0.30–£0.80 per room and 30–90
-seconds. A ten-room property therefore drafts for a few pounds and a few
-minutes — against the hour the surveyor reported spending on the same job by
-hand. Usage per run is returned by the API (`run.usage`) and stored in
-`drafting_runs` in accounts mode. Transcription is priced separately by
-OpenAI, per minute of audio.
+```
+evidence packet (ids, hashes, minimal context)
+  1. evidence normalisation   AI, batched over every linked photo      → observations / statements / measurements with source ids
+  2. blind causation          AI — never shown the surveyor's cause    → candidate causes, for/against, confidence, gaps
+  3. comparison + scope       AI — now shown the hypothesis            → agree/disagree/uncertain, differences, scope + rationale
+  4. controlled lookups       AI selects ids from enums; server resolves → canonical legal citations, HHSRS label
+  5. pricing                  deterministic (server/reference.js)      → lines × quantities × price book, or unpriced
+  6. drafting                 AI, wording only from validated inputs   → title / defect / cause / works / exhibit refs
+  7. verification             AI, separate call & instructions        → claims: supported / partial / unsupported / contradicted
+  8. gate                     deterministic (server/ai/gate.js)        → review_ready | blocked | incomplete_evidence, typed flags, confidence
+```
 
-## Troubleshooting
+- The causation stage is given observations, measurements and statements
+  **minus** any statement that asserts a cause, and no hypothesis. The
+  comparison stage receives both views afterwards.
+- Legal references and HHSRS hazards are chosen from the register's ids
+  (baked into the output schema as enums) and resolved server-side; an
+  unknown id blocks. Empty is allowed.
+- Pricing: the model proposes `{row, quantity, basis, evidence}`; the server
+  checks the row exists and is active, refuses mutually exclusive rows,
+  applies defaults only for count rows that allow it (flagged
+  `price_assumption`), leaves measure rows unpriced until the surveyor enters
+  the quantity (`POST /api/ai/price` recalculates deterministically), and
+  stores the price-book version and row hashes.
+- The verifier sees the raw sources again, not the drafter's reasoning. Its
+  output is data; `gate.js` decides: an unsupported or contradicted factual
+  claim, an invented id, an unknown legal/price id or a price mismatch
+  **blocks**; missing evidence (a failed transcript) marks **incomplete**;
+  disagreement, scope doubt, assumptions and low confidence are warnings.
+- Confidence is computed from the evidence (sources, readings, contrary
+  observations, open alternatives, completeness, verifier result) with its
+  reasons stored.
+- Every stage's inputs are hashed. Given the previous run, a stage whose
+  inputs are unchanged is reused; anything upstream changing (a corrected
+  transcript, a moved photo, a new corrections version) re-runs everything
+  downstream. `force: ["verification"]` re-checks only.
+- Each stage receives only what it needs: room name, condition, whether the
+  dwelling is or may be pre-2000, the inspection month. No address,
+  postcode, reference, client, occupier or solicitor reaches any stage.
+  Evidence travels in the user turn as JSON under an explicit "data, not
+  instructions" frame; system prompts never contain inspection content.
 
-| Symptom | Meaning |
-|---|---|
-| Findings tab: "Drafting is off on this server" | `ANTHROPIC_API_KEY` is not set on the service. |
-| Voice notes drafted from typed notes only | `OPENAI_API_KEY` not set; the tab says so. |
-| A room fails with "The model declined this request (…)" | A refusal that the fallback could not rescue. Rare; the category is shown. Re-word the note and re-draft. |
-| "ran past the output limit" | Too many findings/photos for one room; split the room or reduce photos. |
-| `415 json_only` on the transcribe route | The audio was posted with a non-audio content type; the app sends the recording's own MIME type. |
-| Drafts are cheap but slow | Set `AI_EFFORT=medium`; check the mock isn't on (`AI_MOCK`). |
-| Every draft shows `[MOCK DRAFT …]` | `AI_MOCK=1` is set in the environment. |
+## Review
 
-## Data and privacy
+Statuses: `draft → edited → approved`, with `review_required` when the
+evidence or the reference pack changed under a finding, `rejected`, and
+`superseded` when a newer draft replaces one. **Editing never approves.**
+Approval is refused while the gate is blocked or incomplete, or the current
+evidence fingerprint differs from the one the draft was made against — on
+the phone (`shared/findingRules.js`) and on the server (`PUT
+/api/ai/findings/:fid`, which also requires the case owner or an admin).
+Moving off `approved` keeps the approved version in `revisions`.
 
-Photographs and notes are sent to Anthropic's API for the duration of the
-request; Claude Fable 5.1 requires the standard 30-day retention on the
-Anthropic account (it is not available under zero-data-retention). Voice
-notes are sent to OpenAI for transcription when that is enabled. Nothing is
-sent until the surveyor presses "Draft findings", and nothing is sent for
-rooms with no note, voice note, stated cause or adverse rating.
+Only `approved` findings reach the report, the Scott Schedule CSV, the ZIP
+and the webhook payload (`isReportable`).
+
+## Audit
+
+Every draft stores a run record (case doc and, in accounts mode,
+`drafting_runs.pipeline`): provider, models per stage, efforts, pipeline
+version, prompt hashes, reference-pack versions and hashes plus the hashes
+of the rows and entries cited, every source's id and content hash, the
+evidence snapshot, whether it was complete, every stage's output, the
+verifier's claims, the gate decision, token usage and timings. The finding
+keeps the AI's original beside the surveyor's edits, the approval (who,
+when, against which snapshot) and earlier approvals. The Findings tab shows
+this under **History & audit**.
+
+## The reference pack (`server/reference/`)
+
+| File | Role | Used by |
+|---|---|---|
+| `legal-register.json` | Controlled lookup: ids → canonical citation, scope, when (not) to cite | analysis (selection), server (resolution) |
+| `legal-register.md` | Prose guidance on phrasing and citing | analysis, drafting |
+| `hhsrs.json` | The 29 hazards, by id | analysis, server |
+| `price-book.json` | Controlled pricing: rows with `qty` kind/unit/default/evidence, `excludes`, `active` | analysis (selection), server (arithmetic) |
+| `playbook.md` | Professional reasoning guidance | causation, analysis |
+| `corrections.md` | Versioned binding rules | evidence, causation, analysis |
+| `style-examples.md` | Register and wording only — never evidence | drafting, captions |
+
+Edit, bump the version, redeploy. `GET /api/ai/config` returns the versions
+and per-entry hashes; an approved finding whose cited row or entry changed
+goes back to `review_required`.
+
+## Evals
+
+```
+node server/evals/run.mjs                 # golden cases against the real model
+AI_MOCK=1 node server/evals/run.mjs       # harness check only
+```
+
+Cases in the pre-2.0 room shape are run as one confirmed issue.
+
+## Migration from 1.x
+
+Old cases open unchanged: rooms gain an empty issue list, notes become
+`legacy_unknown`, transcripts become records (`provider: legacy_unknown`),
+findings move to the state machine. `edited` findings were approved through
+the old "Save & approve" action, so they are migrated to `approved` with an
+approval record that says so; drafts stay drafts marked `legacy`. Nothing
+historical is deleted. The same migration runs on the server
+(`0002-issues-pipeline`).

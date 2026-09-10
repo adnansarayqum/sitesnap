@@ -1,8 +1,8 @@
 {
-  "version": 1,
+  "version": 2,
   "currency": "GBP",
-  "updated": "2026-09-06",
-  "note": "Every cost the model quotes must cite an id from this list. Rows marked status: example are placeholders until the firm's own rates replace them; rows marked status: confirmed came from the surveyor. Ranges are supply-and-fit, inc. access and making good, exc. VAT unless a row says otherwise.",
+  "updated": "2026-09-09",
+  "note": "Controlled pricing source. The pipeline may only propose a row by id with a quantity and the evidence for that quantity; the server looks the row up, checks it is active, multiplies and stores the book version — the model never writes a final number. `qty.kind` is count (whole units the photos can show: a window, a fan, a ceiling) or measure (an area or length that must be evidenced or entered by the surveyor). `qty.default` is the assumption used when the evidence does not state a count — always flagged as an assumption for the surveyor to confirm. `qty.evidence: required` rows stay unpriced until the quantity is evidenced or entered. `excludes` lists rows that must not be priced in the same finding. Rows marked status: example are placeholders until the firm's own rates replace them; rows marked status: confirmed came from the surveyor. Ranges are supply-and-fit, inc. access and making good, exc. VAT unless a row says otherwise.",
   "items": [
     {
       "id": "ASB-SAMPLE",
@@ -11,6 +11,14 @@
       "low": 160,
       "high": 220,
       "status": "confirmed",
+      "active": true,
+      "qty": {
+        "kind": "count",
+        "unit": "sample",
+        "default": 1,
+        "evidence": "assumable"
+      },
+      "excludes": [],
       "source": "surveyor, 6 Sep 2026 — corrected an AI draft from £50 to £160",
       "notes": "Never below £160. Additional locations at a lower marginal rate."
     },
@@ -21,6 +29,16 @@
       "low": 90,
       "high": 160,
       "status": "example",
+      "active": true,
+      "qty": {
+        "kind": "count",
+        "unit": "area (up to ~1 m²)",
+        "default": 1,
+        "evidence": "assumable"
+      },
+      "excludes": [
+        "CEIL-MAKE-GOOD"
+      ],
       "source": "placeholder — surveyor said an AI figure of £55 was too light",
       "notes": "Only where a patch will leave a consistent finish. If the cracking extends across the element or a patch would be visibly odd, use CEIL-MAKE-GOOD."
     },
@@ -31,6 +49,16 @@
       "low": 450,
       "high": 950,
       "status": "example",
+      "active": true,
+      "qty": {
+        "kind": "count",
+        "unit": "ceiling",
+        "default": 1,
+        "evidence": "assumable"
+      },
+      "excludes": [
+        "CEIL-CRACK-LOCAL"
+      ],
       "source": "placeholder — replace with firm rates",
       "notes": "Subject to asbestos results where a textured coating is present (add ASB-SAMPLE). Include disposal allowance."
     },
@@ -41,6 +69,14 @@
       "low": 110,
       "high": 160,
       "status": "confirmed",
+      "active": true,
+      "qty": {
+        "kind": "count",
+        "unit": "window",
+        "default": null,
+        "evidence": "required"
+      },
+      "excludes": [],
       "source": "surveyor's schedule, 6 Sep 2026 (£110)",
       "notes": ""
     },
@@ -51,6 +87,14 @@
       "low": 140,
       "high": 260,
       "status": "example",
+      "active": true,
+      "qty": {
+        "kind": "count",
+        "unit": "wall area (up to ~4 m²)",
+        "default": 1,
+        "evidence": "assumable"
+      },
+      "excludes": [],
       "source": "placeholder",
       "notes": "Treats the symptom only — pair with the cause (ventilation, leak, fabric)."
     },
@@ -61,6 +105,14 @@
       "low": 180,
       "high": 320,
       "status": "example",
+      "active": true,
+      "qty": {
+        "kind": "count",
+        "unit": "fan",
+        "default": 1,
+        "evidence": "assumable"
+      },
+      "excludes": [],
       "source": "placeholder",
       "notes": "Where the paper test / anemometer shows inadequate extraction."
     },
@@ -71,6 +123,14 @@
       "low": 220,
       "high": 480,
       "status": "example",
+      "active": true,
+      "qty": {
+        "kind": "count",
+        "unit": "leak",
+        "default": 1,
+        "evidence": "assumable"
+      },
+      "excludes": [],
       "source": "placeholder",
       "notes": "Use as investigation_first where the source is not established."
     },
@@ -81,6 +141,14 @@
       "low": 60,
       "high": 110,
       "status": "example",
+      "active": true,
+      "qty": {
+        "kind": "count",
+        "unit": "bath or tray",
+        "default": 1,
+        "evidence": "assumable"
+      },
+      "excludes": [],
       "source": "placeholder",
       "notes": ""
     },
@@ -91,6 +159,14 @@
       "low": 150,
       "high": 350,
       "status": "example",
+      "active": true,
+      "qty": {
+        "kind": "count",
+        "unit": "elevation",
+        "default": 1,
+        "evidence": "assumable"
+      },
+      "excludes": [],
       "source": "placeholder",
       "notes": "Penetrating damp to external walls below."
     },
@@ -101,6 +177,14 @@
       "low": 45,
       "high": 85,
       "status": "example",
+      "active": true,
+      "qty": {
+        "kind": "measure",
+        "unit": "m²",
+        "default": null,
+        "evidence": "required"
+      },
+      "excludes": [],
       "source": "placeholder",
       "notes": ""
     },
@@ -111,6 +195,14 @@
       "low": 280,
       "high": 550,
       "status": "example",
+      "active": true,
+      "qty": {
+        "kind": "count",
+        "unit": "room",
+        "default": 1,
+        "evidence": "assumable"
+      },
+      "excludes": [],
       "source": "placeholder",
       "notes": "Use where the remedial works leave more than the immediate area needing decoration."
     }

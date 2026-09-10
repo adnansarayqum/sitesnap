@@ -281,7 +281,7 @@ try {
     }, { x, y, dx });
     await w(page, 350);
   }
-  const room = () => page.locator(".ss-live-room").innerText();
+  const room = () => page.locator(".ss-cap-room").innerText().then((t) => t.trim());
   await swipe(150); const a = await room();          // at start, swipe back → stays Kitchen
   await swipe(-150); const b = await room();         // → Bathroom
   await swipe(-150); const c = await room();         // at end → stays Bathroom
@@ -290,14 +290,25 @@ try {
   await page.locator(".ss-live-cond button", { hasText: "Fair" }).click(); await w(page, 150);
   await page.locator(".ss-live-cond button", { hasText: "Fair" }).click(); await w(page, 150);
   const onCount = await page.locator(".ss-live-cond button.on").count();
-  // voice memo with the fake microphone
+  // voice memo with the fake microphone — filed to the room (no issue yet)
   await page.getByRole("button", { name: /Record voice note/ }).click(); await w(page, 1500);
-  await page.getByRole("button", { name: /Stop ·/ }).click(); await w(page, 800);
-  const memos = await page.locator(".ss-vm-item").count();
-  const memoText = memos ? await page.locator(".ss-vm-item").first().innerText() : "";
-  rec("S7b rating toggles off; voice note records via mic", onCount === 0 && memos === 1 ? "PASS" : "FAIL", `ratingOn=${onCount} memos=${memos} "${memoText}"`);
+  const recording = await page.locator(".ss-cap-recording").innerText().catch(() => "");
+  await page.getByRole("button", { name: /Stop recording/ }).click(); await w(page, 800);
+  const head = await page.locator(".ss-cap-roomno").innerText();
+  const memos = /1 voice/.test(head) ? 1 : 0;
+  rec("S7b rating toggles off; voice note records via mic", onCount === 0 && memos === 1 && /Recording — Kitchen/.test(recording) ? "PASS" : "FAIL", `ratingOn=${onCount} memos=${memos} head="${head}" recording="${recording}"`);
+  // an issue raised in two taps; the next photo lands in it, not the room
+  await page.getByRole("button", { name: /New issue/ }).click(); await w(page, 150);
+  await page.locator(".ss-live-iadd input").fill("Ceiling mould"); await page.keyboard.press("Enter"); await w(page, 300);
+  const activeTitle = await page.locator(".ss-cap-active-title").innerText();
+  await page.locator(".ss-cap-photo").click(); await w(page, 1500);
+  await page.locator(".ss-livecam-shutter").click(); await w(page, 800);
+  await page.locator(".ss-livecam-close").click(); await w(page, 400);
+  const activeSub = await page.locator(".ss-cap-active-sub").innerText();
+  const chip = await page.locator(".ss-live-ichip.on").innerText();
+  rec("S7d issue raised while shooting; photo files into the active issue", activeTitle === "Ceiling mould" && /1 photo/.test(activeSub) && /Ceiling mould/.test(chip) ? "PASS" : "FAIL", `active="${activeTitle}" sub="${activeSub}" chip="${chip}"`);
   // swipe starting on the note textarea must not change room
-  await page.getByRole("button", { name: /Add note/ }).click(); await w(page, 200);
+  await page.locator(".ss-cap-act", { hasText: "Note" }).click(); await w(page, 200);
   const ta = await page.locator(".ss-live-note").boundingBox();
   await page.evaluate(({ x, y }) => {
     const el = document.elementFromPoint(x, y);

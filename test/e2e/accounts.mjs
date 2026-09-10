@@ -191,6 +191,50 @@ try {
   rec("A6b surveyor cannot delete or overwrite a colleague's case", delOther.status >= 400 && putOther.status >= 400 && stillOwners ? "PASS" : "FAIL", `delete=${delOther.status} overwrite=${putOther.status} addressAfter="${after.body && after.body.case && after.body.case.address}" exists=${after.status}`);
 } catch (e) { rec("A6", "FAIL", e.message); }
 
+// ---------------------------------------------------------------- A6c the AI routes: evidence ownership, approval authority, idempotent replay
+// (needs AI_MOCK=1 on the server; with drafting off every call answers 501 and the scenario reports NOTE)
+try {
+  const { page } = owner;
+  const PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+  const cfg = await api(page, "/api/ai/config");
+  if (!(cfg.body && cfg.body.enabled)) rec("A6c AI routes", "NOTE", "drafting is off on this server (no AI_MOCK / key) — ownership checks not exercised");
+  else {
+    const full = await api(page, `/api/cases/${encodeURIComponent(ownerCaseId)}`);
+    const doc = full.body.case.doc;
+    const room = doc.rooms[0];
+    const photoIds = full.body.case.photos.map((p) => p.id);
+    const json = (body) => ({ method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    const draftPath = (issueId) => `/api/ai/cases/${encodeURIComponent(ownerCaseId)}/rooms/${encodeURIComponent(room.id)}/issues/${encodeURIComponent(issueId)}/draft`;
+    const issue = { id: "iss_e2e_mould1", title: "Ceiling mould", description: "Mould to ceiling above hob", descriptionSource: "human_typed", humanSuspectedCause: "condensation", confirmedBySurveyor: true, createdBy: "surveyor", status: "open", evidence: photoIds.map((id) => ({ id, kind: "photo", source: "capture_session" })) };
+    const body = (over = {}) => ({ requestId: "77777777-7777-4777-8777-777777777777", snapshot: "fp-e2e", issue, room: { name: room.name, note: "", condition: "Poor" }, photos: photoIds.map((id, i) => ({ id, no: i + 1, caption: "", dataUrl: PNG, linkSource: "capture_session" })), memos: [], ...over });
+    // the register does not know this issue yet → refused
+    const unknownIssue = await api(page, draftPath(issue.id), json(body()));
+    // put the issue into the register's copy of the room (the phone's sync does this)
+    const doc2 = { ...doc, rooms: doc.rooms.map((r) => (r.id === room.id ? { ...r, issues: [issue], modelVersion: 2 } : r)) };
+    await api(page, `/api/cases/${encodeURIComponent(ownerCaseId)}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ address: full.body.case.address, status: "open", doc: doc2, photos: full.body.case.photos.map((p) => ({ id: p.id, roomId: p.room_id, no: p.no, caption: p.caption })) }) });
+    // a photograph that is not in this case → refused
+    const foreign = await api(page, draftPath(issue.id), json(body({ photos: [{ id: "ph_not_mine", no: 9, dataUrl: PNG, linkSource: "capture_session" }] })));
+    // a colleague drafting on the owner's case → refused
+    const colleague = await api(member.page, draftPath(issue.id), json(body()));
+    // the owner, correctly → a finding and a run
+    const ok = await api(page, draftPath(issue.id), json(body()));
+    const replay = await api(page, draftPath(issue.id), json(body()));
+    const fid = ok.body && ok.body.finding && ok.body.finding.id;
+    const put = (who, b) => api(who, `/api/ai/findings/${encodeURIComponent(fid)}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(b) });
+    const colleagueApprove = fid ? await put(member.page, { status: "approved", snapshot: "fp-e2e" }) : { status: 0 };
+    const staleApprove = fid ? await put(page, { status: "approved", snapshot: "fp-other" }) : { status: 0 };
+    const edited = fid ? await put(page, { status: "edited", reviewed: { defect: "my wording" } }) : { status: 0 };
+    const approve = fid ? await put(page, { status: "approved", snapshot: "fp-e2e" }) : { status: 0 };
+    const listed = await api(page, `/api/ai/cases/${encodeURIComponent(ownerCaseId)}/findings?approved=1`);
+    const run = ok.body && ok.body.run ? await api(page, `/api/ai/cases/${encodeURIComponent(ownerCaseId)}/runs/${ok.body.run.id}`) : { status: 0 };
+    rec("A6c draft refused for an unknown issue, a foreign photo, and a colleague", unknownIssue.status === 403 && foreign.status === 403 && colleague.status === 403 ? "PASS" : "FAIL", `unknownIssue=${unknownIssue.status}/${unknownIssue.body && unknownIssue.body.error} foreign=${foreign.status}/${foreign.body && foreign.body.error} colleague=${colleague.status}/${colleague.body && colleague.body.error}`);
+    rec("A6d owner drafts; a retry with the same request id is replayed, not re-run", ok.status === 200 && ok.body.finding.status === "draft" && replay.status === 200 && replay.body.replayed === true ? "PASS" : "FAIL", `draft=${ok.status} gate=${ok.body && ok.body.finding && ok.body.finding.gate.status} replayed=${replay.body && replay.body.replayed}`);
+    rec("A6e approval: colleague 403, stale snapshot 409, edit ≠ approve, owner approves, only approved listed, run record retrievable",
+      colleagueApprove.status === 403 && staleApprove.status === 409 && edited.status === 200 && approve.status === 200 && listed.body && listed.body.findings.length === 1 && listed.body.findings[0].status === "approved" && run.status === 200 && run.body.run.pipeline && run.body.run.pipeline.prompts ? "PASS" : "FAIL",
+      `colleague=${colleagueApprove.status} stale=${staleApprove.status}/${staleApprove.body && staleApprove.body.error} edited=${edited.status} approve=${approve.status} listedApproved=${listed.body && listed.body.findings.length} run=${run.status}`);
+  }
+} catch (e) { rec("A6c", "FAIL", e.message); }
+
 // ---------------------------------------------------------------- A7 member's own case appears for the owner; owner promotes then removes
 try {
   await member.page.locator(".ss-back").first().click().catch(() => {}); await w(member.page, 300);

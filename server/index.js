@@ -26,6 +26,7 @@ import {
 } from "./auth.js";
 import { sendEmail, emailConfigured, signInCodeEmail, inviteEmail } from "./email.js";
 import { mountAi } from "./ai-routes.js";
+import { mountProduct } from "./product.js";
 import { aiEnabled, transcriptionEnabled, AI_MODEL } from "./ai.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -289,6 +290,7 @@ app.use("/api", (req, res, next) => {
 if (hasDb) app.use(attachSession);
 else app.use((req, res, next) => { req.session = null; req.membership = null; next(); });
 mountAi(app);
+mountProduct(app);
 
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 

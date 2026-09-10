@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  Aperture, ArrowLeft, ArrowRight, Camera, Check, Expand, Loader2, Moon, RefreshCw, StickyNote, Sun, SwitchCamera, Trash2, X,
+  Aperture, ArrowLeft, ArrowRight, Camera, Check, ChevronDown, ChevronRight, CloudOff, Expand, Gauge, Loader2, Moon, Plus, RefreshCw, StickyNote, Sun, SwitchCamera, Trash2, X,
 } from "lucide-react";
 import { VoiceMemo } from "../components/VoiceMemo.jsx";
 import { PHOTO_DIM, THUMB_DIM, drawScaled, processCapture } from "../lib/image.js";
 import { CONDITIONS } from "../lib/presets.js";
 import { pad } from "../lib/util.js";
 import { tapFeedback } from "../haptics.js";
-import { Coach } from "../components/Hints.jsx";
+import { addIssue, addReading, openIssues, setActiveIssue, unassigned, updateIssue } from "../evidence.js";
 
 /* ---------------- walkthrough capture ---------------- */
 
@@ -405,10 +405,11 @@ export function LiveCamera({ label, count, lastThumb, resumeKey, onCapture, onCl
 
 export const BAD_IMAGE_MSG = "That image couldn't be read, so it wasn't added — try the shot again.";
 
-export function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDeleteLast, onMeta, onAddMemo, onDeleteMemo, onExit, onError, filing, fieldMode, onToggleFieldMode }) {
+export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCapture, onDeleteLast, onMeta, onRoom, onAddMemo, onDeleteMemo, onActivity, onOpenRoom, onFinish, onExit, onError, filing, sync, saveStatus, fieldMode, onToggleFieldMode }) {
   const inputRef = useRef(null);
-  const [noteOpen, setNoteOpen] = useState(false);
+  const [panel, setPanel] = useState(null); // note | reading | null
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [roomsOpen, setRoomsOpen] = useState(false);
   const [resumeKey, setResumeKey] = useState(0);
   const room = rooms[index];
   const count = room.photoIds.length;
@@ -416,22 +417,43 @@ export function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDel
   const last = lastId ? photoCache[lastId] : null;
   const isLast = index === rooms.length - 1;
   const nextExhibitNo = count + 1;
+  const issues = openIssues(room);
+  const active = issues.find((i) => i.id === room.activeIssueId) || null;
+  const [addingIssue, setAddingIssue] = useState(false);
+  const [issueTitle, setIssueTitle] = useState("");
+  const [reading, setReading] = useState({ text: "", value: "", unit: "" });
+  const activePhotos = active ? (active.evidence || []).filter((e) => e.kind === "photo") : [];
+  const activeMemos = active ? (active.evidence || []).filter((e) => e.kind === "memo").length : 0;
+  const activeReadings = active ? (active.evidence || []).filter((e) => e.kind === "reading").length : 0;
+  const loose = unassigned(room);
+  const stripIds = (active ? activePhotos.map((e) => e.id) : loose.photoIds).slice(-6).reverse();
 
-  useEffect(() => { setNoteOpen(false); setCameraOpen(false); }, [index]);
+  useEffect(() => { setPanel(null); setCameraOpen(false); setAddingIssue(false); setRoomsOpen(false); }, [index]);
 
-  function openCamera() {
-    setCameraOpen(true);
+  function openCamera() { setCameraOpen(true); }
+  function createIssue() {
+    const t = issueTitle.trim();
+    if (!t) return;
+    onRoom((r) => addIssue(r, t).room);
+    onActivity && onActivity(`Issue "${t}" raised in ${room.name}`);
+    setIssueTitle(""); setAddingIssue(false);
+    tapFeedback("light");
+  }
+  function saveReading() {
+    if (!reading.text.trim()) return;
+    onRoom((r) => addReading(r, reading, r.activeIssueId).room);
+    setReading({ text: "", value: "", unit: "" });
+    setPanel(null);
+    tapFeedback("light");
   }
 
   // Swipe left/right between rooms — the same move as flicking through
   // Photos. Ignored when the touch starts on something with its own
-  // gesture or that needs the finger (a button, the note textarea, the
-  // voice-memo controls), and while the camera overlay is open (its own
-  // pinch/pan handlers own touches then).
+  // gesture or that needs the finger, and while the camera overlay is open.
   const swipeStart = useRef(null);
   function onBodyTouchStart(e) {
     if (cameraOpen || e.touches.length !== 1) { swipeStart.current = null; return; }
-    if (e.target.closest("button, textarea, input, .ss-vm")) { swipeStart.current = null; return; }
+    if (e.target.closest("button, textarea, input, .ss-vm, .ss-cap-chips, .ss-cap-strip")) { swipeStart.current = null; return; }
     const t = e.touches[0];
     swipeStart.current = { x: t.clientX, y: t.clientY };
   }
@@ -447,8 +469,6 @@ export function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDel
   }
 
   async function handleFile(e) {
-    // Some cameras and the gallery hand back several files at once; take them
-    // all, in the order chosen.
     const files = Array.from((e.target.files) || []);
     e.target.value = "";
     setResumeKey((k) => k + 1);
@@ -463,15 +483,24 @@ export function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDel
     }
   }
 
+  // quiet, always-true answer to "did that save?"
+  const online = typeof navigator === "undefined" || navigator.onLine !== false;
+  const status = saveStatus === "saving" ? "Saving…"
+    : !online ? "Offline — saved on this phone"
+    : sync && sync.status === "syncing" ? "Syncing…"
+    : sync && sync.status === "error" ? "Saved on this phone · register not updated"
+    : sync && sync.status === "synced" ? "Saved · in the firm register"
+    : "Saved on this phone";
+  const statusTone = saveStatus === "saving" ? "busy" : !online ? "offline" : "ok";
+
   return (
-    <div className="ss-col ss-live">
-      <input ref={inputRef} type="file" accept="image/*" capture="environment" multiple
-        className="ss-hidden" onChange={handleFile} />
+    <div className="ss-col ss-live ss-cap">
+      <input ref={inputRef} type="file" accept="image/*" capture="environment" multiple className="ss-hidden" onChange={handleFile} />
 
       {cameraOpen && (
         <LiveCamera
-          label={room.name}
-          count={count}
+          label={active ? `${room.name} · ${active.title}` : room.name}
+          count={active ? activePhotos.length : count}
           lastThumb={last ? (last.thumb || last.dataUrl) : null}
           resumeKey={resumeKey}
           onCapture={onCapture}
@@ -485,81 +514,140 @@ export function WalkScreen({ rooms, index, photoCache, onIndex, onCapture, onDel
         />
       )}
 
-      <div className="ss-live-top">
-        <button className="ss-live-exit" onClick={onExit}><X size={18} /> Exit</button>
-        <span className="ss-live-flag">● LIVE</span>
-        {onToggleFieldMode && (
-          <button className="ss-live-fieldmode" onClick={onToggleFieldMode} title="Field mode — high-contrast for bright daylight">
-            {fieldMode ? <Moon size={16} /> : <Sun size={16} />}
-          </button>
-        )}
+      {/* context header: where am I, has it saved */}
+      <div className="ss-cap-head">
+        <button className="ss-live-exit" onClick={onExit} aria-label="Back to the case"><X size={18} /></button>
+        <button className="ss-cap-where" onClick={() => setRoomsOpen(true)} aria-label="Switch room">
+          <span className="ss-cap-address">{inspection ? inspection.address : ""}</span>
+          <span className="ss-cap-room">{room.name} <ChevronDown size={16} /></span>
+          <span className="ss-cap-roomno">Room {index + 1} of {rooms.length} · {count} photo{count === 1 ? "" : "s"}{(room.memos || []).length ? ` · ${(room.memos || []).length} voice` : ""}</span>
+        </button>
+        <div className="ss-cap-head-right">
+          {onToggleFieldMode && <button className="ss-live-fieldmode" onClick={onToggleFieldMode} title="Field mode — high-contrast for bright daylight">{fieldMode ? <Moon size={16} /> : <Sun size={16} />}</button>}
+          <span className={`ss-cap-status ${statusTone}`} role="status">{statusTone === "busy" ? <Loader2 size={11} className="ss-spin" /> : statusTone === "offline" ? <CloudOff size={11} /> : <Check size={11} />} {status}</span>
+        </div>
       </div>
 
-      <div className="ss-live-body" onTouchStart={onBodyTouchStart} onTouchEnd={onBodyTouchEnd}>
-        <div className="ss-live-eyebrow">Room {pad(index + 1)} of {pad(rooms.length)}</div>
-        <div className="ss-live-room">{room.name}</div>
-        <span className="ss-live-stamp">Next: Exhibit {nextExhibitNo}</span>
-        {filing && filing.provider && (
-          <span className="ss-live-filing">
-            {filing.pending > 0 ? `Filing ${filing.pending} to ${filing.provider === "ms" ? "OneDrive" : "Drive"}…` : `Files itself to ${filing.provider === "ms" ? "OneDrive" : "Drive"}`}
-          </span>
-        )}
-        <div className="ss-tally">{count}</div>
-        <div className="ss-live-sub">photo{count === 1 ? "" : "s"} in this room</div>
+      <div className="ss-live-body ss-cap-body" onTouchStart={onBodyTouchStart} onTouchEnd={onBodyTouchEnd}>
+        {/* the one thing that must never be ambiguous */}
+        <div className={`ss-cap-active ${active ? "" : "none"}`}>
+          <span className="ss-cap-active-label">{active ? "Active issue" : issues.length ? "No issue selected" : "Issues"}</span>
+          <span className="ss-cap-active-title">{active ? active.title : issues.length ? "Photos go to the room in general" : "Raise an issue to group evidence by defect"}</span>
+          <span className="ss-cap-active-sub">{active
+            ? `${activePhotos.length} photo${activePhotos.length === 1 ? "" : "s"} · ${activeMemos} voice · ${activeReadings} reading${activeReadings === 1 ? "" : "s"} — everything you capture now is filed here`
+            : `Next shot: exhibit ${nextExhibitNo}`}</span>
+        </div>
 
-        <Coach id="walk" title="Shooting a room" dark>
-          Tap the shutter — the camera stays open, keep tapping. Rate the room <b>Good, Fair or Poor</b> without closing it. <b>Swipe left</b> when this room's done.
-        </Coach>
+        {/* one tap to switch, one tap to raise */}
+        <div className="ss-cap-chips">
+          {issues.map((i) => (
+            <button key={i.id} className={`ss-live-ichip ${room.activeIssueId === i.id ? "on" : ""}`} onClick={() => { tapFeedback("light"); onRoom((r) => setActiveIssue(r, room.activeIssueId === i.id ? null : i.id)); }}>
+              {room.activeIssueId === i.id && <span className="ss-cap-dot" />}{i.title} <small>{(i.evidence || []).filter((e) => e.kind === "photo").length}</small>
+            </button>
+          ))}
+          {addingIssue ? (
+            <span className="ss-live-iadd">
+              <input autoFocus placeholder="e.g. Ceiling mould" value={issueTitle} onChange={(e) => setIssueTitle(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") createIssue(); if (e.key === "Escape") setAddingIssue(false); }} />
+              <button onClick={createIssue} disabled={!issueTitle.trim()} aria-label="Add issue"><Check size={15} /></button>
+            </span>
+          ) : (
+            <button className="ss-live-ichip add" onClick={() => setAddingIssue(true)}><Plus size={14} /> New issue</button>
+          )}
+        </div>
+
+        {/* what's been captured here, newest first; tap to review or move */}
+        {stripIds.length > 0 && (
+          <button className="ss-cap-strip" onClick={() => onOpenRoom && onOpenRoom(room.id)} aria-label="Review this room's photos">
+            {stripIds.map((id) => { const p = photoCache[id]; return p ? <span key={id} className="ss-cap-thumb"><img src={p.thumb || p.dataUrl} alt="" />{p.no ? <small>{p.no}</small> : null}</span> : null; })}
+            <span className="ss-cap-strip-more">Review<ChevronRight size={14} /></span>
+          </button>
+        )}
 
         <div className="ss-live-cond">
           {CONDITIONS.map((c) => (
-            <button key={c}
-              className={`${c.toLowerCase()} ${room.condition === c ? "on" : ""}`}
-              title={`Rate this room ${c} — shown in the report and sent to the AI drafting step`}
-              onClick={() => { tapFeedback("light"); onMeta({ condition: room.condition === c ? null : c }); }}>
-              {c}
-            </button>
+            <button key={c} className={`${c.toLowerCase()} ${room.condition === c ? "on" : ""}`} title={`Rate this room ${c}`}
+              onClick={() => { tapFeedback("light"); onMeta({ condition: room.condition === c ? null : c }); }}>{c}</button>
           ))}
         </div>
 
-        {noteOpen ? (
-          <textarea
-            className="ss-live-note" autoFocus rows={2}
-            placeholder="Note — damage, meter reading, anything worth recording…"
-            value={room.note || ""}
-            onChange={(e) => onMeta({ note: e.target.value })}
-            onBlur={() => { if (!(room.note || "").trim()) setNoteOpen(false); }}
+        {panel === "note" && (
+          <textarea className="ss-live-note" autoFocus rows={3}
+            placeholder={active ? `What's wrong — ${active.title}` : "Room note — decor, meter reading, anything worth recording"}
+            value={active ? active.description || "" : room.note || ""}
+            onChange={(e) => active ? onRoom((r) => updateIssue(r, active.id, { description: e.target.value, descriptionSource: "human_typed" })) : onMeta({ note: e.target.value })}
+            onBlur={() => setPanel(null)}
           />
-        ) : (
-          <button className="ss-live-note-btn" onClick={() => setNoteOpen(true)}>
-            <StickyNote size={13} /> {room.note ? "Edit note" : "Add note"}
-          </button>
         )}
-
-        <VoiceMemo memos={room.memos || []} onAdd={onAddMemo} onDelete={onDeleteMemo} dark />
-
-        {last && (
-          <div className="ss-last">
-            <img src={last.thumb || last.dataUrl} alt="Last photo" />
-            <button onClick={onDeleteLast}><Trash2 size={14} /> Delete last</button>
+        {panel === "reading" && (
+          <div className="ss-cap-reading">
+            <input autoFocus placeholder="What was measured — e.g. moisture to wall by bath" value={reading.text} onChange={(e) => setReading({ ...reading, text: e.target.value })} />
+            <div className="row">
+              <input inputMode="decimal" placeholder="Value" value={reading.value} onChange={(e) => setReading({ ...reading, value: e.target.value })} />
+              <input placeholder="Unit" value={reading.unit} onChange={(e) => setReading({ ...reading, unit: e.target.value })} />
+              <button className="ok" onClick={saveReading} disabled={!reading.text.trim()} aria-label="Save reading"><Check size={16} /></button>
+              <button onClick={() => setPanel(null)} aria-label="Cancel"><X size={16} /></button>
+            </div>
           </div>
+        )}
+        {last && panel == null && (
+          <div className="ss-last">
+            <button onClick={onDeleteLast}><Trash2 size={14} /> Delete last photo</button>
+          </div>
+        )}
+        {filing && filing.provider && (
+          <span className="ss-live-filing">{filing.pending > 0 ? `Filing ${filing.pending} to ${filing.provider === "ms" ? "OneDrive" : "Drive"}…` : `Files itself to ${filing.provider === "ms" ? "OneDrive" : "Drive"}`}</span>
         )}
       </div>
 
+      {/* capture bar: the four things a surveyor does, in thumb reach */}
       <div className="ss-live-controls">
-        <button className="ss-shutter" onClick={openCamera}>
-          <Camera size={26} strokeWidth={2.4} />
-          <span>Stays open — keep tapping</span>
-        </button>
+        <div className="ss-cap-bar">
+          <button className="ss-cap-photo" onClick={openCamera} aria-label={`Take photo${active ? ` into ${active.title}` : ""}`}>
+            <Camera size={28} strokeWidth={2.4} /><span>Photo</span>
+          </button>
+          <div className="ss-cap-secondary">
+            <VoiceMemo memos={[]} onAdd={onAddMemo} onDelete={onDeleteMemo} dark compact label={active ? active.title : room.name} />
+            <button className={`ss-cap-act ${panel === "note" ? "on" : ""}`} onClick={() => setPanel(panel === "note" ? null : "note")}><StickyNote size={18} /><span>Note</span></button>
+            <button className={`ss-cap-act ${panel === "reading" ? "on" : ""}`} onClick={() => setPanel(panel === "reading" ? null : "reading")}><Gauge size={18} /><span>Reading</span></button>
+          </div>
+        </div>
         <div className="ss-live-nav">
           <button disabled={index === 0} onClick={() => onIndex(index - 1)}>
             <ArrowLeft size={17} /> {index > 0 ? rooms[index - 1].name : "—"}
           </button>
-          <button className="next" onClick={() => (isLast ? onExit() : onIndex(index + 1))}>
-            {isLast ? "Done" : rooms[index + 1].name} {isLast ? <Check size={17} /> : <ArrowRight size={17} />}
+          <button className="next" onClick={() => (isLast ? (onFinish ? onFinish() : onExit()) : onIndex(index + 1))}>
+            {isLast ? "Finish inspection" : rooms[index + 1].name} {isLast ? <Check size={17} /> : <ArrowRight size={17} />}
           </button>
         </div>
       </div>
+
+      {roomsOpen && (
+        <div className="ss-modal-back" onClick={() => setRoomsOpen(false)}>
+          <div className="ss-modal ss-modal-left ss-sheet ss-roomsheet" onClick={(e) => e.stopPropagation()}>
+            <div className="ss-sheet-head">
+              <div className="ss-modal-title" style={{ margin: 0 }}>Rooms</div>
+              <button className="ss-sheet-close" onClick={() => setRoomsOpen(false)} aria-label="Close"><X size={16} /></button>
+            </div>
+            <div className="ss-sheet-body ss-picker">
+              {rooms.map((r, i) => {
+                const n = r.photoIds.length, iss = openIssues(r).length, lo = unassigned(r);
+                const state = i === index ? "current" : n > 0 ? "done" : "todo";
+                return (
+                  <button key={r.id} className={`ss-picker-row ss-roomrow ${state}`} onClick={() => { setRoomsOpen(false); if (i !== index) onIndex(i); }}>
+                    <span className="ss-roomrow-ic">{state === "current" ? <span className="ss-cap-dot big" /> : state === "done" ? <Check size={15} /> : <span className="ss-roomrow-empty" />}</span>
+                    <span className="ss-roomrow-main">
+                      <span>{pad(i + 1)}. {r.name}</span>
+                      <small>{n ? `${n} photo${n === 1 ? "" : "s"}` : "not visited"}{iss ? ` · ${iss} issue${iss === 1 ? "" : "s"}` : ""}{n && lo.photoIds.length && iss ? ` · ${lo.photoIds.length} unassigned` : ""}</small>
+                    </span>
+                    {r.condition && <span className={`ss-cbadge ${r.condition.toLowerCase()}`}>{r.condition}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

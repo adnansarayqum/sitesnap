@@ -36,6 +36,14 @@ Use a throwaway database: the suite creates users, a firm, invitations and
 cases with unique per-run emails, and ends by deliberately tripping the
 sign-in rate limit for its own IP.
 
+## What the suites now also cover
+
+- The capture screen: an issue raised while shooting, and the next photo
+  filing into it (S7d); voice notes recorded from the capture bar.
+- Run the local suite with `AI_MOCK=1` on the server to exercise the
+  Findings tab end to end without a provider key — mock findings are
+  labelled and never reach the report.
+
 ## Known limitations it reports as NOTE rather than FAIL
 
 - The same case open in two browser tabs at once: the last tab to save

@@ -3,7 +3,7 @@ import {
   Camera, Printer, X,
 } from "lucide-react";
 import { pad } from "../lib/util.js";
-import { approvedByRoom } from "../ai.js";
+import { approvedByRoom } from "../findings.js";
 
 const money = (n) => `£${Math.round(n).toLocaleString("en-GB")}`;
 

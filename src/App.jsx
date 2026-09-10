@@ -21,6 +21,9 @@ import { SignInScreen } from "./screens/SignIn.jsx";
 import { OrgScreen } from "./screens/Org.jsx";
 import { RemoteCaseScreen } from "./screens/RemoteCase.jsx";
 import { setSyncEnabled, queueCaseSync, pushCaseNow, deleteRemoteCase, fetchRegister, reconcile, onSync, syncState, resetSyncState } from "./sync.js";
+import { migrateRooms, migrateTranscripts, linkEvidence, unlinkEvidence, issueFor, typeNote, ROOM_MODEL_VERSION } from "./evidence.js";
+import { migrateFindings } from "./findings.js";
+import { configureTelemetry, track, flushTelemetry } from "./telemetry.js";
 import { configureFiling, enqueueFiling, clearFilingQueue, onFiling, filingState } from "./filing.js";
 import { linkedAccount } from "./cloud/service.js";
 
@@ -50,6 +53,7 @@ const WAL = {
 };
 
 const SCREEN_STYLE = { display: "flex", flexDirection: "column", flex: 1, minHeight: 0 };
+const omit = (o, k) => { const { [k]: _x, ...rest } = o; return rest; };
 function Screen({ children }) {
   return <div className="ss-screen-in" style={SCREEN_STYLE}>{children}</div>;
 }
@@ -90,6 +94,7 @@ export default function SiteSnap() {
   const [durable, setDurable] = useState(true);
   const [archive, setArchive] = useState([]);
   const [fieldMode, setFieldMode] = useState(false);
+  const [saveStatus, setSaveStatus] = useState("saved"); // saving | saved — the quiet answer to "did that save?"
   const undoTimer = useRef(null);
   const originals = useRef({}); // id -> File/Blob (full quality, this session only)
   const audioCache = useRef({}); // memo id -> Blob
@@ -111,7 +116,7 @@ export default function SiteSnap() {
     if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
     const p = pendingSave.current;
     pendingSave.current = null;
-    return p ? saveState(p.inspection, p.rooms).then((r) => { WAL.clear(p.inspection.id); return r; }) : Promise.resolve();
+    return p ? saveState(p.inspection, p.rooms).then((r) => { WAL.clear(p.inspection.id); setSaveStatus("saved"); return r; }) : Promise.resolve();
   }
   function flushPhotoSaves() {
     Object.values(photoTimers.current).forEach(clearTimeout);
@@ -139,6 +144,7 @@ export default function SiteSnap() {
   useEffect(() => {
     if (!inspection || inspection.id === suppressSaveId.current) return;
     pendingSave.current = { inspection, rooms };
+    setSaveStatus("saving");
     WAL.write(inspection.id, inspection, rooms);
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(flushSave, saveNow.current ? 0 : 250);
@@ -249,6 +255,7 @@ export default function SiteSnap() {
       setStorageNamespace("");
     }
     setSyncEnabled(!!(m && m.mode === "accounts" && m.user && m.org));
+    configureTelemetry({ on: !!(m && m.mode === "accounts" && m.user && m.org) });
     setRegister([]);
   }
 
@@ -331,8 +338,12 @@ export default function SiteSnap() {
     setReturnTab(fromTab);
     setCaseTab("overview");
     resetSyncState(id);
-    setInspection(data.inspection);
-    setRooms(data.rooms || []);
+    // pre-2.0 cases open as they were: rooms gain an (empty) issue list and
+    // honest provenance markers, transcripts become records, findings move
+    // to the state machine — nothing is guessed about who wrote what
+    const insp = { ...data.inspection, transcripts: migrateTranscripts(data.inspection.transcripts), findings: data.inspection.findings ? migrateFindings(data.inspection.findings) : data.inspection.findings };
+    setInspection(insp);
+    setRooms(migrateRooms(data.rooms || []));
     const ids = (data.rooms || []).flatMap((r) => r.photoIds);
     const entries = await Promise.all(ids.map(async (pid) => [pid, await loadPhoto(pid)]));
     const cache = {};
@@ -383,6 +394,7 @@ export default function SiteSnap() {
   // one place `index` gets refreshed with what just changed.
   async function exitCase(target) {
     await flushAll();
+    flushTelemetry();
     setInspection(null);
     setRooms([]);
     setPhotoCache({});
@@ -415,7 +427,8 @@ export default function SiteSnap() {
       activity: [{ ts: Date.now(), text: "Case opened" }],
       ...(caseDetails || {}),
     };
-    const rms = roomList.map((r) => ({ id: r.id, name: r.name, photoIds: [] }));
+    const rms = roomList.map((r) => ({ id: r.id, name: r.name, photoIds: [], modelVersion: ROOM_MODEL_VERSION, issues: [], readings: [], activeIssueId: null }));
+    track("case_created", { case: insp.id, rooms: rms.length });
     suppressSaveId.current = null;
     setReturnTab("home");
     setCaseTab("overview");
@@ -445,11 +458,19 @@ export default function SiteSnap() {
     // a number is never handed out twice for the life of the case, even
     // after the photo that had it is deleted — a reused "20 Kitchen.jpg"
     // would silently overwrite the one already filed in the drive
-    setRooms((prev) => prev.map((r) =>
-      r.id === roomId ? { ...r, photoIds: [...r.photoIds, photo.id], seq: no } : r
-    ));
-    const roomName = (rooms.find((r) => r.id === roomId) || {}).name || "a room";
-    logActivity(`Photo added to ${roomName} — Exhibit ${no}`);
+    // a photo taken while an issue is active belongs to that issue from the
+    // moment it's shot — the association is recorded as made at capture
+    setRooms((prev) => prev.map((r) => {
+      if (r.id !== roomId) return r;
+      const next = { ...r, photoIds: [...r.photoIds, photo.id], seq: no };
+      const active = (next.issues || []).find((i) => i.id === next.activeIssueId && i.status !== "merged");
+      return active ? linkEvidence(next, active.id, { id: photo.id, kind: "photo", source: "capture_session" }) : next;
+    }));
+    const roomName = (room || {}).name || "a room";
+    const activeIssue = room && (room.issues || []).find((i) => i.id === room.activeIssueId);
+    logActivity(`Photo added to ${roomName}${activeIssue ? ` · ${activeIssue.title}` : ""} — Exhibit ${no}`);
+    if (totalPhotos === 0) track("inspection_started", { case: inspection.id, sinceStartMs: Date.now() - (inspection.startedAt || Date.now()) });
+    track("photo_captured", { case: inspection.id, room: roomId, issue: activeIssue ? activeIssue.id : null });
     enqueueFiling([photo.id]);
     // if the write fails the full image stays in memory so it can still be
     // exported before the app closes; once written, only the thumbnail stays
@@ -474,13 +495,16 @@ export default function SiteSnap() {
 
   function deletePhoto(roomId, photoId) {
     const photo = photoCache[photoId];
+    const room = rooms.find((r) => r.id === roomId);
+    const link = room ? issueFor(room, photoId) : null;
+    const linkRec = link ? (link.evidence || []).find((e) => e.id === photoId) : null;
     setRooms((prev) => prev.map((r) =>
-      r.id === roomId ? { ...r, photoIds: r.photoIds.filter((id) => id !== photoId) } : r
+      r.id === roomId ? unlinkEvidence({ ...r, photoIds: r.photoIds.filter((id) => id !== photoId) }, photoId) : r
     ));
     delete pendingPhotos.current[photoId];
     if (undoTimer.current) clearTimeout(undoTimer.current);
     if (undoItem) finalizeDelete(undoItem.photo.id); // a second delete settles the first
-    setUndoItem({ photo, roomId });
+    setUndoItem({ photo, roomId, issueId: link ? link.id : null, linkSource: linkRec ? linkRec.source : null });
     undoTimer.current = setTimeout(() => {
       setUndoItem(null);
       finalizeDelete(photoId);
@@ -489,11 +513,13 @@ export default function SiteSnap() {
 
   function undoDelete() {
     if (!undoItem) return;
-    const { photo, roomId } = undoItem;
+    const { photo, roomId, issueId, linkSource } = undoItem;
     if (undoTimer.current) clearTimeout(undoTimer.current);
-    setRooms((prev) => prev.map((r) =>
-      r.id === roomId ? { ...r, photoIds: [...r.photoIds, photo.id] } : r
-    ));
+    setRooms((prev) => prev.map((r) => {
+      if (r.id !== roomId) return r;
+      const next = { ...r, photoIds: [...r.photoIds, photo.id] };
+      return issueId ? linkEvidence(next, issueId, { id: photo.id, kind: "photo", source: linkSource || "human_created" }) : next;
+    }));
     setUndoItem(null);
   }
 
@@ -506,23 +532,70 @@ export default function SiteSnap() {
     try { await saveAudio(id, blob); } catch { return; } // the storage handler has already told the user
     audioCache.current[id] = blob;
     saveNow.current = true;
-    setRooms((prev) => prev.map((r) =>
-      r.id === roomId ? { ...r, memos: [...(r.memos || []), { id, secs, type: blob.type }] } : r
-    ));
-    const roomName = (rooms.find((r) => r.id === roomId) || {}).name || "a room";
-    logActivity(`Voice note added to ${roomName}`);
+    setRooms((prev) => prev.map((r) => {
+      if (r.id !== roomId) return r;
+      const next = { ...r, memos: [...(r.memos || []), { id, secs, type: blob.type, at: Date.now() }] };
+      const active = (next.issues || []).find((i) => i.id === next.activeIssueId && i.status !== "merged");
+      return active ? linkEvidence(next, active.id, { id, kind: "memo", source: "capture_session" }) : next;
+    }));
+    const room = rooms.find((r) => r.id === roomId);
+    const activeIssue = room && (room.issues || []).find((i) => i.id === room.activeIssueId);
+    logActivity(`Voice note added to ${(room || {}).name || "a room"}${activeIssue ? ` · ${activeIssue.title}` : ""}`);
+    track("memo_recorded", { case: inspection.id, room: roomId, issue: activeIssue ? activeIssue.id : null, durationMs: (secs || 0) * 1000 });
   }
 
   function deleteMemo(roomId, memoId) {
     setRooms((prev) => prev.map((r) =>
-      r.id === roomId ? { ...r, memos: (r.memos || []).filter((m) => m.id !== memoId) } : r
+      r.id === roomId ? unlinkEvidence({ ...r, memos: (r.memos || []).filter((m) => m.id !== memoId) }, memoId) : r
     ));
+    // the transcript record goes with it — a finding drafted from it will
+    // read as stale on the next reconcile, which is the right outcome
+    setInspection((prev) => {
+      if (!prev || !prev.transcripts || !prev.transcripts[memoId]) return prev;
+      const { [memoId]: _gone, ...rest } = prev.transcripts;
+      return { ...prev, transcripts: rest };
+    });
     removeAudio(memoId);
     delete audioCache.current[memoId];
   }
 
   function setInspectionMeta(patch) {
     setInspection((prev) => (prev ? { ...prev, ...patch } : prev));
+  }
+
+  // Issue, evidence-link, reading and AI-note changes all go through a
+  // functional update on one room — the screens call evidence.js and hand
+  // the result back, so every rule about provenance lives in one module.
+  function updateRoom(roomId, fn) {
+    setRooms((prev) => prev.map((r) => {
+      if (r.id !== roomId) return r;
+      const next = fn(r);
+      // activation telemetry: a new issue or reading appeared
+      const issuesBefore = (r.issues || []).length, issuesAfter = (next.issues || []).length;
+      if (issuesAfter > issuesBefore) track("issue_created", { case: inspection && inspection.id, room: roomId, count: issuesAfter });
+      if ((next.readings || []).length > (r.readings || []).length) track("reading_added", { case: inspection && inspection.id, room: roomId });
+      if (next.aiNote && r.aiNote && next.aiNote.adopted && !r.aiNote.adopted) track("ai_note_used", { case: inspection && inspection.id, room: roomId });
+      if (next.aiNote && r.aiNote && next.aiNote.dismissed && !r.aiNote.dismissed) track("ai_note_dismissed", { case: inspection && inspection.id, room: roomId });
+      return next;
+    }));
+  }
+
+  // the last room's "Finish inspection": the moment capture turns into
+  // review. Recorded once; the case file opens on the summary.
+  function finishInspection() {
+    const already = inspection.completedAt;
+    if (!already) {
+      setInspectionMeta({ completedAt: Date.now() });
+      const issues = rooms.reduce((n, r) => n + (r.issues || []).filter((i) => i.status !== "merged").length, 0);
+      const memos = rooms.reduce((n, r) => n + (r.memos || []).length, 0);
+      logActivity(`Inspection complete — ${rooms.filter((r) => r.photoIds.length).length} of ${rooms.length} rooms, ${issues} issue${issues === 1 ? "" : "s"}, ${totalPhotos} photo${totalPhotos === 1 ? "" : "s"}`);
+      track("inspection_completed", { case: inspection.id, rooms: rooms.length, issues, photos: totalPhotos, memos, durationMs: Date.now() - (inspection.startedAt || Date.now()) });
+    }
+    setCaseTab("overview");
+    setScreen("casefile");
+  }
+  function setTranscripts(fn) {
+    setInspection((prev) => (prev ? { ...prev, transcripts: typeof fn === "function" ? fn(prev.transcripts || {}) : fn } : prev));
   }
 
   // The ID selfie is a photo of the case, not of a room: stored like any
@@ -563,6 +636,7 @@ export default function SiteSnap() {
   // touched yet (shown with a small badge) — any manual edit calls this
   // without it, which is what clears the badge.
   function setPhotoCaption(photoId, caption, aiGenerated = false) {
+    if (!aiGenerated && photoCache[photoId] && photoCache[photoId].captionAi) track("caption_edited", { case: inspection && inspection.id });
     WAL.writeCaption(photoId, { caption, captionAi: !!aiGenerated });
     setPhotoCache((c) => {
       const p = c[photoId];
@@ -582,7 +656,8 @@ export default function SiteSnap() {
   }
 
   function setRoomMeta(roomId, patch) {
-    setRooms((prev) => prev.map((r) => (r.id === roomId ? { ...r, ...patch } : r)));
+    // a note typed by a person is recorded as such; any other field is a plain patch
+    setRooms((prev) => prev.map((r) => (r.id === roomId ? ("note" in patch ? { ...typeNote(r, patch.note), ...omit(patch, "note") } : { ...r, ...patch }) : r)));
     // only condition changes are worth a log line — logging every keystroke
     // of a note would flood it
     if ("condition" in patch) {
@@ -592,7 +667,7 @@ export default function SiteSnap() {
   }
 
   function addRoom(name) {
-    setRooms((prev) => [...prev, { id: uid("room"), name, photoIds: [] }]);
+    setRooms((prev) => [...prev, { id: uid("room"), name, photoIds: [], modelVersion: ROOM_MODEL_VERSION, issues: [], readings: [], activeIssueId: null }]);
   }
 
   async function finishAndReset() {
@@ -801,10 +876,14 @@ export default function SiteSnap() {
             filesForUpload={(room) => filesFor(room, true)}
             fullPhoto={fullPhoto}
             audioCache={audioCache}
-            onUploadResult={(r) => { setInspectionMeta({ lastUpload: r }); logActivity(r.ok ? (r.confirmed ? "Filed in the cloud" : "Sent to the cloud") : "Upload didn't finish"); }}
-            onExportResult={(r) => setInspectionMeta({ lastExport: r })}
+            onUploadResult={(r) => { setInspectionMeta({ lastUpload: r }); logActivity(r.ok ? (r.confirmed ? "Filed in the cloud" : "Sent to the cloud") : "Upload didn't finish"); if (r.ok) track("export_cloud", { case: inspection.id, count: r.total }); }}
+            onExportResult={(r) => { setInspectionMeta({ lastExport: r, ...(r.kind === "report" ? { lastReport: r } : {}) }); track(r.kind === "report" ? "report_generated" : "export_zip", { case: inspection.id, sinceStartMs: Date.now() - (inspection.startedAt || Date.now()) }); }}
             onFindings={(f) => setInspectionMeta({ findings: f })}
-            onTranscripts={(t) => setInspectionMeta({ transcripts: t })}
+            onTranscripts={setTranscripts}
+            onRoom={updateRoom}
+            onTrack={track}
+            me={me}
+            syncNow={accounts && me.org ? () => pushCaseNow(inspection, rooms, photoCache) : null}
             onActivity={logActivity}
             idPhoto={inspection.idPhotoId ? photoCache[inspection.idPhotoId] || null : null}
             onIdPhoto={addIdPhoto}
@@ -819,9 +898,14 @@ export default function SiteSnap() {
 
         {view === "walk" && inspection && rooms[walkIndex] && (
           <Screen><WalkScreen
+            inspection={inspection}
             rooms={rooms}
             index={walkIndex}
             photoCache={photoCache}
+            sync={accounts && me.org ? sync : null}
+            saveStatus={saveStatus}
+            onOpenRoom={(id) => { setActiveRoomId(id); setScreen("evidence"); }}
+            onFinish={finishInspection}
             onIndex={setWalkIndex}
             onCapture={(dataUrl, file, thumb) => addPhoto(rooms[walkIndex].id, dataUrl, file, thumb)}
             onError={setStorageAlert}
@@ -831,8 +915,10 @@ export default function SiteSnap() {
               if (last) deletePhoto(r.id, last);
             }}
             onMeta={(patch) => setRoomMeta(rooms[walkIndex].id, patch)}
+            onRoom={(fn) => updateRoom(rooms[walkIndex].id, fn)}
             onAddMemo={(blob, secs) => addMemo(rooms[walkIndex].id, blob, secs)}
             onDeleteMemo={(mid) => deleteMemo(rooms[walkIndex].id, mid)}
+            onActivity={logActivity}
             onExit={() => setScreen("casefile")}
             filing={filing}
             fieldMode={fieldMode}
@@ -853,6 +939,13 @@ export default function SiteSnap() {
               onError={setStorageAlert}
               onDelete={(pid) => deletePhoto(room.id, pid)}
               onMeta={(patch) => setRoomMeta(room.id, patch)}
+              onRoom={(fn) => updateRoom(room.id, fn)}
+              transcripts={inspection.transcripts || {}}
+              onTranscripts={setTranscripts}
+              audioCache={audioCache}
+              me={me}
+              onActivity={logActivity}
+              onTrack={track}
               onCaption={setPhotoCaption}
               onFull={fullPhoto}
               onAnnotate={annotatePhoto}

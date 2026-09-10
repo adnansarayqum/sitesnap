@@ -32,7 +32,7 @@ export function mmss(sec) {
 // Records on the device and keeps the blob locally — works with no signal,
 // which browser speech-to-text does not. Transcription happens in the cloud
 // workflow after upload.
-export function VoiceMemo({ memos, onAdd, onDelete, dark }) {
+export function VoiceMemo({ memos, onAdd, onDelete, dark, renderTag, compact, label }) {
   const [state, setState] = useState("idle"); // idle|recording|denied|unsupported
   const [secs, setSecs] = useState(0);
   const rec = useRef(null);
@@ -91,6 +91,21 @@ export function VoiceMemo({ memos, onAdd, onDelete, dark }) {
     if (rec.current && rec.current.state === "recording") { rec.current.stop(); tapFeedback("medium"); }
   }
 
+  if (compact) {
+    // one big button in the capture bar; the recording state says where the
+    // note will be filed so there is never a doubt
+    return (
+      <>
+        <button className={`ss-cap-act ss-cap-voice ${state === "recording" ? "rec" : ""}`} onClick={state === "recording" ? stop : start} aria-label={state === "recording" ? "Stop recording" : "Record voice note"}>
+          {state === "recording" ? <span className="ss-vm-pulse" /> : <Mic size={18} />}
+          <span>{state === "recording" ? mmss(secs) : "Voice"}</span>
+        </button>
+        {state === "recording" && <div className="ss-cap-recording"><span className="ss-vm-pulse" /> Recording — {label}</div>}
+        {state === "denied" && <div className="ss-cap-recording warn"><MicOff size={13} /> Microphone blocked — allow it in your browser settings</div>}
+        {state === "unsupported" && <div className="ss-cap-recording warn"><MicOff size={13} /> Recording isn't supported here — type a note instead</div>}
+      </>
+    );
+  }
   return (
     <div className={`ss-vm ${dark ? "dark" : ""}`}>
       {state === "recording" ? (
@@ -107,6 +122,7 @@ export function VoiceMemo({ memos, onAdd, onDelete, dark }) {
       {memos.map((m, i) => (
         <span key={m.id} className="ss-vm-item">
           <Mic size={12} /> Voice note {i + 1} · {mmss(m.secs || 0)}
+          {renderTag ? renderTag(m) : null}
           <button onClick={() => onDelete(m.id)} aria-label="Delete voice note"><X size={13} /></button>
         </span>
       ))}

@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "updated": "2026-09-09",
+  "jurisdiction": "England & Wales",
+  "note": "Controlled lookup source. The drafting pipeline may only cite an entry by its id; the canonical `cite` text is inserted by the server, never written by the model. Edit wording here, bump the version, and record why in corrections.md. Prose guidance on when to cite lives in legal-register.md.",
+  "entries": [
+    {
+      "id": "LEGAL-S11-LTA",
+      "cite": "S11 LTA",
+      "title": "s.11 Landlord and Tenant Act 1985 — implied repairing covenant",
+      "covers": "The structure and exterior (including drains, gutters and external pipes); installations for the supply of water, gas and electricity and for sanitation (basins, sinks, baths, WCs); installations for space heating and heating water.",
+      "applies_when": "Tenancies of a dwelling for less than seven years. Disrepair means deterioration from a previous better condition. Cite for disrepair to structure, exterior or installations — penetrating or rising damp from a defective element, a leaking sanitary installation, a failed heating installation. Not for pure design defects that were never in a better state, and not for condensation mould where the fabric is in repair.",
+      "not_when": "Condensation-related mould with the building fabric in repair; defects of design rather than repair."
+    },
+    {
+      "id": "LEGAL-S9A-LTA",
+      "cite": "S9A LTA",
+      "title": "s.9A Landlord and Tenant Act 1985 (Homes (Fitness for Human Habitation) Act 2018) — fitness for human habitation",
+      "covers": "Implied covenant that the dwelling is fit for human habitation at the start of and throughout the tenancy.",
+      "applies_when": "Tenancies granted on or after 20 March 2019 (periodic tenancies from 20 March 2020). Cite where the defect makes the dwelling unfit; always pair with LEGAL-S10-LTA naming the matter.",
+      "not_when": "Tenancies outside the commencement dates, or defects that do not bear on fitness."
+    },
+    {
+      "id": "LEGAL-S10-LTA",
+      "cite": "S10 LTA",
+      "title": "s.10 Landlord and Tenant Act 1985 — matters deciding fitness",
+      "covers": "Repair; stability; freedom from damp; internal arrangement; natural lighting; ventilation; water supply; drainage and sanitary conveniences; facilities for preparation and cooking of food and for the disposal of waste water; any prescribed hazard (the HHSRS hazards).",
+      "applies_when": "Alongside LEGAL-S9A-LTA, naming the matter engaged (e.g. freedom from damp, ventilation).",
+      "not_when": "On its own without S9A."
+    },
+    {
+      "id": "LEGAL-DPA-S4",
+      "cite": "DPA 1972 s.4",
+      "title": "s.4 Defective Premises Act 1972 — landlord's duty of care",
+      "covers": "Duty of care to all persons who might reasonably be expected to be affected by defects, where the landlord has a repairing obligation.",
+      "applies_when": "Sparingly, and only where a defect presents a foreseeable risk of personal injury.",
+      "not_when": "Purely decorative or amenity defects with no risk to a person."
+    },
+    {
+      "id": "LEGAL-HHSRS-HA2004",
+      "cite": "HHSRS — Housing Act 2004",
+      "title": "Housing Health and Safety Rating System, Housing Act 2004",
+      "covers": "Hazard categories (Cat 1 serious, Cat 2) used as the prescribed hazard under s.10.",
+      "applies_when": "Where an HHSRS hazard is identified; the hazard itself is selected from the controlled HHSRS list (hhsrs.json) and written in the firm's form, e.g. 'Cat 2 Risk Hazard 1'.",
+      "not_when": "Where no hazard from the controlled list is clearly engaged."
+    }
+  ]
+}

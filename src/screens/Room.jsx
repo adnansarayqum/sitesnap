@@ -1,24 +1,37 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  Camera, Check, ChevronLeft, ChevronRight, Circle, ImagePlus, Loader2, MoveUpRight, ScanText, Sparkles, Tag, Trash2, Undo2, X,
+  Camera, Check, ChevronLeft, ChevronRight, Circle, Gauge, ImagePlus, Loader2, MoveUpRight, Plus, ScanText, Sparkles, Tag, Trash2, Undo2, X,
 } from "lucide-react";
 import { VoiceMemo } from "../components/VoiceMemo.jsx";
 import { TopBar } from "../components/shared.jsx";
 import { THUMB_DIM, drawScaled, processCapture } from "../lib/image.js";
 import { CONDITIONS } from "../lib/presets.js";
-import { aiConfig, aiPhotoCopy, captionRoom, AI_MAX_PHOTOS } from "../ai.js";
+import { aiConfig, aiPhotoCopy, captionRoom, AI_CAPTION_MAX } from "../ai.js";
 import { withOfflineRetry } from "../aiRetry.js";
 import { tapFeedback } from "../haptics.js";
 import { Coach, InfoTip } from "../components/Hints.jsx";
 import { BAD_IMAGE_MSG, LiveCamera } from "./Walk.jsx";
+import {
+  addIssue, addReading, adoptAiNote, confirmIssue, deleteIssue, deleteReading, dismissAiNote, issueFor, linkEvidence, openIssues, setActiveIssue, suggestAiNote, unassigned, unlinkEvidence, updateIssue,
+} from "../evidence.js";
+import { IssuePicker, IssueTag, noteSourceLabel } from "../components/Evidence.jsx";
+import { OrganiseSheet } from "../components/Organise.jsx";
 
 /* ---------------- room review ---------------- */
 
-export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, onMeta, onCaption, onFull, onAnnotate, onAddMemo, onDeleteMemo, onSaveToPhotos, onError }) {
+export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, onMeta, onRoom, transcripts, onTranscripts, audioCache, me, onActivity, onTrack, onCaption, onFull, onAnnotate, onAddMemo, onDeleteMemo, onSaveToPhotos, onError }) {
+  const track = onTrack || (() => {});
   const inputRef = useRef(null);
+  const issues = openIssues(room);
+  const active = issues.find((i) => i.id === room.activeIssueId) || null;
+  // the grid shows the active issue's photos (or the room's loose ones when
+  // "General" is selected); "All" shows everything
+  const [filter, setFilter] = useState("all"); // all | issueId | general
+  const loose = unassigned(room);
+  const shown = filter === "all" ? photos : filter === "general" ? photos.filter((p) => loose.photoIds.includes(p.id)) : photos.filter((p) => { const i = issueFor(room, p.id); return i && i.id === filter; });
   // newest-first — the order the grid shows, so the lightbox's next/prev
   // matches what a swipe or tap visually promises
-  const ordered = [...photos].reverse();
+  const ordered = [...shown].reverse();
   const [viewIndex, setViewIndex] = useState(null);
   const viewPhoto = viewIndex == null ? null : ordered[viewIndex] || null;
   const [viewFull, setViewFull] = useState(null); // {id, dataUrl} once loaded, separate from viewIndex so a slow load can't show the wrong photo
@@ -26,6 +39,12 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
   const [aiCfg, setAiCfg] = useState({ enabled: false });
   const [captioning, setCaptioning] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [picking, setPicking] = useState(null); // { id, kind }
+  const [addingIssue, setAddingIssue] = useState(false);
+  const [issueTitle, setIssueTitle] = useState("");
+  const [reading, setReading] = useState(null); // { text, value, unit } while adding
+  const [organising, setOrganising] = useState(false);
+  const [editingTitle, setEditingTitle] = useState(false);
   useEffect(() => { aiConfig().then(setAiCfg); }, []);
   const aliveRef = useRef(true);
   useEffect(() => () => { aliveRef.current = false; }, []);
@@ -167,15 +186,15 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
     setTimeout(() => setNote(null), 3000);
   }
 
-  // Fills in what's blank — captions the model can read straight off the
-  // photos, and a starting-point room note from the set as a whole. Never
-  // overwrites a caption or note the surveyor already typed; everything it
-  // does add stays in the normal editable fields, same as if typed by hand.
+  // Fills in blank captions straight off the photos. The suggested room note
+  // is held as a suggestion (room.aiNote) — never written into the note the
+  // findings step reads until the surveyor adopts it.
   async function aiCaption() {
     if (captioning || !photos.length) return;
     setCaptioning(true);
+    track("caption_requested", { case: caseId, room: room.id, photos: photos.length });
     try {
-      const targets = photos.slice(0, AI_MAX_PHOTOS);
+      const targets = photos.slice(0, AI_CAPTION_MAX);
       const payload = [];
       for (const p of targets) {
         const full = p.dataUrl ? p : (onFull ? await onFull(p.id) : null);
@@ -184,32 +203,23 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
       }
       if (!payload.length) { onError && onError("No photos could be loaded for captioning."); return; }
       const res = await withOfflineRetry(
-        () => captionRoom({
-          caseId, roomId: room.id,
-          room: { name: room.name, condition: room.condition || "", note: room.note || "" },
-          photos: payload,
-        }),
-        {
-          isAlive: () => aliveRef.current,
-          onQueued: (e) => aliveRef.current && setNote(e && e.code === "ai_unreachable"
-            ? "The AI service isn't reachable right now — retrying automatically"
-            : "No signal — captions will finish automatically once you're back online"),
-        },
+        () => captionRoom({ caseId, roomId: room.id, room: { name: room.name, condition: room.condition || "", note: room.noteSource && room.noteSource !== "ai_generated" ? room.note || "" : "" }, photos: payload }),
+        { isAlive: () => aliveRef.current, onQueued: (e) => aliveRef.current && setNote(e && e.code === "ai_unreachable" ? "The AI service isn't reachable right now — retrying automatically" : "No signal — captions will finish automatically once you're back online") },
       );
       let filled = 0;
       for (const c of res.photos || []) {
         const p = photos.find((x) => x.id === c.id);
         if (p && !(p.caption || "").trim() && c.caption && c.caption.trim()) { onCaption(c.id, c.caption.trim(), true); filled += 1; }
       }
-      const notedRoom = !!(res.room_note && !(room.note || "").trim());
-      if (notedRoom) onMeta({ note: res.room_note });
+      const suggested = !!(res.room_note && res.room_note.trim());
+      if (suggested) onRoom((r) => suggestAiNote(r, res.room_note, res.model));
       const dropped = photos.length - targets.length;
       const bits = [];
       if (filled) bits.push(`captioned ${filled} photo${filled === 1 ? "" : "s"}`);
-      if (notedRoom) bits.push("added a room note");
-      if (dropped > 0) bits.push(`${dropped} left out (${AI_MAX_PHOTOS} photo limit)`);
-      setNote(bits.length ? `AI: ${bits.join(", ")} — check and edit before moving on` : "AI: nothing to add — already captioned");
-      setTimeout(() => setNote(null), 4000);
+      if (suggested) bits.push("suggested a room note — tap Use to adopt it");
+      if (dropped > 0) bits.push(`${dropped} left out (${AI_CAPTION_MAX} photo limit)`);
+      setNote(bits.length ? `AI: ${bits.join(", ")}` : "AI: nothing to add — already captioned");
+      setTimeout(() => setNote(null), 4500);
     } catch (e) {
       onError && onError(e && e.message ? e.message : "Couldn't caption these photos.");
     } finally {
@@ -242,42 +252,153 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
     }
   }
 
+  // ---- issues -------------------------------------------------------------
+  function selectIssue(id) {
+    // selecting an issue also makes it the capture target; "General" means
+    // new photos and voice notes stay room-level
+    setFilter(id === null ? "general" : id);
+    onRoom((r) => setActiveIssue(r, id));
+    tapFeedback("light");
+  }
+  function createIssue(title) {
+    const t = (title || "").trim();
+    if (!t) return;
+    onRoom((r) => { const { room: r2, issue } = addIssue(r, t); setTimeout(() => setFilter(issue.id), 0); return r2; });
+    onActivity && onActivity(`Issue “${t}” raised in ${room.name}`);
+    setIssueTitle(""); setAddingIssue(false);
+  }
+  function pick(choice, newTitle) {
+    const { id, kind } = picking;
+    onRoom((r) => {
+      if (choice === null) return unlinkEvidence(r, id);
+      if (choice === "new") { const { room: r2, issue } = addIssue(r, newTitle); return linkEvidence(r2, issue.id, { id, kind, source: "human_created" }); }
+      return linkEvidence(r, choice, { id, kind, source: "human_created" });
+    });
+    setPicking(null);
+  }
+  function saveReading() {
+    if (!reading || !reading.text.trim()) return;
+    onRoom((r) => addReading(r, reading, r.activeIssueId).room);
+    setReading(null);
+  }
+  const activeMemos = (room.memos || []).filter((m) => filter === "all" ? true : filter === "general" ? loose.memoIds.includes(m.id) : (issueFor(room, m.id) || {}).id === filter);
+  const legacyLoose = !issues.length && (loose.photoIds.length > 0 || loose.memoIds.length > 0) && room.modelVersion >= 2 && (room.photoIds || []).length > 0 && !room.activeIssueId && photos.length > 0 && photos.every((p) => loose.photoIds.includes(p.id)) && (room.issues || []).length === 0;
+
+  const aiNoteCard = room.aiNote && !room.aiNote.adopted && !room.aiNote.dismissed && (
+    <div className="ss-ainote" role="note">
+      <div className="ss-ainote-head"><Sparkles size={13} /> AI suggestion — not your note until you use it</div>
+      <p>{room.aiNote.text}</p>
+      <div className="ss-finding-actions" style={{ marginTop: 6 }}>
+        <button className="ss-btn ss-btn-primary" onClick={() => { onRoom((r) => adoptAiNote(r, me && me.user ? me.user.id : null)); onActivity && onActivity(`${room.name}: AI note adopted as the room note`); }}><Check size={14} /> Use</button>
+        <button className="ss-btn ss-btn-ghost" onClick={() => { onRoom((r) => adoptAiNote(r, me && me.user ? me.user.id : null)); setTimeout(() => { const el = document.querySelector(".ss-note-input"); el && el.focus(); }, 50); }}>Edit</button>
+        <button className="ss-btn ss-btn-ghost" onClick={() => onRoom(dismissAiNote)}>Dismiss</button>
+      </div>
+    </div>
+  );
+
   const metaCard = (
     <div className="ss-meta">
       <div className="ss-cond-row">
-        <span className="ss-cond-label" title="Rated rooms show a coloured badge in the report and board, and are what the AI drafting step reads">Condition</span>
+        <span className="ss-cond-label" title="Rated rooms show a coloured badge in the report and board">Condition</span>
         {CONDITIONS.map((c) => (
           <button key={c}
             className={`ss-cond ${c.toLowerCase()} ${room.condition === c ? "on" : ""}`}
-            title={`Rate this room ${c} — shown in the report and sent to the AI drafting step`}
+            title={`Rate this room ${c}`}
             onClick={() => { tapFeedback("light"); onMeta({ condition: room.condition === c ? null : c }); }}>
             {c}
           </button>
         ))}
       </div>
-      <span className="ss-field-label">Notes</span>
+      <span className="ss-field-label">Room notes{room.noteSource === "human_adopted_ai" ? <span className="ss-field-label-hint"> — adopted from an AI suggestion</span> : room.noteSource === "legacy_unknown" ? <span className="ss-field-label-hint"> — origin unknown (written before 2.0)</span> : null}</span>
       <textarea
         className="ss-note-input" rows={2}
-        placeholder="Damage, decor, meter readings… (or use your keyboard's mic)"
+        placeholder="What's true of the room as a whole — decor, meter readings… (or use your keyboard's mic)"
         value={room.note || ""}
         onChange={(e) => onMeta({ note: e.target.value })}
       />
-      <span className="ss-field-label" title="Optional. Say what you think is causing it; Draft findings checks it against the photos and flags it if they don't agree.">
-        Suspected cause <span className="ss-field-label-hint">— optional, checked against the photos</span>
-      </span>
-      <input
-        className="ss-note-input ss-hyp-input"
-        placeholder="e.g. condensation from a broken extractor"
-        value={room.hypothesis || ""}
-        onChange={(e) => onMeta({ hypothesis: e.target.value })}
-      />
-      <VoiceMemo memos={room.memos || []} onAdd={onAddMemo} onDelete={onDeleteMemo} />
+      {aiNoteCard}
+    </div>
+  );
+
+  const issueStrip = (
+    <div className="ss-issues">
+      <div className="ss-issues-head">
+        <span className="ss-field-label" style={{ margin: 0 }}>Issues</span>
+        <InfoTip title="Issues">
+          <p>One issue = one defect: <b>Ceiling mould</b>, <b>Damaged flooring</b>. Tap an issue, then shoot — every photo and voice note you take lands in it. Findings are drafted per issue.</p>
+          <p>Tap the tag on any photo to move it. <b>General</b> is for evidence about the room as a whole.</p>
+        </InfoTip>
+      </div>
+      <div className="ss-issue-chips">
+        <button className={`ss-ichip ${filter === "all" ? "on" : ""}`} onClick={() => { setFilter("all"); }}>All</button>
+        {issues.map((i) => (
+          <button key={i.id} className={`ss-ichip ${room.activeIssueId === i.id ? "active" : ""} ${filter === i.id ? "on" : ""} ${i.confirmedBySurveyor ? "" : "suggested"}`} onClick={() => selectIssue(i.id)} title={i.confirmedBySurveyor ? `${i.title} — tap to shoot into it` : `${i.title} — AI-suggested, confirm it`}>
+            {room.activeIssueId === i.id && <Camera size={11} />}{!i.confirmedBySurveyor && <Sparkles size={11} />}{i.title} <small>{(i.evidence || []).filter((e) => e.kind === "photo").length}</small>
+          </button>
+        ))}
+        <button className={`ss-ichip ${room.activeIssueId === null && filter === "general" ? "on active" : ""}`} onClick={() => selectIssue(null)} title="Room-level evidence, not about one defect">General <small>{loose.photoIds.length}</small></button>
+        {addingIssue ? (
+          <span className="ss-ichip-add">
+            <input className="ss-input" autoFocus placeholder="e.g. Ceiling mould" value={issueTitle} onChange={(e) => setIssueTitle(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") createIssue(issueTitle); if (e.key === "Escape") setAddingIssue(false); }} />
+            <button className="ss-btn ss-btn-primary ss-btn-sq" disabled={!issueTitle.trim()} onClick={() => createIssue(issueTitle)}><Check size={16} /></button>
+          </span>
+        ) : (
+          <button className="ss-ichip add" onClick={() => setAddingIssue(true)}><Plus size={13} /> Issue</button>
+        )}
+      </div>
+      {active && filter === active.id && (
+        <div className={`ss-issue-card ${active.confirmedBySurveyor ? "" : "suggested"}`}>
+          {!active.confirmedBySurveyor && (
+            <div className="ss-org-suggest">
+              <Sparkles size={12} /> AI-suggested issue{active.suggestion && active.suggestion.rationale ? ` — ${active.suggestion.rationale}` : ""}. Confirm it before anything is drafted from it.
+              <div className="ss-finding-actions" style={{ marginTop: 6 }}>
+                <button className="ss-btn ss-btn-primary" onClick={() => onRoom((r) => confirmIssue(r, active.id))}><Check size={14} /> Confirm</button>
+                <button className="ss-btn ss-btn-ghost" onClick={() => { onRoom((r) => deleteIssue(r, active.id)); setFilter("all"); }}><Trash2 size={14} /> Discard</button>
+              </div>
+            </div>
+          )}
+          {editingTitle ? (
+            <input className="ss-input" autoFocus value={active.title} onChange={(e) => onRoom((r) => updateIssue(r, active.id, { title: e.target.value }))} onBlur={() => setEditingTitle(false)} onKeyDown={(e) => { if (e.key === "Enter") setEditingTitle(false); }} />
+          ) : (
+            <button className="ss-issue-title" onClick={() => setEditingTitle(true)} title="Rename">{active.title}</button>
+          )}
+          <textarea className="ss-note-input" rows={2} placeholder="What's wrong here — what you can see, any history the occupier gave"
+            value={active.description || ""} onChange={(e) => onRoom((r) => updateIssue(r, active.id, { description: e.target.value, descriptionSource: "human_typed" }))} />
+          <span className="ss-field-label" title="Optional. Your view of the cause. The AI works out its own view first, without seeing this, then tells you whether the evidence agrees.">
+            Suspected cause <span className="ss-field-label-hint">— optional, assessed blind then compared</span>
+          </span>
+          <input className="ss-note-input ss-hyp-input" placeholder="e.g. condensation from a broken extractor"
+            value={active.humanSuspectedCause || ""} onChange={(e) => onRoom((r) => updateIssue(r, active.id, { humanSuspectedCause: e.target.value }))} />
+          <div className="ss-readings">
+            {(room.readings || []).filter((rd) => (active.evidence || []).some((e) => e.id === rd.id)).map((rd) => (
+              <span key={rd.id} className="ss-vm-item"><Gauge size={12} /> {rd.text}{rd.value ? ` — ${rd.value}${rd.unit ? ` ${rd.unit}` : ""}` : ""}<button onClick={() => onRoom((r) => deleteReading(r, rd.id))} aria-label="Delete reading"><X size={13} /></button></span>
+            ))}
+            {reading ? (
+              <div className="ss-reading-add">
+                <input className="ss-input" autoFocus placeholder="What was measured, e.g. moisture to wall adjacent to bath" value={reading.text} onChange={(e) => setReading({ ...reading, text: e.target.value })} />
+                <div className="row">
+                  <input className="ss-input" inputMode="decimal" placeholder="Value" value={reading.value} onChange={(e) => setReading({ ...reading, value: e.target.value })} />
+                  <input className="ss-input" placeholder="Unit, e.g. %" value={reading.unit} onChange={(e) => setReading({ ...reading, unit: e.target.value })} />
+                  <button className="ss-btn ss-btn-primary ss-btn-sq" disabled={!reading.text.trim()} onClick={saveReading}><Check size={16} /></button>
+                  <button className="ss-btn ss-btn-ghost ss-btn-sq" onClick={() => setReading(null)}><X size={16} /></button>
+                </div>
+              </div>
+            ) : (
+              <button className="ss-vm-btn" onClick={() => setReading({ text: "", value: "", unit: "" })}><Gauge size={15} /> Add reading</button>
+            )}
+          </div>
+        </div>
+      )}
+      {filter === "general" && (room.hypothesis || "").trim() && (
+        <p className="ss-fineprint">Room-level suspected cause (from before issues): “{room.hypothesis}” — it goes with any issue you treat this room's loose evidence as.</p>
+      )}
     </div>
   );
 
   return (
     <div className="ss-col">
-      <TopBar title={room.name} eyebrow={`${photos.length} photo${photos.length === 1 ? "" : "s"}`} onBack={onBack}
+      <TopBar title={room.name} eyebrow={`${photos.length} photo${photos.length === 1 ? "" : "s"}${active ? ` · shooting into ${active.title}` : ""}`} onBack={onBack}
         right={photos.length > 0 && (
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             {aiCfg.enabled && (
@@ -286,9 +407,8 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
                   {captioning ? <Loader2 size={14} className="ss-spin" /> : <Sparkles size={14} />} {captioning ? "Captioning…" : "AI captions"}
                 </button>
                 <InfoTip title="What AI captions does">
-                  <p>Looks at each photo and your typed note, then fills in any <b>blank</b> captions and suggests a room note.</p>
-                  <p>It never changes a caption you've written, and you can edit anything it adds — a small sparkle marks the ones it wrote until you do.</p>
-                  <p>Voice notes aren't used here; they go into <b>Draft findings</b>.</p>
+                  <p>Looks at each photo and fills in any <b>blank</b> captions with what is visible — no causes, no diagnosis — and offers a room note as a <b>suggestion</b> you can use, edit or dismiss.</p>
+                  <p>It never changes a caption you've written. Captions it wrote carry a sparkle until you edit them, and the suggestion is never treated as your note unless you use it.</p>
                 </InfoTip>
               </>
             )}
@@ -301,7 +421,7 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
 
       {cameraOpen && (
         <LiveCamera
-          label={room.name}
+          label={active ? `${room.name} · ${active.title}` : room.name}
           count={photos.length}
           onCapture={onCapture}
           onClose={() => setCameraOpen(false)}
@@ -320,28 +440,34 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
           <>
             <div className="ss-empty">
               <Camera size={22} />
-              <p>No photos in {room.name} yet.<br />Open the camera below to start.</p>
+              <p>No photos in {room.name} yet.<br />{active ? <>Shooting into <b>{active.title}</b>.</> : <>Raise an issue below, or just open the camera.</>}</p>
             </div>
-            <div className="ss-tip info">
-              <Sparkles size={14} />
-              <span>{aiCfg.enabled
-                ? "Once you've shot a few, AI captions can fill these in for you — still yours to edit."
-                : "Exhibit numbers start fresh in each room, so photo 1 here won't clash with photo 1 elsewhere."}</span>
-            </div>
+            {issueStrip}
             {metaCard}
+            <VoiceMemo memos={room.memos || []} onAdd={onAddMemo} onDelete={onDeleteMemo} renderTag={(m) => <IssueTag room={room} evidenceId={m.id} onClick={() => setPicking({ id: m.id, kind: "memo" })} />} />
           </>
         ) : (
           <>
-            <Coach id="room" title="This room's evidence">
-              Every photo gets a number and a caption{aiCfg.enabled ? <> — tap <b>AI captions</b> to fill blanks</> : null}. Tap a photo to <b>mark up</b> the defect or <b>read a serial number</b> off it.
+            <Coach id="room2" title="Issues, then evidence">
+              Raise an <b>issue</b> per defect and shoot into it — photos and voice notes land where they belong. Tap a photo's tag to move it. <b>AI captions</b> fills blank captions.
             </Coach>
+            {legacyLoose && (
+              <div className="ss-tip warn">
+                <Tag size={14} />
+                <span>These photos aren't organised into issues yet — findings are drafted per issue. <button className="ss-link" onClick={() => setOrganising(true)}>Organise</button></span>
+              </div>
+            )}
+            {issueStrip}
             {metaCard}
+            <VoiceMemo memos={activeMemos} onAdd={onAddMemo} onDelete={onDeleteMemo} renderTag={(m) => <IssueTag room={room} evidenceId={m.id} onClick={() => setPicking({ id: m.id, kind: "memo" })} />} />
+            {shown.length === 0 && <p className="ss-empty-note">No photos {filter === "general" ? "at room level" : "in this issue"} yet — the camera shoots into it.</p>}
             <div className="ss-shots">
               {ordered.map((p, i) => (
                 <div key={p.id} className="ss-shot">
                   <button className="ss-cell" onClick={() => openPhoto(i)}>
                     <img src={p.thumb || p.dataUrl} alt="Inspection" loading="lazy" decoding="async" />
                     {p.no ? <span className="ss-cell-no">{p.no}</span> : null}
+                    <IssueTag room={room} evidenceId={p.id} onClick={() => setPicking({ id: p.id, kind: "photo" })} />
                   </button>
                   <div className={`ss-caption-wrap ${p.captionAi ? "ai" : ""}`}>
                     {p.captionAi && <Sparkles size={11} className="ss-caption-ai-badge" aria-label="AI-suggested — not yet reviewed" />}
@@ -363,7 +489,7 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
       <div className="ss-footer">
         <button className="ss-btn ss-btn-live ss-btn-big"
           onClick={() => setCameraOpen(true)}>
-          <Camera size={20} strokeWidth={2.4} /> {photos.length ? "Take more photos" : "Take photos"}
+          <Camera size={20} strokeWidth={2.4} /> {photos.length ? "Take more photos" : "Take photos"}{active ? <small className="ss-btn-sub"> → {active.title}</small> : null}
         </button>
       </div>
 
@@ -388,7 +514,7 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
           </div>
           {zoom > 1 && <div className="ss-lightbox-zoom-hint">{Math.round(zoom * 100)}%</div>}
           <div className="ss-lightbox-bottom" onClick={(e) => e.stopPropagation()}>
-            {shownPhoto.no ? <div className="ss-lb-no">Exhibit {shownPhoto.no}</div> : null}
+            {shownPhoto.no ? <div className="ss-lb-no">Exhibit {shownPhoto.no}{issueFor(room, shownPhoto.id) ? ` · ${issueFor(room, shownPhoto.id).title}` : ""}</div> : null}
             {shownPhoto.takenAt && (
               <div className="ss-lb-time">
                 {new Date(shownPhoto.takenAt).toLocaleString("en-GB", {
@@ -397,7 +523,7 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
                 })}
               </div>
             )}
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button className="ss-btn ss-btn-ghost" disabled={!shownPhoto.dataUrl}
                 onClick={() => { if (shownPhoto.dataUrl) setAnnotating(true); }}>
                 <Tag size={16} /> Annotate
@@ -405,6 +531,9 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
               <button className="ss-btn ss-btn-ghost" disabled={!shownPhoto.dataUrl || scanning} onClick={scanText}
                 title="Read a serial or model number straight off this photo, on-device">
                 {scanning ? <Loader2 size={16} className="ss-spin" /> : <ScanText size={16} />} {scanning ? "Reading…" : "Read text"}
+              </button>
+              <button className="ss-btn ss-btn-ghost" onClick={() => { setPicking({ id: shownPhoto.id, kind: "photo" }); }}>
+                <Tag size={16} /> Move to issue
               </button>
               <button className="ss-btn ss-btn-danger"
                 onClick={() => { onDelete(shownPhoto.id); closePhoto(); }}>
@@ -426,6 +555,8 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
           }}
         />
       )}
+      {picking && <IssuePicker room={room} evidenceId={picking.id} kind={picking.kind} onClose={() => setPicking(null)} onPick={pick} />}
+      {organising && <OrganiseSheet caseId={caseId} room={room} photoCache={Object.fromEntries(photos.map((p) => [p.id, p]))} fullPhoto={onFull} audioCache={audioCache} transcripts={transcripts || {}} onTranscripts={onTranscripts} onRoom={onRoom} onActivity={onActivity} onClose={() => setOrganising(false)} />}
     </div>
   );
 }

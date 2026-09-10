@@ -6,7 +6,10 @@ import {
 import { ReorderableList, TopBar } from "../components/shared.jsx";
 import { Coach } from "../components/Hints.jsx";
 import { pad } from "../lib/util.js";
-import { FindingsTab, FinishScreen } from "./Finish.jsx";
+import { FinishScreen } from "./Finish.jsx";
+import { FindingsTab } from "./Findings.jsx";
+import { coverage, migrateFindings } from "../findings.js";
+import { ClipboardCheck, Sparkles } from "lucide-react";
 import { relativeDay } from "./Home.jsx";
 
 /* ---------------- board (overview) ---------------- */
@@ -26,7 +29,7 @@ export function CaseFileScreen({
   inspection, sync, filing, onFiled, rooms, photoCache, totalPhotos, doneRooms,
   caseTab, onCaseTab, onExit, onReorder, onAddRoom, onRename, onOpenRoom, onWalk,
   filesForRoom, filesForUpload, fullPhoto, audioCache,
-  onUploadResult, onExportResult, onFindings, onTranscripts, onActivity, onSaveAll, onDone,
+  onUploadResult, onExportResult, onFindings, onTranscripts, onRoom, me, syncNow, onTrack, onActivity, onSaveAll, onDone,
   idPhoto, onIdPhoto, onRemoveIdPhoto, onShareIdPhoto,
 }) {
   const [renaming, setRenaming] = useState(false);
@@ -88,7 +91,7 @@ export function CaseFileScreen({
       {caseTab === "overview" && (
         <div className="ss-screen-in" style={TAB_STYLE}>
           <OverviewTab inspection={inspection} sync={sync} rooms={rooms} totalPhotos={totalPhotos} doneRooms={doneRooms} onWalk={onWalk}
-            idPhoto={idPhoto} onIdPhoto={onIdPhoto} onRemoveIdPhoto={onRemoveIdPhoto} onShareIdPhoto={onShareIdPhoto} />
+            idPhoto={idPhoto} onIdPhoto={onIdPhoto} onRemoveIdPhoto={onRemoveIdPhoto} onShareIdPhoto={onShareIdPhoto} onCaseTab={onCaseTab} />
         </div>
       )}
       {caseTab === "rooms" && (
@@ -102,7 +105,7 @@ export function CaseFileScreen({
       {caseTab === "findings" && (
         <div className="ss-screen-in" style={TAB_STYLE}>
           <FindingsTab inspection={inspection} rooms={rooms} photoCache={photoCache} fullPhoto={fullPhoto} audioCache={audioCache}
-            onFindings={onFindings} onTranscripts={onTranscripts} onActivity={onActivity} />
+            onFindings={onFindings} onTranscripts={onTranscripts} onRoom={onRoom} me={me} syncNow={syncNow} onTrack={onTrack} onActivity={onActivity} onOpenRoom={onOpenRoom} />
         </div>
       )}
       {caseTab === "export" && (
@@ -119,7 +122,46 @@ export function CaseFileScreen({
   );
 }
 
-export function OverviewTab({ inspection, sync, rooms, totalPhotos, doneRooms, onWalk, idPhoto, onIdPhoto, onRemoveIdPhoto, onShareIdPhoto }) {
+// The payoff card: once the walkthrough is finished, what the structured
+// capture has already done for the surveyor, and the one next step.
+export function InspectionSummary({ inspection, rooms, totalPhotos, onReview }) {
+  const cov = coverage(rooms, migrateFindings(inspection.findings), inspection.transcripts || {});
+  const issues = cov.flatMap((c) => c.issues);
+  const ready = issues.filter((x) => x.issue.confirmedBySurveyor && x.eligibility.eligible && (!x.finding || x.finding.status === "approved" || x.finding.gate && x.finding.gate.status === "review_ready")).length;
+  const needEvidence = issues.filter((x) => x.issue.confirmedBySurveyor && !x.eligibility.eligible).length;
+  const unconfirmed = issues.filter((x) => !x.issue.confirmedBySurveyor).length;
+  const loose = cov.filter((c) => c.loose.photoIds.length || c.loose.memoIds.length).length;
+  const failedMemos = issues.reduce((n, x) => n + x.failedMemos.length, 0);
+  const memos = rooms.reduce((n, r) => n + (r.memos || []).length, 0);
+  const readings = rooms.reduce((n, r) => n + (r.readings || []).length, 0);
+  const approved = issues.filter((x) => x.finding && x.finding.status === "approved").length;
+  const drafted = issues.filter((x) => x.finding && !["rejected", "superseded"].includes(x.finding.status)).length;
+  const visited = rooms.filter((r) => r.photoIds.length).length;
+  return (
+    <div className="ss-summary-card">
+      <div className="ss-summary-head"><ClipboardCheck size={18} /><div><b>Inspection complete</b><span>{inspection.completedAt ? new Date(inspection.completedAt).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : ""}</span></div></div>
+      <div className="ss-summary-stats">
+        <div><b>{visited}</b><span>of {rooms.length} rooms</span></div>
+        <div><b>{issues.length}</b><span>issue{issues.length === 1 ? "" : "s"}</span></div>
+        <div><b>{totalPhotos}</b><span>photo{totalPhotos === 1 ? "" : "s"} organised</span></div>
+        <div><b>{memos}</b><span>voice note{memos === 1 ? "" : "s"}</span></div>
+        {readings > 0 && <div><b>{readings}</b><span>reading{readings === 1 ? "" : "s"}</span></div>}
+      </div>
+      <ul className="ss-summary-lines">
+        {drafted > 0 && <li className="ok">✓ {drafted} finding{drafted === 1 ? "" : "s"} drafted{approved ? ` · ${approved} approved` : ""}</li>}
+        {ready > 0 && drafted < ready && <li className="ok">✓ {ready - drafted} issue{ready - drafted === 1 ? "" : "s"} ready to draft</li>}
+        {needEvidence > 0 && <li className="warn">⚠ {needEvidence} issue{needEvidence === 1 ? "" : "s"} need{needEvidence === 1 ? "s" : ""} a note, voice note or reading before drafting</li>}
+        {unconfirmed > 0 && <li className="warn">⚠ {unconfirmed} suggested issue{unconfirmed === 1 ? "" : "s"} to confirm</li>}
+        {loose > 0 && <li className="warn">⚠ Evidence in {loose} room{loose === 1 ? "" : "s"} not yet linked to an issue</li>}
+        {failedMemos > 0 && <li className="warn">⚠ {failedMemos} voice note{failedMemos === 1 ? "" : "s"} not transcribed</li>}
+        {!issues.length && !loose && <li className="warn">No issues raised — open a room and raise one, or organise its photos</li>}
+      </ul>
+      <button className="ss-btn ss-btn-primary ss-btn-big" onClick={onReview}><Sparkles size={18} /> {drafted ? "Review findings" : "Draft findings"}</button>
+    </div>
+  );
+}
+
+export function OverviewTab({ inspection, sync, rooms, totalPhotos, doneRooms, onWalk, idPhoto, onIdPhoto, onRemoveIdPhoto, onShareIdPhoto, onCaseTab }) {
   const idInput = useRef(null);
   const firstEmpty = Math.max(0, rooms.findIndex((r) => r.photoIds.length === 0));
   const rank = { Poor: 3, Fair: 2, Good: 1 };
@@ -134,9 +176,13 @@ export function OverviewTab({ inspection, sync, rooms, totalPhotos, doneRooms, o
   return (
     <>
       <div className="ss-scroll">
-        <Coach id="casefile" title="Your case file">
-          <b>Overview</b>, <b>Rooms</b>, <b>Findings</b> and <b>Export</b> are the four tabs above. <b>Start walkthrough</b> opens the camera and takes you room by room.
-        </Coach>
+        {inspection.completedAt ? (
+          <InspectionSummary inspection={inspection} rooms={rooms} totalPhotos={totalPhotos} onReview={() => onCaseTab && onCaseTab("findings")} />
+        ) : (
+          <Coach id="casefile" title="Your case file">
+            <b>Overview</b>, <b>Rooms</b>, <b>Findings</b> and <b>Export</b> are the four tabs above. <b>Start walkthrough</b> opens the camera and takes you room by room.
+          </Coach>
+        )}
         <div className="ss-case-cover">
           <div className="ss-case-cover-head">
             <span className="ss-stamp">Case No. {inspection.caseNo || "—"}</span>

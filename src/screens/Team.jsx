@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Loader2, UserPlus, Copy, Check } from "lucide-react";
 import { listMembers, listInvites, listAudit, sendInvite, cancelInvite, setMemberRole, removeMember, renameOrg } from "../auth.js";
+import { relativeDay } from "./Home.jsx";
 
 /* ---------------- team (admins) ---------------- */
 
@@ -17,7 +18,9 @@ export function TeamSettings({ me, onChanged, flash }) {
   const [lastLink, setLastLink] = useState(null);
   const [copied, setCopied] = useState(false);
   const [orgName, setOrgName] = useState(me.org.name);
+  const [pilot, setPilot] = useState(null);
   const isOwner = me.org.role === "owner";
+  useEffect(() => { fetch("/api/admin/pilot", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then(setPilot).catch(() => {}); }, []);
 
   async function refresh() {
     try {
@@ -49,6 +52,42 @@ export function TeamSettings({ me, onChanged, flash }) {
 
   return (
     <>
+      {pilot && pilot.members && (
+        <>
+          <div className="ss-section-label" style={{ marginTop: 20 }}>Pilot — who's actually using it</div>
+          <div className="ss-pilot">
+            {pilot.members.map((m) => (
+              <div key={m.id} className="ss-pilot-row">
+                <div className="ss-pilot-who"><b>{m.name}</b><span>{ROLE_LABEL[m.role] || m.role} · joined {relativeDay(new Date(m.joined_at).getTime())}{m.last_event_at ? ` · last active ${relativeDay(new Date(m.last_event_at).getTime())}` : " · not yet active"}</span></div>
+                <div className="ss-pilot-stats">
+                  <span title="Cases created"><b>{m.cases}</b> case{m.cases === 1 ? "" : "s"}</span>
+                  <span title="Inspections finished"><b>{m.inspections_completed}</b> finished</span>
+                  <span title="Issues raised"><b>{m.issues}</b> issues</span>
+                  <span title="Photos taken"><b>{m.photos}</b> photos</span>
+                  <span title="Findings drafted / approved / edited / rejected"><b>{m.findings_drafted}</b>/{m.findings_approved}/{m.findings_edited}/{m.findings_rejected} findings</span>
+                  <span title="Reports generated"><b>{m.reports}</b> report{m.reports === 1 ? "" : "s"}</span>
+                  <span title="Weeks with real use"><b>{m.active_weeks}</b> active wk</span>
+                  {m.feedback ? <span><b>{m.feedback}</b> feedback</span> : null}
+                </div>
+              </div>
+            ))}
+          </div>
+          {pilot.feedback && pilot.feedback.length > 0 && (
+            <>
+              <div className="ss-section-label" style={{ marginTop: 16 }}>Feedback</div>
+              <div className="ss-activity">
+                {pilot.feedback.slice(0, 15).map((f) => (
+                  <div key={f.id} className="ss-activity-row">
+                    <span className="ss-activity-time">{relativeDay(new Date(f.created_at).getTime())}</span>
+                    <span className="ss-activity-dot" />
+                    <span className="ss-activity-text"><b>{f.kind.replace(/_/g, " ")}</b> — {f.who}{f.screen ? ` · ${f.screen}` : ""}{f.text ? `: ${f.text}` : ""}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </>
+      )}
       <div className="ss-section-label" style={{ marginTop: 20 }}>Firm</div>
       <div className="ss-key-row">
         <input className="ss-input" value={orgName} onChange={(e) => setOrgName(e.target.value)} aria-label="Firm name" />

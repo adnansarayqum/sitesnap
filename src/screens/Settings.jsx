@@ -12,6 +12,7 @@ import { updateName, switchOrg } from "../auth.js";
 import { TabBar } from "./Home.jsx";
 import { TeamSettings } from "./Team.jsx";
 import { resetHints } from "../components/Hints.jsx";
+import { FeedbackButton } from "../components/Feedback.jsx";
 
 /* ---------------- account (accounts mode) ---------------- */
 
@@ -301,6 +302,13 @@ export function SettingsScreen({ fieldMode, onToggleFieldMode, onTab, me, onSign
           </div>
         )}
 
+        <div className="ss-ledger-row">
+          <span className="ss-ledger-main">
+            <span className="ss-ledger-title">Tell us what happened</span>
+            <span className="ss-ledger-sub">Something slowed you down, saved you time, or came out wrong</span>
+          </span>
+          <FeedbackButton screen="settings" onSent={() => flash("Thank you — received")}>Feedback</FeedbackButton>
+        </div>
         <div className="ss-ledger-row ss-no-border" style={{ marginTop: 10, color: "var(--muted2)" }}>
           <span className="ss-ledger-title" style={{ fontWeight: 600, color: "var(--muted2)" }}>SiteSnap</span>
           <span className="ss-ledger-status">Version 2.1.0</span>
