@@ -21,9 +21,15 @@ field is what you route on:
 
 | `kind`  | when                | extra fields | `file` |
 |---------|---------------------|--------------|--------|
-| `photo` | once per photo      | `folder`, `filename`, `condition`, `note` | the JPEG (compressed, <4 MB) |
-| `audio` | once per voice note | `folder`, `room`, `filename`, `seconds` | the recording (opus/webm or m4a) |
-| `notes` | **once per inspection**, last | `filename`, `notes` (JSON string) | the same JSON as a file |
+| `photo` | once per photo      | `folder` (`Site photos/01. Kitchen`), `room`, `filename`, `condition`, `note` | the JPEG (compressed, <4 MB) |
+| `audio` | once per voice note | `folder` (`Inspection`), `room`, `filename`, `seconds` | the recording (opus/webm or m4a) |
+| `notes` | **once per inspection**, last | `folder` (`Inspection`), `filename`, `notes` (JSON string) | the same JSON as a file |
+
+`folder` is a path relative to the address folder, so a workflow that writes
+to `/Inspections/{{address}}/{{folder}}/{{filename}}` produces the same layout
+the app's direct upload and ZIP export use — two sub-folders under the
+address: **Site photos/** (one numbered folder per room) and **Inspection/**
+(the notes record, approved findings, voice notes and the ID photo).
 
 The `notes` payload is the one the AI step reads, so drafting runs **once per
 property** rather than once per photo:
@@ -38,7 +44,7 @@ property** rather than once per photo:
   "rooms": [
     {
       "order": 1,
-      "folder": "01. Kitchen",
+      "folder": "Site photos/01. Kitchen",
       "room": "Kitchen",
       "condition": "Poor",
       "note": "Black mould to the ceiling above the sink, extractor not working.",

@@ -106,6 +106,8 @@ export function StyleBlock() {
       .ss-footer { padding: 14px 16px calc(14px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--paper); }
       .ss-footer-split { display: flex; align-items: center; gap: 12px; }
       .ss-footer-split .ss-btn { flex: 1; }
+      /* an icon-only companion to a big primary action: fixed square, never grows */
+      .ss-footer-split .ss-btn-square { flex: 0 0 auto; width: 60px; min-width: 60px; padding: 0; align-self: stretch; }
       .ss-footer-stack { display: flex; flex-direction: column; gap: 8px; }
       .ss-count-note { font-size: 13px; color: var(--muted); font-weight: 600; white-space: nowrap; }
       .ss-section-label { font-size: 11px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); margin: 0 2px 8px; }
@@ -476,6 +478,7 @@ export function StyleBlock() {
       .ss-lastup { display: flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 700; border-radius: 10px; padding: 9px 12px; margin-top: 14px; }
       .ss-lastup.ok { background: var(--pine-tint); color: var(--pine); }
       .ss-lastup.bad { background: var(--red-tint); color: var(--red); }
+      .ss-lastup.warn { background: var(--amber-tint); color: var(--amber); }
 
       .ss-job-up { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 800; border-radius: 999px; padding: 2px 8px; margin-top: 4px; }
       .ss-job-up.ok { background: var(--pine-tint); color: var(--pine); }
@@ -1196,8 +1199,11 @@ export function StyleBlock() {
       .ss-cap-bar { display: flex; gap: 10px; align-items: stretch; }
       .ss-cap-photo { flex: 1.25; min-height: 84px; border-radius: 18px; background: var(--hivis); color: var(--hivis-deep); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-weight: 900; font-size: 15px; box-shadow: 0 6px 18px -8px rgba(217,244,79,.6); }
       .ss-cap-photo:active { transform: scale(.98); }
-      .ss-cap-secondary { flex: 1.6; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
-      .ss-cap-act { min-height: 84px; border-radius: 14px; background: rgba(255,255,255,.08); color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; font-weight: 800; font-size: 12px; border: 1px solid rgba(255,255,255,.06); position: relative; }
+      /* four tiles in a 2×2 grid, the same 84px tall as the shutter button —
+         the fixed "Recording" pill sits just above the bar, so the bar must
+         never grow under it */
+      .ss-cap-secondary { flex: 1.6; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; gap: 8px; min-height: 84px; }
+      .ss-cap-act { min-height: 38px; border-radius: 12px; background: rgba(255,255,255,.08); color: #fff; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 6px; font-weight: 800; font-size: 12px; border: 1px solid rgba(255,255,255,.06); position: relative; padding: 0 6px; }
       .ss-cap-act.on { background: rgba(217,244,79,.2); color: var(--hivis); border-color: rgba(217,244,79,.5); }
       .ss-cap-act.rec { background: #FF8A73; color: #4A130A; border-color: #FF8A73; }
       .ss-cap-act.rec .ss-vm-pulse { background: #4A130A; width: 14px; height: 14px; }

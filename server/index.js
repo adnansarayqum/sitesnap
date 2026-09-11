@@ -308,6 +308,30 @@ app.get("/api/cloud/config", (req, res) => res.json({ onedrive: enabled("onedriv
 
 app.get("/api/me", wrap(async (req, res) => res.json(await me(req))));
 
+// The surveyor's ID photo, emailed to the signed-in surveyor — only ever to
+// the address on their own account, never one the request names, so this can
+// not be turned into a relay. The photo itself is not stored server-side.
+if (hasDb) app.post("/api/me/id-photo/email", requireOrg, express.json({ limit: "8mb" }), wrap(async (req, res) => {
+  if (!rateLimit(`idphoto:${req.session.user_id}`, 10, 60 * 60 * 1000)) return res.status(429).json({ error: "slow_down" });
+  const b = req.body || {};
+  const m = /^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/.exec(String(b.dataUrl || ""));
+  if (!m || m[1].length > 6 * 1024 * 1024) return res.status(400).json({ error: "bad_image" });
+  const user = await one("select email, name from users where id = $1", [req.session.user_id]);
+  if (!user) return res.status(401).json({ error: "sign_in" });
+  const address = String(b.address || "").slice(0, 200);
+  const filename = String(b.filename || "").replace(/[^\w .()&'-]/g, " ").replace(/\s+/g, " ").trim().slice(0, 120) || "ID photo.jpg";
+  const when = new Date().toLocaleString("en-GB", { timeZone: "Europe/London", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  try {
+    await sendEmail({
+      to: user.email, subject: `ID photo — ${address || "inspection"}`,
+      text: `Your ID photo from the inspection at ${address || "the property"}, sent ${when}. It is attached to this email and is not kept on the SiteSnap server.`,
+      attachments: [{ filename, content: m[1] }],
+    });
+  } catch (e) { console.error("id photo email failed:", e.message); return res.status(502).json({ error: "email_failed" }); }
+  await audit(req, "idphoto.emailed", address, { to: user.email });
+  res.json({ ok: true, to: user.email, delivered: emailConfigured });
+}));
+
 // ---- sign-in --------------------------------------------------------------
 if (hasDb) {
   app.post("/api/auth/code", wrap(async (req, res) => {

@@ -16,7 +16,7 @@ import { SetupScreen } from "./screens/Setup.jsx";
 import { WalkScreen } from "./screens/Walk.jsx";
 import { StyleBlock } from "./styles.jsx";
 import { beginLink, claimFromUrl, setAccountLinks } from "./cloud/service.js";
-import { fetchMe, signOut as apiSignOut, captureInviteFromUrl, clearPendingInvite, inviteInfo, acceptInvite, cloudServiceConfig } from "./auth.js";
+import { fetchMe, signOut as apiSignOut, captureInviteFromUrl, clearPendingInvite, inviteInfo, acceptInvite, cloudServiceConfig, emailIdPhoto as apiEmailIdPhoto } from "./auth.js";
 import { SignInScreen } from "./screens/SignIn.jsx";
 import { OrgScreen } from "./screens/Org.jsx";
 import { RemoteCaseScreen } from "./screens/RemoteCase.jsx";
@@ -78,6 +78,7 @@ export default function SiteSnap() {
   // background filing: which linked drive photos go to as they're taken,
   // and whether Home should still be asking where photos go
   const [filing, setFiling] = useState(filingState());
+  const [idPhotoNote, setIdPhotoNote] = useState(null); // "Emailed to …" and the like, under the ID photo
   const [needsCloud, setNeedsCloud] = useState(false);
   const [onedrivePrompt, setOnedrivePrompt] = useState(false);
   const [onedrivePromptBusy, setOnedrivePromptBusy] = useState(false);
@@ -628,6 +629,20 @@ export default function SiteSnap() {
     if (!p || !p.dataUrl) return;
     await shareFiles([dataUrlToFile(p.dataUrl, idPhotoName(inspection))], "ID photo");
   }
+  // one tap, straight to the surveyor's own inbox — the server picks the
+  // recipient from the signed-in account, so accounts mode only
+  async function emailIdPhoto() {
+    const id = inspection && inspection.idPhotoId;
+    if (!id) return;
+    setIdPhotoNote("Emailing…");
+    try {
+      const p = await fullPhoto(id);
+      if (!p || !p.dataUrl) throw new Error("The photo couldn't be read from this phone.");
+      const r = await apiEmailIdPhoto(p.dataUrl, idPhotoName(inspection), inspection.address || "");
+      setIdPhotoNote(r.delivered ? `Emailed to ${r.to}` : "Email isn't set up on this server — use Share instead.");
+      if (r.delivered) logActivity("ID photo emailed");
+    } catch (e) { setIdPhotoNote(e.message || "Couldn't email the photo — try Share."); }
+  }
 
   // A caption is typed one character at a time, and each photo record carries
   // its full-size image — so the write is debounced per photo rather than
@@ -889,6 +904,8 @@ export default function SiteSnap() {
             onIdPhoto={addIdPhoto}
             onRemoveIdPhoto={removeIdPhoto}
             onShareIdPhoto={shareIdPhoto}
+            onEmailIdPhoto={accounts && me.user ? emailIdPhoto : null}
+            idPhotoNote={idPhotoNote}
             filing={filing}
             onFiled={(ids, provider) => ids.forEach((id) => markFiled(id, { provider, at: Date.now() }))}
             onSaveAll={async () => shareFiles(await filesForAll(), "Inspection photos")}

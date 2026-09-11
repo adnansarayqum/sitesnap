@@ -127,7 +127,8 @@ several surveyors sharing one deployment.
    card → **Connect OneDrive** → sign in with the same Microsoft account.
 
 That's it — uploads now go to
-`Apps/SiteSnap/Inspections/<address>/<room>/<file>` in that account's own
+`Apps/SiteSnap/Inspections/<address>/Site photos/<room>/<file>` (with the
+notes record, findings, voice notes and ID photo under `Inspection/`) in that account's own
 OneDrive (Microsoft creates the `Apps/SiteSnap` folder itself, the first
 time the app writes anything) — same layout under it that Make produces.
 

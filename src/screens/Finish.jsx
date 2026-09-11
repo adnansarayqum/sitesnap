@@ -11,6 +11,7 @@ import { linkedAccount } from "../cloud/service.js";
 import { extFor } from "../components/VoiceMemo.jsx";
 import { canShareFiles, dataUrlToFile } from "../lib/image.js";
 import { pad, safeFileName } from "../lib/util.js";
+import { INSPECTION, SITE_PHOTOS, inspectionSegments, photoFolder, photoSegments, roomFolder } from "../lib/layout.js";
 import { ReportView } from "./Report.jsx";
 import { approvedByRoom, findingsFiles, fromLegacyDraft } from "../findings.js";
 import { Coach } from "../components/Hints.jsx";
@@ -109,9 +110,12 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
   function safeName(s) {
     return s.replace(/[\\/:*?"<>|]/g, "-").trim();
   }
+  // voice notes file together under Inspection/, so each carries its room's
+  // number and name, and a room with several recordings keeps all of them
+  const voiceNoteName = (idx, room, k, m) => `${pad(idx + 1)} ${safeName(room.name)} voice note${k ? ` ${k + 1}` : ""}.${extFor(m.type)}`;
 
   // The structured record of the inspection — what the ZIP, the drive upload
-  // and a CRM receiver all get as _Inspection/inspection.json, so the notes,
+  // and a CRM receiver all get as Inspection/inspection.json, so the notes,
   // ratings and captions travel with the photos rather than living only in
   // the filenames.
   function inspectionNotes() {
@@ -120,7 +124,7 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
       reference: inspection.ref || "", client: inspection.client || "", occupier: inspection.occupier || "",
       solicitor: inspection.solicitor || "", inspectedAt: new Date(inspection.startedAt).toISOString(), totalPhotos,
       rooms: rooms.map((r, i) => ({
-        order: i + 1, folder: `${pad(i + 1)}. ${r.name}`, room: r.name, condition: r.condition || "",
+        order: i + 1, folder: photoFolder(i, r.name), room: r.name, condition: r.condition || "",
         note: (r.note || "").trim(), hypothesis: (r.hypothesis || "").trim(), photos: r.photoIds.length, voiceNotes: (r.memos || []).length,
         photoNumbers: r.photoIds.map((id) => photoCache[id] && photoCache[id].no).filter(Boolean),
         captions: r.photoIds.map((id) => photoCache[id]).filter(Boolean).map((p) => ({ no: p.no || null, caption: p.caption || "" })),
@@ -143,17 +147,20 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
       const zip = new JSZip();
       const rootName = safeName(`${inspection.address}${inspection.postcode ? " " + inspection.postcode : ""}`) || "Inspection";
       const root = zip.folder(rootName);
+      // two sub-folders and nothing else at the top: the photographs by room,
+      // and everything about the inspection itself (src/lib/layout.js)
+      const site = root.folder(SITE_PHOTOS);
       for (const [i, room] of rooms.entries()) {
         if (!room.photoIds.length) continue;
-        const folder = root.folder(`${pad(i + 1)}. ${safeName(room.name)}`);
+        const folder = site.folder(roomFolder(i, safeName(room.name)));
         (await filesForRoom(room)).forEach((f) => folder.file(f.name, f));
       }
-      // the notes record, any approved findings, and the ID photo — all in
-      // _Inspection/ beside the rooms, never inside one: the same layout the
-      // drive upload produces, so a ZIP dropped into OneDrive is indistinguishable
-      const meta = root.folder("_Inspection");
+      const meta = root.folder(INSPECTION);
       meta.file("inspection.json", notesJsonFile());
       findingsFiles(inspection.findings, rooms).forEach((f) => meta.file(f.name, f));
+      for (const [i, room] of rooms.entries()) {
+        (room.memos || []).forEach((m, k) => { const blob = audioCache.current[m.id]; if (blob) meta.file(voiceNoteName(i, room, k, m), blob); });
+      }
       if (inspection.idPhotoId) {
         const p = await fullPhoto(inspection.idPhotoId);
         if (p && p.dataUrl) meta.file(idPhotoName(inspection), dataUrlToFile(p.dataUrl, idPhotoName(inspection)));
@@ -238,20 +245,24 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
     return fd;
   }
 
-  async function uploadViaWebhook() {
+  async function uploadViaWebhook(opts) {
     try {
-      await runUpload();
+      return await runUpload(opts);
     } catch (e) {
       // never let an unexpected fault take the screen down mid-inspection
       console.error(e);
       setUpload((s) => s && ({ ...s, running: false }));
       setUploadError("Something went wrong during the upload. Nothing has been deleted — your photos are still on this phone.");
+      return { at: Date.now(), ok: false, confirmed: false, reason: "Something went wrong during the upload." };
     }
   }
 
-  async function runUpload() {
+  // `report` false when a drive upload has already recorded the result and
+  // this is the CRM leg riding behind it; `afterDirect` names that drive so
+  // a CRM failure is worded as what it is — the files are already filed
+  async function runUpload({ report = true, afterDirect = null } = {}) {
     const url = hookUrl.trim();
-    if (!url) { flash("Set a cloud upload link in Settings first"); return; }
+    if (!url) { flash("Set a cloud upload link in Settings first"); return null; }
     if (upload && upload.running) return;
     saveWebhook(url);
     const key = hookKey.trim();
@@ -272,7 +283,7 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
       for (const f of files) {
         const fd = baseFields(new FormData());
         fd.append("kind", "photo");
-        fd.append("folder", `${pad(idx + 1)}. ${room.name}`);
+        fd.append("folder", photoFolder(idx, room.name));
         // the bare name matches the SOURCE column in the report workbook
         fd.append("room", room.name);
         fd.append("filename", f.name);
@@ -301,7 +312,7 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
         const name = `${safeName(room.name).replace(/\s+/g, "_")}_note_${extFor(m.type)}`;
         const fd = baseFields(new FormData());
         fd.append("kind", "audio");
-        fd.append("folder", `${pad(idx + 1)}. ${room.name}`);
+        fd.append("folder", INSPECTION);
         fd.append("room", room.name);
         fd.append("filename", `${name}.${extFor(m.type)}`);
         fd.append("seconds", String(m.secs || 0));
@@ -332,7 +343,7 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
       totalPhotos,
       rooms: rooms.map((r, i) => ({
         order: i + 1,
-        folder: `${pad(i + 1)}. ${r.name}`,
+        folder: photoFolder(i, r.name),
         room: r.name,
         condition: r.condition || "",
         note: [r.note && r.note.trim(), transcriptsByRoom[r.id]].filter(Boolean).join(" "),
@@ -350,7 +361,7 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
       if (p && p.dataUrl) {
         const ifd = baseFields(new FormData());
         ifd.append("kind", "photo");
-        ifd.append("folder", "_Inspection");
+        ifd.append("folder", INSPECTION);
         ifd.append("room", "ID");
         ifd.append("filename", idPhotoName(inspection));
         ifd.append("file", dataUrlToFile(p.dataUrl, idPhotoName(inspection)), idPhotoName(inspection));
@@ -362,7 +373,7 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
     nfd.append("kind", "notes");
     // a folder so this still files sensibly against a workflow that has no
     // routing yet and builds its path from address/folder/filename
-    nfd.append("folder", "_Inspection");
+    nfd.append("folder", INSPECTION);
     nfd.append("filename", "inspection.json");
     nfd.append("notes", JSON.stringify(payload));
     nfd.append("file", new File([JSON.stringify(payload, null, 2)], "inspection.json", { type: "application/json" }), "inspection.json");
@@ -384,15 +395,17 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
 
     setUpload((s) => s && ({ ...s, running: false, doneAll: !anyFailed }));
     setUpload((s) => s && ({ ...s, confirmed: !anyFailed && allConfirmed }));
-    if (onUploadResult) onUploadResult({ at: Date.now(), ok: !anyFailed, confirmed: !anyFailed && allConfirmed, total });
-    if (anyFailed) setUploadError(failReason || "The upload didn't go through.");
-    else flash(allConfirmed ? "Everything filed in the cloud" : "Everything sent — your workflow will file it");
+    const result = { at: Date.now(), ok: !anyFailed, confirmed: !anyFailed && allConfirmed, total, reason: anyFailed ? (failReason || "The upload didn't go through.") : null };
+    if (report && onUploadResult) onUploadResult(result);
+    if (anyFailed) setUploadError(afterDirect ? `Your photos and notes are filed in ${afterDirect}. The send to your CRM link didn't finish: ${result.reason}` : result.reason);
+    else flash(afterDirect ? `Filed in ${afterDirect} and sent to your CRM` : allConfirmed ? "Everything filed in the cloud" : "Everything sent — your workflow will file it");
+    return result;
   }
 
-  // Writes straight into the surveyor's own OneDrive or Drive with the same
-  // /Inspections/<address>/<folder>/<file> layout Make produces, so a job
-  // filed this way sits next to ones filed through a webhook without anyone
-  // having to know which route each one took.
+  // Writes straight into the surveyor's own OneDrive or Drive with the
+  // Site photos/ + Inspection/ layout (src/lib/layout.js) — the same one the
+  // webhook fields describe, so a job filed this way sits next to ones filed
+  // through a workflow without anyone having to know which route it took.
   // photos already filed in the background (filing.js) aren't sent twice
   const isFiled = (id, provider) => { const p = photoCache[id]; return !!(p && p.filed && p.filed.provider === provider); };
   const filedCount = (provider) => rooms.reduce((n, r) => n + r.photoIds.filter((id) => isFiled(id, provider)).length, 0);
@@ -423,11 +436,10 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
       for (const room of populated) {
         const idx = rooms.indexOf(room);
         setDirectUpload((s) => s && ({ ...s, statuses: { ...s.statuses, [room.id]: "uploading" } }));
-        const folder = `${pad(idx + 1)}. ${room.name}`;
         const ids = toSend(room);
         const files = ids.length ? await filesForUpload({ ...room, photoIds: ids }) : [];
         for (const f of files) {
-          await put(["Inspections", inspection.address, folder], f.name, f);
+          await put(photoSegments(inspection.address, idx, room.name), f.name, f);
           setDirectUpload((s) => s && ({ ...s, sent: s.sent + 1 }));
         }
         if (ids.length && onFiled) onFiled(ids, provider);
@@ -435,26 +447,24 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
       }
       for (const room of rooms) {
         const idx = rooms.indexOf(room);
-        const folder = `${pad(idx + 1)}. ${room.name}`;
-        for (const m of room.memos || []) {
+        for (const [k, m] of (room.memos || []).entries()) {
           const blob = audioCache.current[m.id];
           if (!blob) continue;
-          const name = `${safeName(room.name).replace(/\s+/g, "_")}_note.${extFor(m.type)}`;
-          await put(["Inspections", inspection.address, folder], name, blob);
+          await put(inspectionSegments(inspection.address), voiceNoteName(idx, room, k, m), blob);
           setDirectUpload((s) => s && ({ ...s, sent: s.sent + 1 }));
         }
       }
       const notesFile = notesJsonFile();
-      await put(["Inspections", inspection.address, "_Inspection"], "inspection.json", notesFile);
+      await put(inspectionSegments(inspection.address),"inspection.json", notesFile);
       setDirectUpload((s) => s && ({ ...s, sent: s.sent + 1 }));
       for (const f of extraFiles) {
-        await put(["Inspections", inspection.address, "_Inspection"], f.name, f);
+        await put(inspectionSegments(inspection.address),f.name, f);
         setDirectUpload((s) => s && ({ ...s, sent: s.sent + 1 }));
       }
       if (inspection.idPhotoId) {
         const p = await fullPhoto(inspection.idPhotoId);
         if (p && p.dataUrl) {
-          await put(["Inspections", inspection.address, "_Inspection"], idPhotoName(inspection), dataUrlToFile(p.dataUrl, idPhotoName(inspection)));
+          await put(inspectionSegments(inspection.address),idPhotoName(inspection), dataUrlToFile(p.dataUrl, idPhotoName(inspection)));
           setDirectUpload((s) => s && ({ ...s, sent: s.sent + 1 }));
         }
       }
@@ -468,7 +478,7 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
       setDirectError(failReason);
     }
     if (failed) setUploadError(`Direct upload to ${provider === "ms" ? "OneDrive" : "Google Drive"} stopped partway: ${failReason} Nothing has been lost — your photos are still on this phone.`);
-    return !failed;
+    return { ok: !failed, total, reason: failReason };
   }
 
   // One cloud action. Files to the connected drive and — when an admin has
@@ -523,8 +533,14 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
   async function sendToCloud() {
     if (cloudBusy) return;
     if (provider) {
-      const ok = await uploadDirect(provider);
-      if (ok && hasHook) await uploadViaWebhook();
+      const direct = await uploadDirect(provider);
+      // The CRM leg is a second destination. Its result rides alongside the
+      // drive's, never in place of it: a failed CRM send must not read as
+      // "the upload didn't finish" when every file is already in OneDrive.
+      if (direct.ok && hasHook) {
+        const crm = await uploadViaWebhook({ report: false, afterDirect: providerName });
+        if (onUploadResult) onUploadResult({ at: Date.now(), ok: true, confirmed: true, total: direct.total, direct: provider, crm: crm ? { ok: crm.ok, confirmed: crm.confirmed, reason: crm.reason || null, at: crm.at } : null });
+      }
     } else if (hasHook) {
       await uploadViaWebhook();
     }
@@ -571,16 +587,20 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
           })}
         </div>
 
-        {inspection.lastUpload && (!upload || !upload.running) && (
-          <div className={`ss-lastup ${inspection.lastUpload.ok ? "ok" : "bad"}`}>
-            {inspection.lastUpload.ok ? <CircleCheck size={14} /> : <X size={14} />}
-            {inspection.lastUpload.ok
-              ? (inspection.lastUpload.confirmed ? "Filed in the cloud" : "Sent to the cloud")
-              : "Last upload didn't finish"}
-            {" · "}
-            {new Date(inspection.lastUpload.at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
-          </div>
-        )}
+        {inspection.lastUpload && (!upload || !upload.running) && (() => {
+          const lu = inspection.lastUpload;
+          const crmBad = !!(lu.ok && lu.crm && !lu.crm.ok);
+          return (
+            <div className={`ss-lastup ${lu.ok ? (crmBad ? "warn" : "ok") : "bad"}`} title={crmBad ? lu.crm.reason || "" : undefined}>
+              {lu.ok ? (crmBad ? <AlertTriangle size={14} /> : <CircleCheck size={14} />) : <X size={14} />}
+              {lu.ok
+                ? `${lu.confirmed ? "Filed in the cloud" : "Sent to the cloud"}${crmBad ? " · CRM send didn't finish" : lu.crm ? " · sent to CRM" : ""}`
+                : "Last upload didn't finish"}
+              {" · "}
+              {new Date(lu.at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+            </div>
+          );
+        })()}
 
         <div className="ss-section-label" style={{ marginTop: 18 }}>Export</div>
         {cloudTarget && (

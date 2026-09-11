@@ -20,6 +20,7 @@ const MESSAGES = {
   owner_only: "Only an owner can change that.",
   admin_only: "Only an admin can do that.",
   sign_in: "You've been signed out — sign in again.",
+  bad_image: "The photo couldn't be read — retake it and try again.",
 };
 
 async function call(method, url, body) {
@@ -56,6 +57,8 @@ export const listAudit = () => call("GET", "/api/org/audit");
 export const sendInvite = (email, role) => call("POST", "/api/org/invites", { email, role });
 export const cancelInvite = (id) => call("DELETE", `/api/org/invites/${id}`);
 export const acceptInvite = (token) => call("POST", "/api/invites/accept", { token });
+// the signed-in surveyor's own ID photo, to their own address — the server decides the recipient
+export const emailIdPhoto = (dataUrl, filename, address) => call("POST", "/api/me/id-photo/email", { dataUrl, filename, address });
 
 export async function inviteInfo(token) {
   try { const r = await fetch(`/api/invites/${encodeURIComponent(token)}`); return r.ok ? await r.json() : null; } catch { return null; }

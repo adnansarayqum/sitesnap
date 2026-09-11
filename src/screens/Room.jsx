@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  Camera, Check, ChevronLeft, ChevronRight, Circle, Gauge, ImagePlus, Loader2, MoveUpRight, Plus, ScanText, Sparkles, Tag, Trash2, Undo2, X,
+  Camera, Check, ChevronLeft, ChevronRight, Circle, Gauge, ImagePlus, Images, Loader2, MoveUpRight, Plus, ScanText, Sparkles, Tag, Trash2, Undo2, X,
 } from "lucide-react";
 import { VoiceMemo } from "../components/VoiceMemo.jsx";
 import { TopBar } from "../components/shared.jsx";
@@ -22,6 +22,8 @@ import { OrganiseSheet } from "../components/Organise.jsx";
 export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, onMeta, onRoom, transcripts, onTranscripts, audioCache, me, onActivity, onTrack, onCaption, onFull, onAnnotate, onAddMemo, onDeleteMemo, onSaveToPhotos, onError }) {
   const track = onTrack || (() => {});
   const inputRef = useRef(null);
+  // no `capture` attribute: phones open the photo library instead of the camera
+  const libraryRef = useRef(null);
   const issues = openIssues(room);
   const active = issues.find((i) => i.id === room.activeIssueId) || null;
   // the grid shows the active issue's photos (or the room's loose ones when
@@ -418,6 +420,7 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
 
       <input ref={inputRef} type="file" accept="image/*" capture="environment" multiple
         className="ss-hidden" onChange={handleFile} />
+      <input ref={libraryRef} type="file" accept="image/*" multiple className="ss-hidden" onChange={handleFile} />
 
       {cameraOpen && (
         <LiveCamera
@@ -440,7 +443,7 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
           <>
             <div className="ss-empty">
               <Camera size={22} />
-              <p>No photos in {room.name} yet.<br />{active ? <>Shooting into <b>{active.title}</b>.</> : <>Raise an issue below, or just open the camera.</>}</p>
+              <p>No photos in {room.name} yet.<br />{active ? <>Shooting into <b>{active.title}</b>.</> : <>Raise an issue below, open the camera, or add photos you've already taken.</>}</p>
             </div>
             {issueStrip}
             {metaCard}
@@ -486,10 +489,16 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
         <div style={{ height: 12 }} />
       </div>
 
-      <div className="ss-footer">
-        <button className="ss-btn ss-btn-live ss-btn-big"
+      <div className="ss-footer ss-footer-split">
+        <button className="ss-btn ss-btn-primary ss-btn-big"
           onClick={() => setCameraOpen(true)}>
           <Camera size={20} strokeWidth={2.4} /> {photos.length ? "Take more photos" : "Take photos"}{active ? <small className="ss-btn-sub"> → {active.title}</small> : null}
+        </button>
+        {/* photos already on the phone (taken with the camera app, or sent
+            over) file into the same room and active issue as a new shot */}
+        <button className="ss-btn ss-btn-ghost ss-btn-square" onClick={() => libraryRef.current && libraryRef.current.click()}
+          aria-label={`Add photos from your library${active ? ` into ${active.title}` : ""}`} title="Add photos already on this phone">
+          <Images size={20} />
         </button>
       </div>
 

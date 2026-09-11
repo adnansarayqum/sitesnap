@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  Aperture, ArrowLeft, ArrowRight, Camera, Check, ChevronDown, ChevronRight, CloudOff, Expand, Gauge, Loader2, Moon, Plus, RefreshCw, StickyNote, Sun, SwitchCamera, Trash2, X,
+  Aperture, ArrowLeft, ArrowRight, Camera, Check, ChevronDown, ChevronRight, CloudOff, Expand, Gauge, Images, Loader2, Moon, Plus, RefreshCw, StickyNote, Sun, SwitchCamera, Trash2, X,
 } from "lucide-react";
 import { VoiceMemo } from "../components/VoiceMemo.jsx";
 import { PHOTO_DIM, THUMB_DIM, drawScaled, processCapture } from "../lib/image.js";
@@ -407,6 +407,8 @@ export const BAD_IMAGE_MSG = "That image couldn't be read, so it wasn't added â€
 
 export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCapture, onDeleteLast, onMeta, onRoom, onAddMemo, onDeleteMemo, onActivity, onOpenRoom, onFinish, onExit, onError, filing, sync, saveStatus, fieldMode, onToggleFieldMode }) {
   const inputRef = useRef(null);
+  // no `capture` attribute: the phone offers its photo library, not the camera
+  const libraryRef = useRef(null);
   const [panel, setPanel] = useState(null); // note | reading | null
   const [cameraOpen, setCameraOpen] = useState(false);
   const [roomsOpen, setRoomsOpen] = useState(false);
@@ -496,6 +498,7 @@ export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCa
   return (
     <div className="ss-col ss-live ss-cap">
       <input ref={inputRef} type="file" accept="image/*" capture="environment" multiple className="ss-hidden" onChange={handleFile} />
+      <input ref={libraryRef} type="file" accept="image/*" multiple className="ss-hidden" onChange={handleFile} />
 
       {cameraOpen && (
         <LiveCamera
@@ -610,6 +613,7 @@ export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCa
             <VoiceMemo memos={[]} onAdd={onAddMemo} onDelete={onDeleteMemo} dark compact label={active ? active.title : room.name} />
             <button className={`ss-cap-act ${panel === "note" ? "on" : ""}`} onClick={() => setPanel(panel === "note" ? null : "note")}><StickyNote size={18} /><span>Note</span></button>
             <button className={`ss-cap-act ${panel === "reading" ? "on" : ""}`} onClick={() => setPanel(panel === "reading" ? null : "reading")}><Gauge size={18} /><span>Reading</span></button>
+            <button className="ss-cap-act" onClick={() => libraryRef.current && libraryRef.current.click()} aria-label={`Add photos from your library${active ? ` into ${active.title}` : ""}`} title="Add photos already on this phone"><Images size={18} /><span>Library</span></button>
           </div>
         </div>
         <div className="ss-live-nav">

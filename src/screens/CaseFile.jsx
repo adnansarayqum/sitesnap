@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useRef } from "react";
 import {
-  Camera, Check, Image as ImageIcon, Pencil, Plus, StickyNote, CloudUpload, CloudOff, Loader2, AlertTriangle, Share2, Trash2, User,
+  Camera, Check, Image as ImageIcon, Mail, Pencil, Plus, StickyNote, CloudUpload, CloudOff, Loader2, AlertTriangle, Share2, Trash2, User,
 } from "lucide-react";
 import { ReorderableList, TopBar } from "../components/shared.jsx";
 import { Coach } from "../components/Hints.jsx";
@@ -30,7 +30,7 @@ export function CaseFileScreen({
   caseTab, onCaseTab, onExit, onReorder, onAddRoom, onRename, onOpenRoom, onWalk,
   filesForRoom, filesForUpload, fullPhoto, audioCache,
   onUploadResult, onExportResult, onFindings, onTranscripts, onRoom, me, syncNow, onTrack, onActivity, onSaveAll, onDone,
-  idPhoto, onIdPhoto, onRemoveIdPhoto, onShareIdPhoto,
+  idPhoto, onIdPhoto, onRemoveIdPhoto, onShareIdPhoto, onEmailIdPhoto, idPhotoNote,
 }) {
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState({ address: "", postcode: "" });
@@ -91,7 +91,7 @@ export function CaseFileScreen({
       {caseTab === "overview" && (
         <div className="ss-screen-in" style={TAB_STYLE}>
           <OverviewTab inspection={inspection} sync={sync} rooms={rooms} totalPhotos={totalPhotos} doneRooms={doneRooms} onWalk={onWalk}
-            idPhoto={idPhoto} onIdPhoto={onIdPhoto} onRemoveIdPhoto={onRemoveIdPhoto} onShareIdPhoto={onShareIdPhoto} onCaseTab={onCaseTab} />
+            idPhoto={idPhoto} onIdPhoto={onIdPhoto} onRemoveIdPhoto={onRemoveIdPhoto} onShareIdPhoto={onShareIdPhoto} onEmailIdPhoto={onEmailIdPhoto} idPhotoNote={idPhotoNote} onCaseTab={onCaseTab} />
         </div>
       )}
       {caseTab === "rooms" && (
@@ -161,7 +161,7 @@ export function InspectionSummary({ inspection, rooms, totalPhotos, onReview }) 
   );
 }
 
-export function OverviewTab({ inspection, sync, rooms, totalPhotos, doneRooms, onWalk, idPhoto, onIdPhoto, onRemoveIdPhoto, onShareIdPhoto, onCaseTab }) {
+export function OverviewTab({ inspection, sync, rooms, totalPhotos, doneRooms, onWalk, idPhoto, onIdPhoto, onRemoveIdPhoto, onShareIdPhoto, onEmailIdPhoto, idPhotoNote, onCaseTab }) {
   const idInput = useRef(null);
   const firstEmpty = Math.max(0, rooms.findIndex((r) => r.photoIds.length === 0));
   const rank = { Poor: 3, Fair: 2, Good: 1 };
@@ -218,16 +218,18 @@ export function OverviewTab({ inspection, sync, rooms, totalPhotos, doneRooms, o
 
         {/* The surveyor's ID selfie for the file: its own slot, so it never
             lands in a room folder and never needs pulling out of the batch
-            by hand. Files to _Inspection/ on upload and export. */}
+            by hand. Files to Inspection/ on upload and export; one tap emails
+            it to the signed-in surveyor (accounts mode), Share covers the rest. */}
         <input ref={idInput} type="file" accept="image/*" capture="user" className="ss-hidden"
           onChange={(e) => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) onIdPhoto(f); }} />
         <div className="ss-idphoto">
           {idPhoto && (idPhoto.thumb || idPhoto.dataUrl) ? <img src={idPhoto.thumb || idPhoto.dataUrl} alt="" /> : <div className="ph"><User size={22} /></div>}
           <div className="ss-idphoto-main">
             <b>ID photo</b>
-            <span>{idPhoto ? "Filed separately from room photos." : "Kept out of the room folders."}</span>
+            <span>{idPhotoNote || (idPhoto ? (onEmailIdPhoto ? "Filed separately. Tap the envelope to email it to yourself." : "Filed separately from room photos.") : "Kept out of the room folders.")}</span>
           </div>
           <div className="ss-idphoto-actions">
+            {idPhoto && onEmailIdPhoto && <button onClick={onEmailIdPhoto} aria-label="Email the ID photo to me" title="Email it to me"><Mail size={16} /></button>}
             {idPhoto && onShareIdPhoto && <button onClick={onShareIdPhoto} aria-label="Share ID photo" title="Share or email the ID photo"><Share2 size={16} /></button>}
             {idPhoto && <button onClick={onRemoveIdPhoto} aria-label="Remove ID photo" title="Remove"><Trash2 size={16} /></button>}
             <button onClick={() => idInput.current && idInput.current.click()} aria-label={idPhoto ? "Retake ID photo" : "Take ID photo"} title={idPhoto ? "Retake" : "Take"}><Camera size={16} /></button>

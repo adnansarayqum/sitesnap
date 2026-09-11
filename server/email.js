@@ -6,15 +6,16 @@ const EMAIL_FROM = process.env.EMAIL_FROM || "SiteSnap <onboarding@resend.dev>";
 
 export const emailConfigured = !!RESEND_API_KEY;
 
-export async function sendEmail({ to, subject, text, html }) {
+// `attachments`: [{ filename, content }] with content base64-encoded
+export async function sendEmail({ to, subject, text, html, attachments }) {
   if (!RESEND_API_KEY) {
-    console.log(`[email → ${to}] ${subject}\n${text}`);
+    console.log(`[email → ${to}] ${subject}\n${text}${attachments && attachments.length ? `\n(${attachments.length} attachment${attachments.length === 1 ? "" : "s"}: ${attachments.map((a) => a.filename).join(", ")})` : ""}`);
     return { logged: true };
   }
   const r = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: EMAIL_FROM, to: [to], subject, text, html }),
+    body: JSON.stringify({ from: EMAIL_FROM, to: [to], subject, text, html, ...(attachments && attachments.length ? { attachments } : {}) }),
   });
   if (!r.ok) {
     const detail = await r.text().catch(() => "");

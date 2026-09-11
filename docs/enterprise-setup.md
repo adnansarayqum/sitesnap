@@ -72,7 +72,7 @@ on the phone and catches up on signal.
 
 Once a person's drive is linked (through *Continue with Microsoft/Google*
 or Settings), each photo is uploaded a few seconds after it's taken, into
-the same `/Inspections/<address>/<folder>/` layout as the Export tab —
+the same `/Inspections/<address>/Site photos/<room>/` layout as the Export tab —
 one at a time, only with signal, retried with backoff, never blocking the
 camera. The Export tab then shows how many are already filed and sends
 only the rest plus the notes file. Photos shot offline, or before the

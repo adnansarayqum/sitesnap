@@ -1,6 +1,6 @@
 // Background filing: once a drive is linked, each photo goes up a few
-// seconds after it's taken, in the same /Inspections/<address>/<folder>
-// layout the Export tab uses — so by the time the surveyor reaches Export
+// seconds after it's taken, in the same /Inspections/<address>/Site photos/<room>
+// layout the Export tab uses (src/lib/layout.js) — so by the time the surveyor reaches Export
 // there's usually nothing left to send but the notes file.
 //
 // Never in the way: uploads run one at a time, wait for signal, retry a
@@ -8,7 +8,7 @@
 // upload can pick it up. The photo is on the phone regardless.
 import { updatePhoto, loadMsClientId, loadGoogleClientId } from "./storage.js";
 import { loadMsGraph, loadGoogleDrive } from "./cloud/lazy.js";
-import { pad } from "./lib/util.js";
+import { photoSegments } from "./lib/layout.js";
 
 let provider = null; // "ms" | "google" | null
 let getContext = () => null; // () => { inspection, rooms, photoCache, fileFor(room, id) }
@@ -79,7 +79,7 @@ async function work() {
         const file = await ctx.fileFor(room, id);
         if (!file) { drop(id); emit(); continue; }
         const idx = ctx.rooms.indexOf(room);
-        const segments = ["Inspections", ctx.inspection.address, `${pad(idx + 1)}. ${room.name}`];
+        const segments = photoSegments(ctx.inspection.address, idx, room.name);
         if (provider === "ms") {
           const { uploadToOneDrive } = await loadMsGraph();
           await uploadToOneDrive(await loadMsClientId(), [...segments, file.name], file);

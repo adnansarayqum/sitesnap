@@ -395,9 +395,9 @@ try {
   const [dl] = await Promise.all([page.waitForEvent("download", { timeout: 20000 }), page.getByRole("button", { name: /Export ZIP/ }).click()]);
   const zip = await JSZip.loadAsync(fs.readFileSync(await dl.path()));
   const names = Object.keys(zip.files).filter((n) => !zip.files[n].dir);
-  const bathroom = names.find((n) => /02\. Bathroom\/01 Bathroom - Sealant lifting\.jpg$/.test(n));
+  const bathroom = names.find((n) => /Site photos\/02\. Bathroom\/01 Bathroom - Sealant lifting\.jpg$/.test(n));
   const kitchenEmpty = !names.some((n) => /01\. Kitchen\//.test(n));
-  const idFile = names.find((n) => /_Inspection\/.*ID/i.test(n) || /ID/.test(n));
+  const idFile = names.find((n) => /\/Inspection\/.*ID/i.test(n));
   const notes = names.find((n) => /inspection\.json$/.test(n));
   const json = notes ? JSON.parse(await zip.file(notes).async("string")) : null;
   rec("S10 ZIP layout: numbered folders, named photos, ID photo outside rooms, notes JSON", bathroom && idFile && notes && json && json.reference === "Z-7" && json.rooms && json.rooms.length === 2 && aiOff ? "PASS" : "FAIL", `idShown=${idShown} entries=${JSON.stringify(names)} ref=${json && json.reference} aiOffMsg=${aiOff}`);
