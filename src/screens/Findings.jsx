@@ -15,6 +15,7 @@ import { InfoTip } from "../components/Hints.jsx";
 import { EvidenceChips, EvidenceSheet, linkSourceLabel } from "../components/Evidence.jsx";
 import { OrganiseSheet } from "../components/Organise.jsx";
 import { FeedbackButton } from "../components/Feedback.jsx";
+import { listRates, addRate, suggestRows, rateBasis } from "../pricebook.js";
 
 // The Findings tab. Coverage first — every room, every issue, what was
 // processed and what wasn't — then the findings themselves, each traceable
@@ -40,6 +41,10 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
   const [open, setOpen] = useState({});           // { [`${kind}:${id}`]: bool } expanders
   const [notice, setNotice] = useState(null);
   const abortRef = useRef(null);
+  // the surveyor's own rates: from the firm's register, or this phone
+  const accounts = !!(me && me.mode === "accounts" && me.org);
+  const [rates, setRates] = useState([]);
+  useEffect(() => { listRates(accounts).then(setRates); }, [accounts]);
   useEffect(() => { aiConfig().then(setCfg); }, []);
   useEffect(() => () => { if (abortRef.current) abortRef.current.abort(); }, []);
 
@@ -114,7 +119,7 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
         // the same request and gets the same answer, never a second finding
         const requestId = newRequestId();
         const snapshot = issueFingerprint(issue, room, photoCache, words);
-        const body = await issueRequest({ inspection, room, issue, order, photoCache, transcripts: words, fullPhoto, requestId, snapshot, prior: working.runs[issue.id], force });
+        const body = await issueRequest({ inspection, room, issue, order, photoCache, transcripts: words, fullPhoto, requestId, snapshot, prior: working.runs[issue.id], force, firmRows: accounts ? undefined : rates });
         const res = await withOfflineRetry(() => draftIssue(inspection.id, room.id, issue.id, body, controller.signal), { isAlive: () => !controller.signal.aborted, onQueued: () => set(issue.id, "waiting") });
         working = mergeRun(working, { issue, room }, res);
         onFindings(working);
@@ -155,9 +160,41 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
     if (["approved", "edited", "rejected"].includes(status)) track(`finding_${status}`, { case: inspection.id, finding: f.id, issue: f.issueId, flags: (f.review_flags || []).slice(0, 8), status: f.status });
     return true;
   }
-  function startEdit(f) { const e = effective(f); setEditing({ id: f.id, defect: e.defect, works: e.remedial.works }); }
-  function saveEdit(f) {
-    decide(f, "edited", { reviewed: { ...(f.reviewed || {}), defect: editing.defect.trim(), works: editing.works.trim(), at: Date.now() } });
+  function startEdit(f) {
+    const e = effective(f);
+    setEditing({ id: f.id, defect: e.defect, works: e.remedial.works, costLow: e.cost.unpriced ? "" : String(e.cost.low), costHigh: e.cost.unpriced || e.cost.high === e.cost.low ? "" : String(e.cost.high), remember: false, rateWork: e.title, trade: "" });
+  }
+  // A figure the surveyor types replaces the price-book arithmetic for this
+  // finding and is recorded as theirs. Ticking "remember" also saves it as a
+  // rate of the firm's own, offered on similar findings from then on.
+  async function saveEdit(f) {
+    const reviewed = { ...(f.reviewed || {}), defect: editing.defect.trim(), works: editing.works.trim(), at: Date.now() };
+    const low = editing.costLow === "" ? null : Number(editing.costLow);
+    let saved = null;
+    if (low != null && Number.isFinite(low) && low >= 0) {
+      const hiRaw = editing.costHigh === "" ? low : Number(editing.costHigh);
+      const high = Number.isFinite(hiRaw) && hiRaw >= low ? Math.round(hiRaw) : Math.round(low);
+      if (editing.remember) {
+        try {
+          saved = await addRate(accounts, { work: editing.rateWork || f.title, trade: editing.trade, low: Math.round(low), high, sourceCaseId: inspection.id, sourceFindingId: f.id, sourceTitle: f.title });
+          setRates((r) => [saved, ...r]);
+          track("rate_saved", { case: inspection.id, finding: f.id });
+        } catch (e) { flash(`The rate wasn't saved: ${e.message}`); }
+      }
+      delete reviewed.pricing; delete reviewed.quantities;
+      reviewed.costLow = Math.round(low); reviewed.costHigh = high;
+      reviewed.costBasis = saved ? rateBasis(saved) : "Entered by the surveyor";
+      reviewed.rateRow = saved ? saved.id : undefined;
+    }
+    const ok = await decide(f, "edited", { reviewed });
+    if (ok && saved) flash(`Saved to your rates: ${saved.work} — ${money(saved.low)}${saved.high !== saved.low ? `–${money(saved.high)}` : ""}`);
+  }
+  // one of the firm's own rates, applied as the surveyor's figure
+  async function applyRate(f, row) {
+    const reviewed = { ...(f.reviewed || {}), at: Date.now(), costLow: row.low, costHigh: row.high, costBasis: rateBasis(row), rateRow: row.id };
+    delete reviewed.pricing; delete reviewed.quantities;
+    const ok = await decide(f, "edited", { reviewed, reason: "surveyor applied a saved rate" });
+    if (ok) track("rate_applied", { case: inspection.id, finding: f.id, row: row.id });
   }
   async function approveUnflagged() {
     let working = state;
@@ -179,7 +216,7 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
     setQty((q) => ({ ...q, busy: true, error: null }));
     try {
       const items = (f.cost.lines || []).map((l) => ({ price_book_row_id: l.row_id, quantity: l.proposedQty, quantity_basis: l.basis, quantity_evidence: l.evidence, reason: l.reason }));
-      const res = await priceWithQuantities(items, qty.values);
+      const res = await priceWithQuantities(items, qty.values, accounts ? undefined : rates);
       const ok = await decide(f, "edited", { reviewed: { ...(f.reviewed || {}), pricing: res, quantities: qty.values, at: Date.now() }, reason: "surveyor confirmed quantities" });
       if (ok) setQty(null);
     } catch (e) { setQty((q) => ({ ...q, busy: false, error: e.message })); }
@@ -350,7 +387,21 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
             <textarea rows={4} value={editing.defect} onChange={(e) => setEditing({ ...editing, defect: e.target.value })} />
             <label>Remedial works</label>
             <textarea rows={4} value={editing.works} onChange={(e) => setEditing({ ...editing, works: e.target.value })} />
-            <p className="ss-fineprint">Saving keeps the AI's original beside your wording and marks the finding <b>edited</b>. It is not approved until you approve it.</p>
+            <label>Estimated cost, £ (leave blank to keep the price-book figure)</label>
+            <div className="row">
+              <input type="number" inputMode="numeric" min="0" placeholder="Figure, or low" value={editing.costLow} onChange={(e) => setEditing({ ...editing, costLow: e.target.value })} aria-label="Cost, or low figure" />
+              <input type="number" inputMode="numeric" min="0" placeholder="High (optional)" value={editing.costHigh} onChange={(e) => setEditing({ ...editing, costHigh: e.target.value })} aria-label="High figure" />
+            </div>
+            {editing.costLow !== "" && (
+              <label className="ss-check"><input type="checkbox" checked={editing.remember} onChange={(e) => setEditing({ ...editing, remember: e.target.checked })} /> Remember this rate for similar findings</label>
+            )}
+            {editing.costLow !== "" && editing.remember && (
+              <div className="row">
+                <input placeholder="What the rate is for" value={editing.rateWork} onChange={(e) => setEditing({ ...editing, rateWork: e.target.value })} aria-label="What the rate is for" />
+                <input placeholder="Trade, e.g. decoration" value={editing.trade} onChange={(e) => setEditing({ ...editing, trade: e.target.value })} aria-label="Trade" style={{ maxWidth: "45%" }} />
+              </div>
+            )}
+            <p className="ss-fineprint">Saving keeps the AI's original beside your wording and marks the finding <b>edited</b>. It is not approved until you approve it.{editing.costLow !== "" ? " A figure you enter is recorded as yours, not the price book's." : ""}</p>
             <div className="ss-finding-actions">
               <button className="ss-btn ss-btn-primary" onClick={() => saveEdit(raw)}><Check size={15} /> Save changes</button>
               <button className="ss-btn ss-btn-ghost" onClick={() => setEditing(null)}>Cancel</button>
@@ -382,7 +433,17 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
             <div className="ss-finding-label">Estimated cost</div>
             {f.cost.unpriced
               ? <div className="ss-cost unpriced">Unpriced — {f.cost.basis || "no price book row fits"}</div>
-              : <><div className="ss-cost">{money(f.cost.low)} – {money(f.cost.high)}</div><p className="ss-cost-basis">{f.cost.basis}{f.cost.priceBookVersion ? ` · price book ${f.cost.priceBookVersion}` : ""}{f.cost.confirmedBySurveyor ? " · quantities confirmed by you" : ""}</p></>}
+              : <><div className="ss-cost">{f.cost.low === f.cost.high ? money(f.cost.low) : `${money(f.cost.low)} – ${money(f.cost.high)}`}</div><p className="ss-cost-basis">{f.cost.basis}{f.cost.priceBookVersion ? ` · price book ${f.cost.priceBookVersion}` : ""}{f.cost.confirmedBySurveyor ? " · quantities confirmed by you" : ""}</p></>}
+            {/* the firm's own rates that read like this finding — one tap applies one as the surveyor's figure */}
+            {!["approved", "rejected", "superseded"].includes(raw.status) && (() => {
+              const sug = suggestRows({ title: f.title, issueTitle: issue && issue.title, location: f.location, works: f.remedial.works, defect: f.defect }, rates.filter((r) => !(raw.reviewed && raw.reviewed.rateRow === r.id)));
+              return sug.length ? (
+                <div className="ss-suggest" aria-label="Your rates for similar findings">
+                  <span className="ss-suggest-label">Your rates</span>
+                  {sug.map((r) => <button key={r.id} className="ss-suggest-chip" onClick={() => applyRate(raw, r)} title={`${r.trade ? `${r.trade} · ` : ""}${r.unit}${r.sourceTitle ? ` · first used on "${r.sourceTitle}"` : ""}`}>{r.work} · {money(r.low)}{r.high !== r.low ? `–${money(r.high)}` : ""}</button>)}
+                </div>
+              ) : null;
+            })()}
             {(f.cost.lines || []).length > 0 && (
               <div className="ss-lines">
                 {f.cost.lines.map((l) => (

@@ -165,6 +165,25 @@ Edit, bump the version, redeploy. `GET /api/ai/config` returns the versions
 and per-entry hashes; an approved finding whose cited row or entry changed
 goes back to `review_required`.
 
+### The firm's own rates
+
+The cost library that builds from live jobs. When a surveyor enters a cost
+on a finding they can tick **Remember this rate**; the rate (work, trade,
+figure or range, the finding it came from) becomes a price-book row of the
+firm's own (`FIRM-…`). Rows are also added and removed under **Settings →
+Your rates**. At every request the server merges them into the reference
+pack (`server/pricebook.js`): the analysis stage may pick them exactly like
+the file rows, the server still does the arithmetic, and the merged pack's
+hash is what the run records — so a changed rate puts an approved finding
+that cited it back to review. On a finding, rates whose wording matches are
+offered as one-tap chips; applying one records the figure as the surveyor's
+(`reviewed.costLow/High`, basis "Your rate FIRM-…"), not the price book's.
+
+Accounts mode stores rows in `price_rows` (shared across the firm;
+`GET /api/price-book`, `POST`/`PATCH /api/price-book/rows`). Local mode keeps
+them on the phone and sends them with each request, where they are validated
+like any other input (`shared/pricebook.js`).
+
 ## Evals — the adversarial golden suite
 
 ```

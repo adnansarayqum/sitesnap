@@ -831,6 +831,12 @@ export function StyleBlock() {
       .ss-edit-form label { font-size: 10.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--muted2); }
       .ss-edit-form textarea, .ss-edit-form input { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 10px; font: inherit; font-size: 14px; background: var(--card); color: var(--ink); }
       .ss-edit-form .row { display: flex; gap: 8px; }
+      .ss-edit-form .ss-check { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--ink); text-transform: none; letter-spacing: 0; }
+      .ss-edit-form .ss-check input { width: auto; padding: 0; }
+      /* the surveyor's own rates, offered on a similar finding */
+      .ss-suggest { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+      .ss-suggest-label { font-size: 10.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--muted2); }
+      .ss-suggest-chip { border: 1px dashed var(--pine); color: var(--pine); background: var(--pine-tint); border-radius: 999px; padding: 6px 10px; font-size: 12.5px; font-weight: 700; text-align: left; }
       .ss-hyp-input { margin-top: 6px; font-size: 14px; }
       /* ID photo slot */
       .ss-idphoto { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 9px; background: var(--card); border: 1px solid var(--line); margin-top: 14px; }

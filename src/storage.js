@@ -228,6 +228,16 @@ export async function removeAudio(id) {
   try { await del(`sitesnap:audio:${id}`); } catch {}
 }
 
+// local mode: the surveyor's own rates live on the phone (accounts mode
+// keeps them in the firm's register instead — src/pricebook.js)
+const RATES_KEY = "sitesnap:priceRows";
+export async function loadPriceRows() {
+  try { return (await get(RATES_KEY)) || []; } catch { return []; }
+}
+export async function savePriceRows(rows) {
+  try { await set(RATES_KEY, rows); } catch (e) { writeFailed("Saving your rates", e); throw e; }
+}
+
 export async function loadWebhookKey() {
   try { return (await get(KEY_KEY)) || ""; } catch { return ""; }
 }

@@ -54,7 +54,7 @@ export async function transcribeMemo(caseId, roomId, memo, blob, signal) {
 // AI copy), every linked voice note with its transcript record, readings,
 // the room's human note, and the minimum of context. Nothing about the
 // client, occupier, solicitor or address is sent.
-export async function issueRequest({ inspection, room, issue, order, photoCache, transcripts, fullPhoto, requestId, snapshot, quantityOverrides, prior, force }) {
+export async function issueRequest({ inspection, room, issue, order, photoCache, transcripts, fullPhoto, requestId, snapshot, quantityOverrides, prior, force, firmRows }) {
   const photos = [];
   for (const pid of issuePhotoIds(issue).slice(0, AI_MAX_PHOTOS)) {
     const p = await fullPhoto(pid);
@@ -82,6 +82,9 @@ export async function issueRequest({ inspection, room, issue, order, photoCache,
     // reused server-side; `force` names the ones to re-run anyway
     prior: prior && prior.stageHashes && prior.stages ? { stageHashes: prior.stageHashes, stages: prior.stages, models: prior.models, evidence: prior.evidence } : null,
     force: force || [],
+    // local mode only: the surveyor's own rates travel with the request (in
+    // accounts mode the server reads them from the firm's register)
+    firmRows: firmRows && firmRows.length ? firmRows : undefined,
   };
 }
 
@@ -107,8 +110,8 @@ export async function captionRoom({ caseId, roomId, room, photos, signal }) {
 
 // deterministic: the server multiplies the price book by the quantities the
 // surveyor confirmed; no model involved
-export async function priceWithQuantities(items, overrides) {
-  const r = await fetch("/api/ai/price", json({ items, overrides }));
+export async function priceWithQuantities(items, overrides, firmRows) {
+  const r = await fetch("/api/ai/price", json({ items, overrides, firmRows: firmRows && firmRows.length ? firmRows : undefined }));
   if (!r.ok) throw await readError(r, "Couldn't price these items.");
   return r.json();
 }

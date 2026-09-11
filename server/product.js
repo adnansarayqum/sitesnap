@@ -14,6 +14,7 @@ const EVENT_NAMES = new Set([
   "report_generated", "export_zip", "export_cloud",
   "caption_requested", "caption_kept", "caption_edited", "ai_note_used", "ai_note_dismissed",
   "feedback_sent", "app_opened",
+  "rate_saved", "rate_applied",
 ]);
 const FEEDBACK_KINDS = new Set(["slowed_me_down", "saved_time", "wrong_finding", "wrong_evidence", "wrong_price", "wrong_cause", "bad_wording", "missing_feature", "other"]);
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);

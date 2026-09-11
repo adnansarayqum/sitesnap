@@ -27,6 +27,8 @@ import {
 import { abortOnClose } from "./abortOnClose.js";
 import { canTransition, approvalBlockers, FINDING_STATUSES } from "../shared/findingRules.js";
 import { event, semaphore } from "./ai/events.js";
+import { loadFirmRows, insertFirmRow, updateFirmRow, mergeReference, cleanFirmRows } from "./pricebook.js";
+import { normaliseRow } from "../shared/pricebook.js";
 
 // one surveyor's "Draft findings" is one user action (rate-limited as such)
 // that makes several provider calls; this protects the provider and the box
@@ -52,6 +54,15 @@ const s = (v, n) => String(v == null ? "" : v).slice(0, n);
 async function ownedCase(req, id) {
   if (!hasDb) return null;
   return one("select id, org_id from cases where id = $1 and org_id = $2", [id, req.session.org_id]);
+}
+
+// the reference pack this request prices and cites from: the file pack plus
+// the firm's own rates — from the register in accounts mode, from the phone
+// (cleaned like any other input) in local mode
+async function refFor(req, clientRows) {
+  const base = loadReference();
+  if (hasDb && req.session && req.session.org_id) return mergeReference(base, await loadFirmRows(req.session.org_id));
+  return mergeReference(base, cleanFirmRows(clientRows));
 }
 
 // A photograph without a usable image (the phone could not load it, or it is
@@ -90,13 +101,19 @@ function cleanRoom(b) {
 }
 
 export function mountAi(app) {
-  app.get("/api/ai/config", (req, res) => {
-    const ref = loadReference();
+  app.get("/api/ai/config", wrap(async (req, res) => {
+    const ref = await refFor(req, null);
     res.json({
       enabled: aiEnabled(), transcription: transcriptionEnabled(), model: AI_MODEL, verifyModel: AI_VERIFY_MODEL, efforts: EFFORTS,
       pipelineVersion: PIPELINE_VERSION, reference: referenceFingerprints(ref),
     });
-  });
+  }));
+
+  // --- the firm's own rates ------------------------------------------------------
+  app.get("/api/price-book", guard, wrap(async (req, res) => {
+    if (!hasDb) return res.json({ rows: [], local: true });
+    res.json({ rows: await loadFirmRows(req.session.org_id) });
+  }));
 
   // --- transcription: the phone sends one voice note as raw audio -------------
   app.post("/api/ai/cases/:id/rooms/:roomId/transcribe", guard,
@@ -231,9 +248,10 @@ export function mountAi(app) {
         photos, memos, readings, quantityOverrides: overrides,
       };
       const { signal, finish } = abortOnClose(req, res);
-      event("finding_draft_requested", { case: req.params.id, room: req.params.roomId, issue: issue.id, request: requestId, photos: photos.length, memos: memos.length, by: who(req), queued: pipelines.waiting });
+      const ref = await refFor(req, b.firmRows);
+      event("finding_draft_requested", { case: req.params.id, room: req.params.roomId, issue: issue.id, request: requestId, photos: photos.length, memos: memos.length, by: who(req), queued: pipelines.waiting, firmRows: ref.priceBook.rows.filter((r) => r.firm).length });
       let out;
-      try { out = await pipelines.run(() => runIssuePipeline(input, { signal, prior, force })); }
+      try { out = await pipelines.run(() => runIssuePipeline(input, { signal, prior, force, ref })); }
       catch (e) {
         if (e.code === "not_eligible") { event("finding_draft_rejected", { case: req.params.id, issue: issue.id, reason: "not_eligible" }); return res.status(422).json({ error: "not_eligible", message: e.message, eligibility: e.detail }); }
         event("finding_draft_failed", { case: req.params.id, issue: issue.id, request: requestId, code: e.code, status: e.status });
@@ -273,10 +291,33 @@ export function mountAi(app) {
     }));
     const overrides = {};
     if (b.overrides && typeof b.overrides === "object") for (const [k, v] of Object.entries(b.overrides)) if (Number.isFinite(Number(v)) && Number(v) > 0) overrides[s(k, 60)] = Number(v);
-    res.json(priceItems(loadReference(), items, overrides));
+    res.json(priceItems(await refFor(req, b.firmRows), items, overrides));
   }));
 
   if (!hasDb) return;
+
+  app.post("/api/price-book/rows", requireOrg, express.json({ limit: "64kb" }), wrap(async (req, res) => {
+    if (!rateLimit(`pricebook:${req.session.user_id}`, 120, 60 * 60 * 1000)) return res.status(429).json({ error: "slow_down" });
+    const n = normaliseRow({ ...(req.body || {}), id: undefined });
+    if (!n.ok) return res.status(400).json({ error: "bad_row", message: n.error });
+    const row = await insertFirmRow(req.session.org_id, req.session.user_id, n.row);
+    await audit(req, "pricebook.row_added", row.id, { work: row.work, trade: row.trade, low: row.low, high: row.high, from: row.sourceCaseId });
+    res.json({ row });
+  }));
+
+  app.patch("/api/price-book/rows/:id", requireOrg, express.json({ limit: "64kb" }), wrap(async (req, res) => {
+    const id = s(req.params.id, 40);
+    if (!/^FIRM-[A-Z0-9]{4,24}$/.test(id)) return res.status(400).json({ error: "bad_id" });
+    const b = req.body || {};
+    const patch = {};
+    if (typeof b.active === "boolean") patch.active = b.active;
+    for (const k of ["work", "trade", "unit", "notes"]) if (typeof b[k] === "string") patch[k] = b[k];
+    for (const k of ["low", "high"]) if (b[k] !== undefined && b[k] !== "") patch[k] = b[k];
+    const row = await updateFirmRow(req.session.org_id, id, patch);
+    if (!row) return res.status(404).json({ error: "not_found" });
+    await audit(req, "pricebook.row_updated", id, patch);
+    res.json({ row });
+  }));
 
   // --- the surveyor corrects a transcript; the machine's original is kept -------
   app.put("/api/ai/transcripts/:memoId", requireOrg, express.json({ limit: "256kb" }), wrap(async (req, res) => {

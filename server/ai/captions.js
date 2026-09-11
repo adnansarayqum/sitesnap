@@ -11,6 +11,14 @@ import { loadReference } from "../reference.js";
 // app shows rather than a caption it adopts
 const ANALYTICAL = /\b(caused by|due to|because|as a result of|breach|landlord|section \d|s\.?\d+|hhsrs|liab|should be (replaced|repaired|renewed)|recommend)/i;
 
+// the surveyor's house style for a caption: capital first letter, no
+// trailing full stop, single-spaced — applied whatever the model returned
+export function tidyCaption(t) {
+  const s = String(t || "").replace(/\s+/g, " ").trim().replace(/[.\s]+$/, "");
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
+}
+const capFirst = (t) => { const s = String(t || "").trim(); return s ? s.charAt(0).toUpperCase() + s.slice(1) : ""; };
+
 export async function captionRoomPhotos(input, { signal } = {}) {
   const { room, photos } = input;
   if (MOCK) {
@@ -34,8 +42,8 @@ export async function captionRoomPhotos(input, { signal } = {}) {
   content.push({ type: "text", text: "Caption each photo by id, in the same order, and suggest a descriptive room note." });
   const r = await structured({ label: "caption", system, content, schema: CAPTION_SCHEMA, effort: EFFORTS.caption, maxTokens: 4000, signal, validate: (o) => (!Array.isArray(o.photos) ? "no photos" : null) });
   const output = {
-    photos: (r.output.photos || []).map((c) => ANALYTICAL.test(c.caption) ? { ...c, caption: "", withheld: "caption went beyond what is visible" } : c),
-    room_note: ANALYTICAL.test(r.output.room_note || "") ? "" : (r.output.room_note || ""),
+    photos: (r.output.photos || []).map((c) => ANALYTICAL.test(c.caption) ? { ...c, caption: "", withheld: "caption went beyond what is visible" } : { ...c, caption: tidyCaption(c.caption) }),
+    room_note: ANALYTICAL.test(r.output.room_note || "") ? "" : capFirst(r.output.room_note || ""),
   };
   return { output, model: r.model, usage: r.usage };
 }

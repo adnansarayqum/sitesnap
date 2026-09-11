@@ -138,4 +138,30 @@ export const MIGRATIONS = [
       create index if not exists feedback_org_idx on feedback (org_id, created_at desc);
     `,
   },
+  // The firm's own rates: price-book rows the surveyors write from live
+  // jobs, merged into the reference pack per request (server/pricebook.js).
+  {
+    name: "0004-price-rows",
+    sql: `
+      create table if not exists price_rows (
+        id                 text primary key,
+        org_id             uuid not null references orgs (id) on delete cascade,
+        work               text not null,
+        trade              text not null default '',
+        unit               text not null default 'per item',
+        low                integer not null,
+        high               integer not null,
+        notes              text not null default '',
+        active             boolean not null default true,
+        source_case_id     text,
+        source_finding_id  text,
+        source_title       text,
+        created_by         uuid references users (id) on delete set null,
+        created_at         timestamptz not null default now(),
+        updated_at         timestamptz not null default now(),
+        uses               integer not null default 0
+      );
+      create index if not exists price_rows_org_idx on price_rows (org_id, active, created_at desc);
+    `,
+  },
 ];

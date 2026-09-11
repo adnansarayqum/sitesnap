@@ -102,7 +102,13 @@ export function reconcile(state, { rooms, photoCache, transcripts, refState }) {
     const run = state.runs && state.runs[f.issueId];
     if (refState && run && run.reference && run.reference.cited) {
       const c = run.reference.cited;
-      for (const [id, h] of Object.entries(c.priceRows || {})) if (refState.priceRows && refState.priceRows[id] !== h) reasons.push(`price book row ${id} changed since drafting`);
+      for (const [id, h] of Object.entries(c.priceRows || {})) {
+        if (!refState.priceRows) continue;
+        // in local mode the server cannot know this phone's own rates, so an
+        // absent firm row is not a changed one
+        if (!(id in refState.priceRows) && id.startsWith("FIRM-")) continue;
+        if (refState.priceRows[id] !== h) reasons.push(`price book row ${id} changed since drafting`);
+      }
       for (const [id, h] of Object.entries(c.legal || {})) if (refState.legalEntries && refState.legalEntries[id] !== h) reasons.push(`legal register entry ${id} changed since drafting`);
       for (const [id, h] of Object.entries(c.hazard || {})) if (refState.hazards && refState.hazards[id] !== h) reasons.push(`HHSRS entry ${id} changed since drafting`);
     }
@@ -130,6 +136,8 @@ export function effectiveFlags(f) {
   const flags = f.review_flags || [];
   const p = f.reviewed && f.reviewed.pricing;
   if (p && !p.unpriced && !(p.lines || []).some((l) => l.priced && l.qtySource === "assumed")) return flags.filter((x) => !PRICING_FLAGS.has(x));
+  // a figure the surveyor entered or applied from their own rates settles the price
+  if (!p && f.reviewed && f.reviewed.costLow != null) return flags.filter((x) => !PRICING_FLAGS.has(x));
   return flags;
 }
 export function effective(f) {
@@ -144,7 +152,10 @@ export function effective(f) {
     remedial: { ...f.remedial, works: r.works ?? f.remedial.works },
     cost: p
       ? { ...f.cost, low: p.unpriced ? 0 : p.low, high: p.unpriced ? 0 : p.high, unpriced: p.unpriced, basis: p.basis, price_book_refs: p.price_book_refs, lines: p.lines, problems: p.problems, priceBookVersion: p.priceBookVersion, confirmedBySurveyor: true }
-      : { ...f.cost, low: r.costLow ?? f.cost.low, high: r.costHigh ?? f.cost.high, unpriced: r.costLow != null ? false : f.cost.unpriced, basis: r.costBasis ?? f.cost.basis },
+      // a figure of the surveyor's own replaces the price-book lines, not just the total
+      : r.costLow != null
+        ? { ...f.cost, low: r.costLow, high: r.costHigh ?? r.costLow, unpriced: false, basis: r.costBasis || "Entered by the surveyor", lines: [], problems: [], price_book_refs: r.rateRow ? [r.rateRow] : [], priceBookVersion: undefined, partial: null }
+        : f.cost,
     legislation: r.legislation ?? f.legislation,
   };
 }

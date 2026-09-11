@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import {
-  Aperture, Check, CircleCheck, CloudUpload, FileText, Link2, Loader2, Moon, Sun,
+  Aperture, Check, CircleCheck, CloudUpload, FileText, Link2, Loader2, Moon, Plus, Sun, X,
 } from "lucide-react";
 import {
   storageEstimate, loadMsClientId, saveMsClientId, hasBuiltInMsClientId,
@@ -13,6 +13,73 @@ import { TabBar } from "./Home.jsx";
 import { TeamSettings } from "./Team.jsx";
 import { resetHints } from "../components/Hints.jsx";
 import { FeedbackButton } from "../components/Feedback.jsx";
+import { listRates, addRate, removeRate } from "../pricebook.js";
+
+/* ---------------- the surveyor's own rates ---------------- */
+
+// The cost library that builds from live jobs: rates saved off findings, or
+// typed here. Shared across the firm in accounts mode; this phone otherwise.
+function RatesCard({ accounts, flash }) {
+  const [rows, setRows] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState({ work: "", trade: "", low: "", high: "" });
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { listRates(accounts).then(setRows); }, [accounts]);
+  const pounds = (r) => `£${r.low.toLocaleString("en-GB")}${r.high !== r.low ? `–£${r.high.toLocaleString("en-GB")}` : ""}`;
+  async function add() {
+    setBusy(true);
+    try {
+      const row = await addRate(accounts, { work: draft.work, trade: draft.trade, low: draft.low, high: draft.high });
+      setRows((r) => [row, ...(r || [])]);
+      setDraft({ work: "", trade: "", low: "", high: "" }); setAdding(false);
+      flash("Rate saved");
+    } catch (e) { flash(e.message); } finally { setBusy(false); }
+  }
+  async function remove(row) {
+    try { await removeRate(accounts, row.id); setRows((r) => r.filter((x) => x.id !== row.id)); flash("Rate removed"); }
+    catch (e) { flash(e.message); }
+  }
+  return (
+    <>
+      <div className="ss-section-label" style={{ marginTop: 24 }}>Your rates</div>
+      <p className="ss-fineprint" style={{ margin: "0 2px 8px" }}>
+        {accounts ? "Shared across your firm. " : "Kept on this phone. "}Saved from findings as you price them, or added here; offered on similar findings, and given to the AI as price-book rows it may pick — the server still does the sums.
+      </p>
+      {rows === null ? (
+        <div className="ss-ledger-row"><div className="ss-ledger-main"><div className="ss-ledger-sub">Loading…</div></div></div>
+      ) : rows.length === 0 && !adding ? (
+        <div className="ss-ledger-row"><div className="ss-ledger-main"><div className="ss-ledger-sub">No rates yet. Price a finding and tick "Remember this rate", or add one below.</div></div></div>
+      ) : rows.map((r) => (
+        <div key={r.id} className="ss-ledger-row">
+          <div className="ss-ledger-main">
+            <div className="ss-ledger-title">{r.work}</div>
+            <div className="ss-ledger-sub">{[r.trade, r.unit, r.sourceTitle ? `first used on "${r.sourceTitle}"` : null].filter(Boolean).join(" · ")}</div>
+          </div>
+          <span className="ss-ledger-status" style={{ color: "var(--ink)", fontWeight: 700 }}>{pounds(r)}</span>
+          <button className="ss-team-cancel" aria-label={`Remove the rate for ${r.work}`} title="Remove" onClick={() => remove(r)}><X size={14} /></button>
+        </div>
+      ))}
+      {adding ? (
+        <div className="ss-edit-form">
+          <input placeholder="What the rate is for, e.g. Bathroom damp remediation" value={draft.work} onChange={(e) => setDraft({ ...draft, work: e.target.value })} aria-label="What the rate is for" />
+          <div className="row">
+            <input placeholder="Trade (optional)" value={draft.trade} onChange={(e) => setDraft({ ...draft, trade: e.target.value })} aria-label="Trade" />
+            <input type="number" inputMode="numeric" min="0" placeholder="£ figure" value={draft.low} onChange={(e) => setDraft({ ...draft, low: e.target.value })} aria-label="Figure, or low" />
+            <input type="number" inputMode="numeric" min="0" placeholder="£ high (opt.)" value={draft.high} onChange={(e) => setDraft({ ...draft, high: e.target.value })} aria-label="High figure" />
+          </div>
+          <div className="row">
+            <button className="ss-btn ss-btn-primary" disabled={busy || draft.work.trim().length < 3 || draft.low === ""} onClick={add}>{busy ? <Loader2 size={14} className="ss-spin" /> : <Check size={14} />} Save rate</button>
+            <button className="ss-btn ss-btn-ghost" onClick={() => setAdding(false)}>Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <div className="ss-ledger-row ss-no-border">
+          <button className="ss-link" onClick={() => setAdding(true)}><Plus size={14} /> Add a rate</button>
+        </div>
+      )}
+    </>
+  );
+}
 
 /* ---------------- account (accounts mode) ---------------- */
 
@@ -280,6 +347,8 @@ export function SettingsScreen({ fieldMode, onToggleFieldMode, onTab, me, onSign
           </div>
           <button className="ss-link" onClick={() => { resetHints(); flash("Tips will show again"); }}>Show again</button>
         </div>
+
+        <RatesCard accounts={!!(me && me.mode === "accounts" && me.org)} flash={flash} />
 
         {isAdmin && <CrmWebhookCard flash={flash} />}
 

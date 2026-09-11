@@ -34,13 +34,15 @@ function reuse(prior, stage, inputHash, force) {
 
 // `input` is the app's request (see packet.js for the shape). Throws with a
 // status when the issue is not eligible — the server is the authority on that.
-export async function runIssuePipeline(input, { signal, now = Date.now, prior = null, force = [] } = {}) {
+// `ref` lets the caller hand in the reference pack already merged with the
+// firm's own rates (server/pricebook.js); the file pack alone otherwise.
+export async function runIssuePipeline(input, { signal, now = Date.now, prior = null, force = [], ref: refIn = null } = {}) {
   const eligibility = issueEligibility(input.issue, input.room, {});
   if (!eligibility.eligible) {
     const e = new Error(`This issue has no evidence a finding can rest on: ${eligibility.missing.join("; ") || "nothing a person recorded"}.`);
     e.status = 422; e.code = "not_eligible"; e.detail = eligibility; throw e;
   }
-  const ref = loadReference();
+  const ref = refIn || loadReference();
   const packet = buildPacket(input);
   const t0 = now();
   const stages = {};
