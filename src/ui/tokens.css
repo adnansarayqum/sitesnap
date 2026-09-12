@@ -1,0 +1,159 @@
+/* SiteSnap design tokens — the single source for colour, spacing, radii,
+   type, borders, shadows, touch targets and motion.
+
+   Every token is prefixed --ss-. The stylesheet in src/styles.jsx aliases
+   its older variable names (--paper, --ink, --pine, --hivis …) onto these,
+   so existing classes pick the new values up without being edited; new
+   components use the --ss- names directly.
+
+   Two themes share one colour family: the light default, and field mode
+   (.ss-root.ss-field) — a high-contrast dark theme for shooting in direct
+   sunlight. Both are deep green + gold; nothing here is brown or lime. */
+
+:root {
+  /* ---- colour: brand -------------------------------------------------- */
+  --ss-color-primary: #064E45;        /* primary actions, active states */
+  --ss-color-primary-deep: #043F38;   /* pressed, headers on dark */
+  --ss-color-primary-tint: #E6F1EE;   /* selected rows, soft green fills */
+  --ss-color-accent: #F2BE42;         /* gold: shutter, hi-vis emphasis */
+  --ss-color-accent-rgb: 242, 190, 66; /* for rgba(var(--ss-color-accent-rgb), a) */
+  --ss-color-on-accent: #043F38;      /* text on a gold fill */
+
+  /* ---- colour: surfaces ----------------------------------------------- */
+  --ss-color-bg: #F6F8F7;
+  --ss-color-bg-deep: #ECF0EE;        /* inset areas, pressed rows */
+  --ss-color-surface: #FFFFFF;        /* cards */
+  --ss-color-surface-dark: #043F38;   /* the walkthrough and camera chrome */
+  --ss-color-topbar: rgba(246, 248, 247, .92);
+
+  /* ---- colour: text --------------------------------------------------- */
+  --ss-color-text: #101828;
+  --ss-color-text-secondary: #667085;
+  --ss-color-text-tertiary: #98A2B3;
+  --ss-color-text-on-dark: #FFFFFF;
+  --ss-color-text-on-dark-muted: rgba(255, 255, 255, .7);
+
+  /* ---- colour: borders ------------------------------------------------ */
+  --ss-color-border: #E4E7EC;
+  --ss-color-border-soft: #EAECF0;
+  --ss-color-border-strong: #D0D5DD;
+
+  /* ---- colour: status ------------------------------------------------- */
+  --ss-color-success: #16805D;
+  --ss-color-success-tint: #E3F3EC;
+  --ss-color-warning: #F59E0B;        /* fills and badges */
+  --ss-color-warning-rgb: 245, 158, 11;
+  --ss-color-warning-text: #B45309;   /* warning as small text on light */
+  --ss-color-warning-tint: #FEF3DC;
+  --ss-color-on-warning: #3A2A00;     /* text on a warning fill */
+  --ss-color-danger: #DC4545;         /* fills, icons, badges */
+  --ss-color-danger-text: #B42318;    /* danger as small text on light (AA) */
+  --ss-color-danger-tint: #FCEBEB;
+  --ss-color-danger-soft: #FF8A73;    /* danger fill on a dark surface */
+  --ss-color-on-danger-soft: #4A130A;
+
+  /* ---- spacing (8px system) ------------------------------------------- */
+  --ss-space-1: 8px;
+  --ss-space-2: 16px;
+  --ss-space-3: 24px;
+  --ss-space-4: 32px;
+  --ss-space-5: 40px;
+  --ss-space-6: 48px;
+
+  /* ---- radii ---------------------------------------------------------- */
+  --ss-radius-card: 16px;
+  --ss-radius-button: 14px;
+  --ss-radius-input: 12px;
+  --ss-radius-pill: 999px;
+  --ss-radius-sm: 8px;                /* chips, thumbnails, inner elements */
+
+  /* ---- typography ----------------------------------------------------- */
+  --ss-font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --ss-font-display: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --ss-font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --ss-text-page: 32px;               /* page heading, 32–36 */
+  --ss-text-page-lg: 36px;
+  --ss-text-section: 18px;            /* section heading, 18–20 */
+  --ss-text-section-lg: 20px;
+  --ss-text-body: 16px;
+  --ss-text-meta: 14px;
+  --ss-text-micro: 12px;              /* micro-label, semibold */
+  --ss-weight-regular: 400;
+  --ss-weight-medium: 500;
+  --ss-weight-semibold: 600;
+  --ss-weight-bold: 700;
+  --ss-leading-tight: 1.15;
+  --ss-leading-snug: 1.3;
+  --ss-leading-body: 1.45;
+  --ss-tracking-tight: -0.01em;
+  --ss-tracking-micro: 0.06em;
+
+  /* ---- borders -------------------------------------------------------- */
+  --ss-border-width: 1px;
+  --ss-border-width-strong: 1.5px;
+  --ss-border: var(--ss-border-width) solid var(--ss-color-border);
+  --ss-border-soft: var(--ss-border-width) solid var(--ss-color-border-soft);
+  --ss-border-strong: var(--ss-border-width-strong) solid var(--ss-color-border-strong);
+
+  /* ---- shadows (subtle) ----------------------------------------------- */
+  --ss-shadow-sm: 0 1px 2px rgba(16, 24, 40, .04), 0 1px 3px rgba(16, 24, 40, .06);
+  --ss-shadow-md: 0 2px 4px rgba(16, 24, 40, .04), 0 10px 24px -8px rgba(16, 24, 40, .12);
+  --ss-shadow-lg: 0 8px 16px -6px rgba(16, 24, 40, .10), 0 24px 48px -12px rgba(16, 24, 40, .18);
+  --ss-shadow-focus: 0 0 0 3px rgba(6, 78, 69, .22);
+
+  /* ---- touch targets -------------------------------------------------- */
+  --ss-touch-min: 44px;               /* nothing tappable is smaller */
+  --ss-touch-comfortable: 48px;       /* primary buttons, list rows */
+  --ss-touch-large: 56px;             /* sticky action bar buttons */
+  --ss-touch-shutter: 72px;
+
+  /* ---- motion --------------------------------------------------------- */
+  --ss-duration-fast: 120ms;          /* taps, toggles */
+  --ss-duration-base: 200ms;          /* screen and sheet transitions */
+  --ss-duration-slow: 320ms;          /* completion moments */
+  --ss-ease-out: cubic-bezier(.16, 1, .3, 1);
+  --ss-ease-standard: cubic-bezier(.2, 0, 0, 1);
+  --ss-ease-in: cubic-bezier(.4, 0, 1, 1);
+
+  /* ---- layout --------------------------------------------------------- */
+  --ss-frame-max: 430px;
+  --ss-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --ss-safe-top: env(safe-area-inset-top, 0px);
+}
+
+/* Field mode — the dark counterpart, same green + gold family. Only colour
+   and shadow tokens change; spacing, radii, type and motion are shared. */
+.ss-root.ss-field {
+  --ss-color-primary: #4FC7A8;        /* mint reads on deep green; the deep
+                                         primary would vanish into the surface */
+  --ss-color-primary-deep: #6BDAC0;
+  --ss-color-primary-tint: #163B33;
+  --ss-color-accent: #F2BE42;
+  --ss-color-on-accent: #043F38;
+
+  --ss-color-bg: #0B1A17;
+  --ss-color-bg-deep: #10231F;
+  --ss-color-surface: #14302A;
+  --ss-color-surface-dark: #032B26;
+  --ss-color-topbar: rgba(11, 26, 23, .9);
+
+  --ss-color-text: #F1F5F3;
+  --ss-color-text-secondary: #A5B8B2;
+  --ss-color-text-tertiary: #6E847D;
+
+  --ss-color-border: #24413A;
+  --ss-color-border-soft: #1C3630;
+  --ss-color-border-strong: #33564D;
+
+  --ss-color-success: #3FBF8F;
+  --ss-color-success-tint: #12352B;
+  --ss-color-warning-text: #FBBF24;
+  --ss-color-warning-tint: #33270F;
+  --ss-color-danger-text: #F97066;
+  --ss-color-danger-tint: #3A1F1C;
+
+  --ss-shadow-sm: 0 1px 2px rgba(0, 0, 0, .24), 0 1px 3px rgba(0, 0, 0, .3);
+  --ss-shadow-md: 0 2px 4px rgba(0, 0, 0, .24), 0 10px 24px -8px rgba(0, 0, 0, .4);
+  --ss-shadow-lg: 0 8px 16px -6px rgba(0, 0, 0, .35), 0 24px 48px -12px rgba(0, 0, 0, .5);
+  --ss-shadow-focus: 0 0 0 3px rgba(79, 199, 168, .3);
+}

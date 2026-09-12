@@ -12,7 +12,7 @@ export async function initNativeShell() {
     import("@capacitor/splash-screen"),
   ]);
   await StatusBar.setStyle({ style: Style.Dark }).catch(() => {});
-  await StatusBar.setBackgroundColor({ color: "#10352A" }).catch(() => {});
+  await StatusBar.setBackgroundColor({ color: "#064E45" }).catch(() => {});
   // the web app's own loading state (App.jsx's "loading" screen) takes over
   // the instant this resolves, so there's no blank gap between the two
   await SplashScreen.hide().catch(() => {});
