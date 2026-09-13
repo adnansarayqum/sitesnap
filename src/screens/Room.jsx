@@ -398,7 +398,10 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
 
   return (
     <div className="ss-col">
-      <AppHeader title={room.name} eyebrow={`${photos.length} photo${photos.length === 1 ? "" : "s"}${active ? ` · shooting into ${active.title}` : ""}`} onBack={onBack}
+      <AppHeader
+        title={<>{room.name}{room.complete && <span className="ss-roomcard-done" style={{ marginLeft: 8 }}><Check size={12} /> Complete</span>}</>}
+        eyebrow={`${photos.length} photo${photos.length === 1 ? "" : "s"}${active ? ` · shooting into ${active.title}` : ""}`}
+        onBack={onBack}
         right={photos.length > 0 && (
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             {aiCfg.enabled && (

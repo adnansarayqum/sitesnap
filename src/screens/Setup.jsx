@@ -260,16 +260,19 @@ export function SetupScreen({ onBack, onStart }) {
     );
   }
 
-  // ---- guided: Property → Rooms → Start ----
-  const STEP_LABEL = { 1: "Step 1 of 3 · Property", 2: "Step 2 of 3 · Rooms", 3: "Step 3 of 3 · Start" };
-  const canNext = step === 1 ? address.trim().length > 0 : step === 2 ? items.length > 0 : true;
-  const areaCount = items.length;
+  // ---- guided: Property → Rooms, with Rooms' own footer starting the case ----
+  // A third "Ready to start?" step used to sit here — a pure review with
+  // nothing left to confirm that Property and Rooms hadn't already
+  // collected. Folded into Rooms' own primary action instead of asking for
+  // a tap that collects no new data.
+  const STEP_LABEL = { 1: "Step 1 of 2 · Property", 2: "Step 2 of 2 · Rooms" };
+  const canNext = address.trim().length > 0;
 
   return (
     <div className="ss-col">
       <AppHeader title="New inspection" eyebrow={STEP_LABEL[step]} onBack={() => (step > 1 ? setStep(step - 1) : onBack())} />
       <div className="ss-wiz-progress">
-        {[1, 2, 3].map((n) => <div key={n} className={`ss-wiz-seg ${n <= step ? "on" : ""}`} />)}
+        {[1, 2].map((n) => <div key={n} className={`ss-wiz-seg ${n <= step ? "on" : ""}`} />)}
       </div>
 
       <div className="ss-scroll">
@@ -290,30 +293,19 @@ export function SetupScreen({ onBack, onStart }) {
             {addedRooms}
           </div>
         )}
-
-        {step === 3 && (
-          <div className="ss-wiz-step">
-            <h1 className="ss-wiz-title">Ready to start?</h1>
-            <div className="ss-wiz-summary">
-              <div className="ss-section-label" style={{ margin: 0 }}>Property</div>
-              <div className="ss-wiz-summary-address">{address.trim() || "The property"}</div>
-              <div className="ss-wiz-summary-sub">
-                {postcode ? postcode + " · " : ""}{ref ? ref + " · " : ""}{areaCount} area{areaCount === 1 ? "" : "s"}
-              </div>
-            </div>
-          </div>
-        )}
         <div style={{ height: 12 }} />
       </div>
 
       <StickyActionBar className="ss-wiz-footer">
         <span style={{ flex: 1 }} />
-        {step < 3 ? (
-          <Button variant="primary" disabled={!canNext} onClick={() => setStep(step + 1)}>
+        {step === 1 ? (
+          <Button variant="primary" disabled={!canNext} onClick={() => setStep(2)}>
             Next <ArrowRight size={17} strokeWidth={2.4} />
           </Button>
         ) : (
-          <Button variant="primary" disabled={!canStart} onClick={start}>
+          <Button variant="primary" disabled={!canStart}
+            title={items.length === 0 ? "Pick at least one room or area" : undefined}
+            onClick={start}>
             Start inspection <ArrowRight size={17} strokeWidth={2.4} />
           </Button>
         )}

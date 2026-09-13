@@ -152,6 +152,7 @@ export function StyleBlock() {
       /* a recent-case row (Home's InspectionCard) */
       .ss-icard { display: block; width: 100%; text-align: left; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; box-shadow: var(--shadow-sm); transition: transform .1s ease; }
       .ss-icard:active { transform: scale(.985); }
+      .ss-icard:disabled { opacity: .55; }
       .ss-icard + .ss-icard { margin-top: 8px; }
       .ss-icard-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
       .ss-icard-case { font-family: var(--ss-font-mono); font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -162,6 +163,10 @@ export function StyleBlock() {
       .ss-icard-progress { margin-top: 8px; display: flex; align-items: center; gap: 8px; }
       .ss-icard-progress .ss-progress { flex: 1; }
       .ss-icard-progress > span { font-size: 11px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+      .ss-icard-ref { font-size: 12.5px; color: var(--muted); font-weight: 600; margin-top: 2px; }
+      .ss-icard-row { display: flex; align-items: stretch; gap: 8px; }
+      .ss-icard-row .ss-icard { flex: 1; }
+      .ss-icard-row + .ss-icard-row { margin-top: 8px; }
 
       @keyframes ss-shine { from { transform: translateX(-140%) skewX(-12deg); } to { transform: translateX(240%) skewX(-12deg); } }
       @media (prefers-reduced-motion: no-preference) {
@@ -268,6 +273,7 @@ export function StyleBlock() {
       .ss-pill.done { background: var(--pine); color: #fff; }
       .ss-pill.active { background: var(--pine-tint); color: var(--pine-press); }
       .ss-pill.warn { background: var(--amber-tint); color: var(--amber); }
+      .ss-pill.bad { background: var(--red-tint); color: var(--red); }
 
       /* ---- progress ---- */
       .ss-progress-wrap { padding: 12px 16px 0; display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 700; color: var(--muted); }
@@ -441,16 +447,16 @@ export function StyleBlock() {
 
       /* the "mark room complete" toggle on the Room screen's meta card */
       .ss-room-done {
-        width: 100%; margin-top: 10px; padding: 11px; border-radius: 8px;
+        width: 100%; margin-top: 10px; padding: 11px; border-radius: 999px;
         display: flex; align-items: center; justify-content: center; gap: 7px;
         border: 1.5px solid var(--line-strong); color: var(--muted); font-weight: 700; font-size: 13px;
       }
       .ss-room-done.on { background: var(--pine-tint); border-color: var(--pine); color: var(--pine-press); }
 
-      .ss-meta { background: var(--card); border: 1px solid var(--line); border-radius: 9px; padding: 12px; margin-bottom: 14px; }
+      .ss-meta { background: var(--card); border: 1px solid var(--line); border-radius: var(--ss-radius-card); padding: 14px; margin-bottom: 14px; }
       .ss-cond-row { display: flex; align-items: center; gap: 6px; }
       .ss-cond-label { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-right: auto; }
-      .ss-cond { padding: 8px 14px; border-radius: 7px; font-weight: 700; font-size: 13px; border: 1px solid var(--line-strong); color: var(--muted); background: var(--paper); transition: transform .1s ease; }
+      .ss-cond { padding: 8px 14px; border-radius: 999px; font-weight: 700; font-size: 13px; border: 1px solid var(--line-strong); color: var(--muted); background: var(--paper); transition: transform .1s ease; }
       .ss-cond:active { transform: scale(.94); }
       .ss-cond.good.on { background: var(--pine); border-color: var(--pine); color: #fff; box-shadow: 0 2px 6px -2px rgba(16,53,42,.3); }
       .ss-cond.fair.on { background: var(--amber); border-color: var(--amber); color: #fff; box-shadow: 0 2px 6px -2px rgba(143,110,42,.3); }
@@ -654,7 +660,7 @@ export function StyleBlock() {
       /* ---- inspection list ---- */
       .ss-job { flex-direction: column; align-items: flex-start; gap: 2px; }
       .ss-job-sub { font-size: 12.5px; font-weight: 600; color: var(--muted); }
-      .ss-job-x { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; color: var(--muted2); flex-shrink: 0; border-radius: 10px; }
+      .ss-job-x { width: var(--ss-touch-min); height: var(--ss-touch-min); display: flex; align-items: center; justify-content: center; color: var(--muted2); flex-shrink: 0; border-radius: 10px; }
       .ss-job-x:active { background: var(--paper-deep); color: var(--red); }
       .ss-row .ss-row-tap { padding: 10px 0 10px 12px; }
 
@@ -1065,7 +1071,7 @@ export function StyleBlock() {
       .ss-ichip.add { color: var(--pine); border-style: dashed; }
       .ss-ichip-add { display: inline-flex; gap: 6px; align-items: center; }
       .ss-ichip-add .ss-input { padding: 7px 10px; font-size: 13.5px; width: 190px; }
-      .ss-issue-card { margin-top: 10px; background: var(--card); border: 1px solid var(--pine); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+      .ss-issue-card { margin-top: 10px; background: var(--card); border: 1px solid var(--pine); border-radius: var(--ss-radius-card); padding: 14px; display: flex; flex-direction: column; gap: 6px; }
       .ss-issue-card.suggested { border-color: var(--amber); border-style: dashed; }
       .ss-issue-title { font-family: var(--ss-font-display); font-weight: 800; font-size: 15px; text-align: left; background: none; padding: 0; color: var(--ink); }
       .ss-readings { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 4px; }

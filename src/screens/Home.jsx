@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import {
-  AlertTriangle, ArrowRight, Camera, CircleCheck, CloudUpload, Download, Plus, Search, Smartphone, Trash2, X,
+  AlertTriangle, ArrowRight, Camera, CloudUpload, Plus, Search, Smartphone, Trash2, X,
 } from "lucide-react";
 import {
   loadInspection, loadPhoto,
 } from "../storage.js";
-import { BottomNavigation, Button, EmptyState, InlineAlert, InspectionCard, Modal, StickyActionBar } from "../ui/index.js";
+import { AppHeader, BottomNavigation, Button, EmptyState, InlineAlert, InspectionCard, Modal, StickyActionBar } from "../ui/index.js";
 
 /* ---------------- home ---------------- */
 
@@ -38,6 +38,16 @@ function caseStatus(c) {
   const exported = !!c.lastExport || !!(c.lastUpload && c.lastUpload.confirmed);
   if (!c.completedAt) return { tone: "active", label: "In progress" };
   return exported ? { tone: "done", label: "Complete" } : { tone: "warn", label: "Awaiting export" };
+}
+
+// A closed case's own photos are gone from the phone, but its upload/export
+// record travelled with it into the archive — same four-state idea as
+// caseStatus(), just answering "did it get out" instead of "is it done".
+function archiveStatus(a) {
+  if (a.lastUpload && a.lastUpload.confirmed) return { tone: "done", label: "Filed in the cloud" };
+  if (a.lastUpload) return { tone: "warn", label: "Sent, not confirmed" };
+  if (a.lastExport) return { tone: "warn", label: "Exported only" };
+  return { tone: "bad", label: "Never uploaded" };
 }
 
 export function HomeScreen({ index, archive, onNew, onOpen, onTab, orgName, needsCloud, me }) {
@@ -174,18 +184,12 @@ export function CasesScreen({ index, archive, durable, onNew, onOpen, onDiscard,
   const matchesRemote = (c) => !needle || [c.address, c.ref, c.postcode, c.created_by_name].filter(Boolean).join(" ").toLowerCase().includes(needle);
   const remoteOpen = remote.filter((c) => c.status === "open" && matchesRemote(c));
   const remoteClosed = remote.filter((c) => c.status === "closed" && matchesRemote(c));
-  const remoteRow = (c) => (
-    <div key={c.id} className="ss-row">
-      <button className="ss-row-tap" onClick={() => onOpenRemote(c.id)}>
-        <div className="ss-row-main ss-job">
-          <span className="ss-row-name">{c.address}</span>
-          <span className="ss-job-sub">
-            {c.case_no ? `Case ${c.case_no} · ` : ""}{c.photos} photo{c.photos === 1 ? "" : "s"} · by {c.created_by_name || "a colleague"}
-            {" · "}{relativeDay(new Date(c.updated_at).getTime())}
-          </span>
-        </div>
-      </button>
-    </div>
+  const remoteCard = (c, closed) => (
+    <InspectionCard key={c.id}
+      address={c.address} caseNo={c.case_no} reference={`by ${c.created_by_name || "a colleague"}`}
+      date={relativeDay(new Date(c.updated_at).getTime())} photos={c.photos}
+      status={closed ? { tone: "done", label: "Complete" } : { tone: "active", label: "In progress" }}
+      onClick={() => onOpenRemote(c.id)} />
   );
 
   if (open.length === 0 && done.length === 0 && remote.length === 0) {
@@ -212,14 +216,7 @@ export function CasesScreen({ index, archive, durable, onNew, onOpen, onDiscard,
 
   return (
     <div className="ss-col">
-      <div className="ss-topbar">
-        <span className="ss-tick" />
-        <div className="ss-topbar-text">
-          <div className="ss-eyebrow-sm">Register</div>
-          <div className="ss-title">All cases</div>
-        </div>
-        <span className="ss-badge">{open.length}</span>
-      </div>
+      <AppHeader title="All cases" eyebrow="Register" right={<span className="ss-badge">{open.length}</span>} />
 
       <div className="ss-search-row">
         <Search size={15} className="ss-search-ic" />
@@ -233,31 +230,10 @@ export function CasesScreen({ index, archive, durable, onNew, onOpen, onDiscard,
         )}
         <div className="ss-list">
           {openShown.map((i) => (
-            <div key={i.id} className="ss-row">
-              <button className="ss-row-tap" onClick={() => onOpen(i.id)}>
-                <div className="ss-row-main ss-job">
-                  <span className="ss-row-name">{i.address}</span>
-                  <span className="ss-job-sub">
-                    {i.ref ? i.ref + " · " : i.postcode ? i.postcode + " · " : ""}
-                    {i.photos} photo{i.photos === 1 ? "" : "s"} · {i.rooms} area{i.rooms === 1 ? "" : "s"}
-                    {" · "}{relativeDay(i.startedAt)}
-                  </span>
-                  {i.lastUpload && (
-                    <span className={`ss-job-up ${i.lastUpload.ok ? "ok" : "bad"}`} title={
-                      i.lastUpload.ok
-                        ? (i.lastUpload.confirmed ? "Confirmed as filed by your cloud workflow" : "Sent, but your workflow hasn't confirmed it's filed yet")
-                        : "The last upload attempt didn't finish — open this inspection to retry"
-                    }>
-                      {i.lastUpload.ok ? <CircleCheck size={11} /> : <X size={11} />}
-                      {i.lastUpload.ok ? (i.lastUpload.confirmed ? "Filed" : "Sent, not confirmed") : "Upload incomplete"}
-                    </span>
-                  )}
-                </div>
-              </button>
-              <button className="ss-job-x" onClick={() => setConfirmId(i.id)} aria-label={`Discard ${i.address}`} title="Discard this inspection">
-                <Trash2 size={16} />
-              </button>
-            </div>
+            <InspectionCard key={i.id}
+              address={i.address} caseNo={i.caseNo} reference={i.ref || i.postcode || undefined}
+              date={relativeDay(i.startedAt)} photos={i.photos} rooms={i.rooms} doneRooms={i.doneRooms}
+              status={caseStatus(i)} onClick={() => onOpen(i.id)} onDelete={() => setConfirmId(i.id)} />
           ))}
         </div>
         {durable === false && (
@@ -273,7 +249,7 @@ export function CasesScreen({ index, archive, durable, onNew, onOpen, onDiscard,
         {remoteOpen.length > 0 && (
           <>
             <div className="ss-section-label" style={{ marginTop: 22 }}>Elsewhere in the firm</div>
-            <div className="ss-list">{remoteOpen.map(remoteRow)}</div>
+            <div className="ss-list">{remoteOpen.map((c) => remoteCard(c, false))}</div>
           </>
         )}
 
@@ -281,29 +257,15 @@ export function CasesScreen({ index, archive, durable, onNew, onOpen, onDiscard,
           <>
             <div className="ss-section-label" style={{ marginTop: 22 }}>Completed</div>
             <div className="ss-list">
-              {remoteClosed.slice(0, 50).map(remoteRow)}
+              {remoteClosed.slice(0, 50).map((c) => remoteCard(c, true))}
               {doneShown.slice(0, 25).map((a) => (
-                <div key={a.id} className="ss-row ss-row-done">
-                  <button className="ss-row-tap" onClick={() => onOpenRemote(a.id)} disabled={!inRegister.has(a.id)}
-                    title={inRegister.has(a.id) ? undefined : "This case closed before it could sync — its details didn't reach the register"}>
-                    <div className="ss-row-main ss-job">
-                      <span className="ss-row-name">{a.address}</span>
-                      <span className="ss-job-sub">
-                        {a.ref ? a.ref + " · " : ""}{a.photos} photo{a.photos === 1 ? "" : "s"}
-                        {" · closed "}{relativeDay(a.closedAt)}
-                      </span>
-                      <span className={`ss-job-up ${a.lastUpload && a.lastUpload.confirmed ? "ok" : a.lastUpload ? "warn" : "bad"}`} title={
-                        a.lastUpload
-                          ? (a.lastUpload.confirmed ? "Your cloud workflow confirmed every file was filed" : "The upload was accepted but never confirmed as filed — worth checking OneDrive")
-                          : a.lastExport ? "Saved as a ZIP or to Photos, but never sent to the cloud" : "This inspection was closed without exporting or uploading it anywhere"
-                      }>
-                        {a.lastUpload
-                          ? (a.lastUpload.confirmed ? <><CircleCheck size={11} /> Filed in the cloud</> : <><CloudUpload size={11} /> Sent, not confirmed</>)
-                          : a.lastExport ? <><Download size={11} /> Exported only</> : <><X size={11} /> Never uploaded</>}
-                      </span>
-                    </div>
-                  </button>
-                </div>
+                <InspectionCard key={a.id}
+                  address={a.address} caseNo={a.caseNo} reference={a.ref || undefined}
+                  date={`closed ${relativeDay(a.closedAt)}`} photos={a.photos}
+                  status={archiveStatus(a)}
+                  disabled={!inRegister.has(a.id)}
+                  title={inRegister.has(a.id) ? undefined : "This case closed before it could sync — its details didn't reach the register"}
+                  onClick={() => onOpenRemote(a.id)} />
               ))}
             </div>
           </>

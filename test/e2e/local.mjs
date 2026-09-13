@@ -71,7 +71,6 @@ async function newCase(page, { address = "14 Elmfield Road", postcode = "SE13 6H
   if (client) await page.locator('input[placeholder="Client (optional)"]').fill(client);
   await page.getByRole("button", { name: /^Next/ }).click(); await w(page);
   for (const r of rooms) { await page.getByText(r, { exact: true }).first().click(); await w(page, 80); }
-  await page.getByRole("button", { name: /^Next/ }).click(); await w(page);
   await page.getByRole("button", { name: /Start inspection/ }).click(); await w(page, 500);
 }
 async function openRoom(page, name) {
@@ -95,7 +94,9 @@ try {
   const disabledSpaces = await next.isDisabled();
   await page.locator('input[placeholder="23 High Street"]').fill("1 Test St");
   await next.click(); await w(page);
-  const disabledNoRooms = await next.isDisabled();
+  // step 2 (Rooms) is now the last step — its own footer is "Start inspection"
+  const start = page.getByRole("button", { name: /Start inspection/ });
+  const disabledNoRooms = await start.isDisabled();
   // custom area with hostile characters
   await page.getByRole("button", { name: /Add custom area/i }).click();
   await page.locator('input[placeholder="e.g. Utility Room"]').fill('Loft / Attic: "Store" 🏠');
@@ -105,12 +106,11 @@ try {
   await page.getByRole("button", { name: "Add Bedroom" }).click(); await w(page, 80);
   await page.getByRole("button", { name: "Add Bedroom" }).click(); await w(page, 80);
   const rows = await page.locator(".ss-row-name").allInnerTexts();
-  await next.click(); await w(page);
-  // back from step 3 (Start) returns to step 2 (Rooms), not out of setup
+  // back from step 2 (Rooms) returns to step 1 (Property), not out of setup
   await page.locator(".ss-back").first().click(); await w(page);
-  const stillSetup = /step 2/i.test(await page.locator(".ss-eyebrow-sm").first().innerText());
+  const stillSetup = /step 1/i.test(await page.locator(".ss-eyebrow-sm").first().innerText());
   await next.click(); await w(page);
-  await page.getByRole("button", { name: /Start inspection/ }).click(); await w(page, 500);
+  await start.click(); await w(page, 500);
   await tab(page, "Rooms");
   const roomNames = await page.locator(".ss-row-name").allInnerTexts();
   const ok = disabledEmpty && disabledSpaces && disabledNoRooms && stillSetup && roomNames.some((n) => n === "Bedroom 3") && roomNames.some((n) => n.includes("Loft"));
@@ -335,18 +335,17 @@ try {
   await page.locator(".ss-tabbar-item", { hasText: "Cases" }).click(); await w(page, 400);
   const count = await page.locator(".ss-badge").first().innerText();
   await page.locator(".ss-search-input").fill("beta"); await w(page, 200);
-  const shown = await page.locator(".ss-row-name").allInnerTexts();
+  const shown = await page.locator(".ss-icard-address").allInnerTexts();
   await page.locator(".ss-search-input").fill("zzz"); await w(page, 200);
   const nothing = (await page.locator("body").innerText()).includes("Nothing matches");
   await page.locator(".ss-search-clear").click(); await w(page, 200);
   await page.getByRole("button", { name: "Discard 2 Beta Avenue" }).click(); await w(page);
   await page.getByRole("button", { name: /Delete inspection/ }).click(); await w(page, 500);
-  const remaining = await page.locator(".ss-row-name").allInnerTexts();
+  const remaining = await page.locator(".ss-icard-address").allInnerTexts();
   await page.getByRole("button", { name: /new inspection|different inspection/i }).first().click(); await w(page);
   await page.locator('input[placeholder="23 High Street"]').fill("4 Delta Road");
   await page.getByRole("button", { name: /^Next/ }).click(); await w(page);
   await page.getByText("Kitchen", { exact: true }).first().click();
-  await page.getByRole("button", { name: /^Next/ }).click(); await w(page);
   await page.getByRole("button", { name: /Start inspection/ }).click(); await w(page, 500);
   const caseNo = await page.locator(".ss-eyebrow-sm").first().innerText();
   rec("S8 three cases → recent inspections, search, discard, case numbers never reused", /recent inspections/i.test(homeText) && count === "3" && shown.length === 1 && nothing && remaining.length === 2 && /Case No\. 4/i.test(caseNo) ? "PASS" : "FAIL", `badge=${count} search=${JSON.stringify(shown)} noMatchMsg=${nothing} afterDiscard=${JSON.stringify(remaining)} newCase="${caseNo}"`);
