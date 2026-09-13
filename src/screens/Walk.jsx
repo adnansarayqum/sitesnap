@@ -8,7 +8,7 @@ import { CONDITIONS } from "../lib/presets.js";
 import { pad } from "../lib/util.js";
 import { tapFeedback } from "../haptics.js";
 import { addIssue, addReading, openIssues, setActiveIssue, unassigned, updateIssue } from "../evidence.js";
-import { BottomSheet, SegmentedControl, SyncIndicator } from "../ui/index.js";
+import { BottomSheet, SyncIndicator } from "../ui/index.js";
 
 /* ---------------- walkthrough capture ---------------- */
 
@@ -19,7 +19,7 @@ import { BottomSheet, SegmentedControl, SyncIndicator } from "../ui/index.js";
 // tap the shutter, the frame is grabbed straight off the video element, the
 // feed never stops. Falls back to the native picker (via onFallback) if the
 // browser or device won't cooperate, so shooting never dead-ends.
-export function LiveCamera({ label, count, lastThumb, resumeKey, onCapture, onClose, onFallback, onWideShot, condition, onCondition, fieldMode, onToggleFieldMode }) {
+export function LiveCamera({ label, count, lastThumb, resumeKey, onCapture, onClose, onFallback, onWideShot, condition, onCondition, fieldMode, onToggleFieldMode, inline }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const canvasRef = useRef(null);
@@ -313,12 +313,12 @@ export function LiveCamera({ label, count, lastThumb, resumeKey, onCapture, onCl
   const broken = state === "denied" || state === "busy" || state === "unsupported";
 
   return (
-    <div className="ss-livecam" ref={containerRef}>
+    <div className={`ss-livecam${inline ? " ss-livecam-inline" : ""}`} ref={containerRef}>
       <video ref={videoRef} className="ss-livecam-video" autoPlay muted playsInline />
       {flash && <div className="ss-livecam-flash" />}
 
       <div className="ss-livecam-top">
-        <button className="ss-livecam-close" onClick={close}><X size={20} /></button>
+        {!inline && <button className="ss-livecam-close" onClick={close}><X size={20} /></button>}
         <span className="ss-livecam-label">{label}</span>
         {state === "ready" && lenses.length > 1 && (
           <button className="ss-livecam-lens" onClick={switchLens} title={activeLabel ? `Lens: ${activeLabel} — tap for the next one` : "Try the other camera lens"}>
@@ -411,7 +411,6 @@ export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCa
   // no `capture` attribute: the phone offers its photo library, not the camera
   const libraryRef = useRef(null);
   const [panel, setPanel] = useState(null); // note | reading | null
-  const [cameraOpen, setCameraOpen] = useState(false);
   const [roomsOpen, setRoomsOpen] = useState(false);
   const [resumeKey, setResumeKey] = useState(0);
   const room = rooms[index];
@@ -431,9 +430,8 @@ export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCa
   const loose = unassigned(room);
   const stripIds = (active ? activePhotos.map((e) => e.id) : loose.photoIds).slice(-6).reverse();
 
-  useEffect(() => { setPanel(null); setCameraOpen(false); setAddingIssue(false); setRoomsOpen(false); }, [index]);
+  useEffect(() => { setPanel(null); setAddingIssue(false); setRoomsOpen(false); }, [index]);
 
-  function openCamera() { setCameraOpen(true); }
   function createIssue() {
     const t = issueTitle.trim();
     if (!t) return;
@@ -455,7 +453,7 @@ export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCa
   // gesture or that needs the finger, and while the camera overlay is open.
   const swipeStart = useRef(null);
   function onBodyTouchStart(e) {
-    if (cameraOpen || e.touches.length !== 1) { swipeStart.current = null; return; }
+    if (e.touches.length !== 1) { swipeStart.current = null; return; }
     if (e.target.closest("button, textarea, input, .ss-vm, .ss-cap-chips, .ss-cap-strip")) { swipeStart.current = null; return; }
     const t = e.touches[0];
     swipeStart.current = { x: t.clientX, y: t.clientY };
@@ -491,23 +489,6 @@ export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCa
       <input ref={inputRef} type="file" accept="image/*" capture="environment" multiple className="ss-hidden" onChange={handleFile} />
       <input ref={libraryRef} type="file" accept="image/*" multiple className="ss-hidden" onChange={handleFile} />
 
-      {cameraOpen && (
-        <LiveCamera
-          label={active ? `${room.name} · ${active.title}` : room.name}
-          count={active ? activePhotos.length : count}
-          lastThumb={last ? (last.thumb || last.dataUrl) : null}
-          resumeKey={resumeKey}
-          onCapture={onCapture}
-          onClose={() => setCameraOpen(false)}
-          onFallback={() => { setCameraOpen(false); inputRef.current && inputRef.current.click(); }}
-          onWideShot={() => { inputRef.current && inputRef.current.click(); }}
-          condition={room.condition || null}
-          onCondition={(c) => onMeta({ condition: c })}
-          fieldMode={fieldMode}
-          onToggleFieldMode={onToggleFieldMode}
-        />
-      )}
-
       {/* context header: where am I, has it saved */}
       <div className="ss-cap-head">
         <button className="ss-live-exit" onClick={onExit} aria-label="Back to the case"><X size={18} /></button>
@@ -521,6 +502,24 @@ export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCa
           <SyncIndicator saveStatus={saveStatus} sync={sync} filing={filing} />
         </div>
       </div>
+
+      {/* the viewfinder itself — part of the walkthrough, not a screen you
+          tap into: it stays live across room switches, with the room's own
+          header above it and the issue/voice/note controls below */}
+      <LiveCamera
+        inline
+        label={active ? `${room.name} · ${active.title}` : room.name}
+        count={active ? activePhotos.length : count}
+        lastThumb={last ? (last.thumb || last.dataUrl) : null}
+        resumeKey={resumeKey}
+        onCapture={onCapture}
+        onFallback={() => { inputRef.current && inputRef.current.click(); }}
+        onWideShot={() => { inputRef.current && inputRef.current.click(); }}
+        condition={room.condition || null}
+        onCondition={(c) => onMeta({ condition: c })}
+        fieldMode={fieldMode}
+        onToggleFieldMode={onToggleFieldMode}
+      />
 
       <div className="ss-live-body ss-cap-body" onTouchStart={onBodyTouchStart} onTouchEnd={onBodyTouchEnd}>
         {/* the one thing that must never be ambiguous */}
@@ -558,9 +557,6 @@ export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCa
           </button>
         )}
 
-        <SegmentedControl className="ss-live-cond" options={CONDITIONS} value={room.condition} titleFor={(c) => `Rate this room ${c}`}
-          onChange={(c) => { tapFeedback("light"); onMeta({ condition: room.condition === c ? null : c }); }} />
-
         {panel === "note" && (
           <textarea className="ss-live-note" autoFocus rows={3}
             placeholder={active ? `What's wrong — ${active.title}` : "Room note — decor, meter reading, anything worth recording"}
@@ -590,13 +586,11 @@ export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCa
         )}
       </div>
 
-      {/* capture bar: the four things a surveyor does, in thumb reach */}
+      {/* the rest, in thumb reach below the viewfinder — the shutter itself
+          lives in the camera above, always visible, never a tap away */}
       <div className="ss-live-controls">
         <div className="ss-cap-bar">
-          <button className="ss-cap-photo" onClick={openCamera} aria-label={`Take photo${active ? ` into ${active.title}` : ""}`}>
-            <Camera size={28} strokeWidth={2.4} /><span>Photo</span>
-          </button>
-          <div className="ss-cap-secondary">
+          <div className="ss-cap-secondary ss-cap-secondary-full">
             <VoiceMemo memos={[]} onAdd={onAddMemo} onDelete={onDeleteMemo} dark compact label={active ? active.title : room.name} />
             <button className={`ss-cap-act ${panel === "note" ? "on" : ""}`} onClick={() => setPanel(panel === "note" ? null : "note")}><StickyNote size={18} /><span>Note</span></button>
             <button className={`ss-cap-act ${panel === "reading" ? "on" : ""}`} onClick={() => setPanel(panel === "reading" ? null : "reading")}><Gauge size={18} /><span>Reading</span></button>

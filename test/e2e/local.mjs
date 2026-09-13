@@ -286,9 +286,10 @@ try {
   await swipe(-150); const c = await room();         // at end → stays Bathroom
   await swipe(150); const d = await room();          // → Kitchen
   rec("S7a swipe respects both ends", a === "Kitchen" && b === "Bathroom" && c === "Bathroom" && d === "Kitchen" ? "PASS" : "FAIL", `${a} → ${b} → ${c} → ${d}`);
-  await page.locator(".ss-live-cond button", { hasText: "Fair" }).click(); await w(page, 150);
-  await page.locator(".ss-live-cond button", { hasText: "Fair" }).click(); await w(page, 150);
-  const onCount = await page.locator(".ss-live-cond button.on").count();
+  // the condition control lives inside the camera itself now — no separate tap to open it
+  await page.locator(".ss-livecam-cond button", { hasText: "Fair" }).click(); await w(page, 150);
+  await page.locator(".ss-livecam-cond button", { hasText: "Fair" }).click(); await w(page, 150);
+  const onCount = await page.locator(".ss-livecam-cond button.on").count();
   // voice memo with the fake microphone — filed to the room (no issue yet)
   await page.getByRole("button", { name: /Record voice note/ }).click(); await w(page, 1500);
   const recording = await page.locator(".ss-cap-recording").innerText().catch(() => "");
@@ -296,13 +297,12 @@ try {
   const head = await page.locator(".ss-cap-roomno").innerText();
   const memos = /1 voice/.test(head) ? 1 : 0;
   rec("S7b rating toggles off; voice note records via mic", onCount === 0 && memos === 1 && /Recording — Kitchen/.test(recording) ? "PASS" : "FAIL", `ratingOn=${onCount} memos=${memos} head="${head}" recording="${recording}"`);
-  // an issue raised in two taps; the next photo lands in it, not the room
+  // an issue raised in two taps; the next photo lands in it, not the room —
+  // the shutter is always live now, no separate tap to open the camera first
   await page.getByRole("button", { name: /New issue/ }).click(); await w(page, 150);
   await page.locator(".ss-live-iadd input").fill("Ceiling mould"); await page.keyboard.press("Enter"); await w(page, 300);
   const activeTitle = await page.locator(".ss-cap-active-title").innerText();
-  await page.locator(".ss-cap-photo").click(); await w(page, 1500);
   await page.locator(".ss-livecam-shutter").click(); await w(page, 800);
-  await page.locator(".ss-livecam-close").click(); await w(page, 400);
   const activeSub = await page.locator(".ss-cap-active-sub").innerText();
   const chip = await page.locator(".ss-live-ichip.on").innerText();
   rec("S7d issue raised while shooting; photo files into the active issue", activeTitle === "Ceiling mould" && /1 photo/.test(activeSub) && /Ceiling mould/.test(chip) ? "PASS" : "FAIL", `active="${activeTitle}" sub="${activeSub}" chip="${chip}"`);

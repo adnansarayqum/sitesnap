@@ -541,6 +541,15 @@ export function StyleBlock() {
         display: flex; flex-direction: column;
         max-width: 430px; margin: 0 auto; overflow: hidden;
       }
+      /* the walkthrough's own camera: not a modal over the screen, part of
+         it — the viewfinder dominates the upper portion while the room's
+         header stays visible above it and the issue/voice/note controls
+         stay visible below, so nothing is ever a tap away behind it */
+      .ss-livecam-inline {
+        position: relative; inset: auto; z-index: auto;
+        height: min(46vh, 380px); flex: none; width: 100%;
+        border-radius: 16px; margin: 8px 0 0;
+      }
       /* contain, not cover: the saved photo is the whole frame, so the preview
          must show the whole frame — cropping a 4:3 feed to fill a tall phone
          hides ~40% of its width and reads as "zoomed in" next to the camera app */
@@ -1184,7 +1193,7 @@ export function StyleBlock() {
       .ss-cap-status.ok { color: var(--hivis); }
       .ss-cap-status.offline { background: rgba(var(--ss-color-warning-rgb),.18); color: var(--ss-color-accent); }
       .ss-cap-status.failed { background: rgba(255,138,115,.22); color: var(--ss-color-danger-soft); }
-      .ss-cap-body { justify-content: flex-start; padding-top: 10px; gap: 0; }
+      .ss-cap-body { justify-content: flex-start; padding-top: 10px; gap: 0; overflow-y: auto; min-height: 0; }
       .ss-cap-active { width: 100%; max-width: 420px; border-radius: 14px; padding: 14px 16px; background: var(--hivis); color: var(--ss-color-on-accent); text-align: left; display: flex; flex-direction: column; gap: 2px; }
       .ss-cap-active.none { background: rgba(255,255,255,.08); color: #fff; border: 1px dashed rgba(var(--ss-color-accent-rgb),.45); }
       .ss-cap-active-label { font-size: 10.5px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; opacity: .75; }
@@ -1208,12 +1217,14 @@ export function StyleBlock() {
       .ss-cap-reading .row button { width: 46px; border-radius: 10px; background: rgba(255,255,255,.1); color: #fff; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
       .ss-cap-reading .row button.ok { background: var(--hivis); color: var(--ss-color-on-accent); }
       .ss-cap-bar { display: flex; gap: 10px; align-items: stretch; }
-      .ss-cap-photo { flex: 1.25; min-height: 84px; border-radius: 18px; background: var(--hivis); color: var(--hivis-deep); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-weight: 900; font-size: 15px; box-shadow: 0 6px 18px -8px rgba(var(--ss-color-accent-rgb),.6); }
-      .ss-cap-photo:active { transform: scale(.98); }
       /* four tiles in a 2×2 grid, the same 84px tall as the shutter button —
          the fixed "Recording" pill sits just above the bar, so the bar must
          never grow under it */
       .ss-cap-secondary { flex: 1.6; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; gap: 8px; min-height: 84px; }
+      /* the shutter now lives in the camera above, so these are the only
+         row — one line of equal actions reads better than a squat 2x2 grid */
+      .ss-cap-secondary-full { flex: 1; grid-template-columns: repeat(4, 1fr); grid-auto-rows: 1fr; min-height: 56px; }
+      .ss-cap-secondary-full .ss-cap-act { flex-direction: column; gap: 4px; font-size: 11px; }
       .ss-cap-act { min-height: 38px; border-radius: 12px; background: rgba(255,255,255,.08); color: #fff; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 6px; font-weight: 800; font-size: 12px; border: 1px solid rgba(255,255,255,.06); position: relative; padding: 0 6px; }
       .ss-cap-act.on { background: rgba(var(--ss-color-accent-rgb),.2); color: var(--hivis); border-color: rgba(var(--ss-color-accent-rgb),.5); }
       .ss-cap-act.rec { background: var(--ss-color-danger-soft); color: var(--ss-color-on-danger-soft); border-color: var(--ss-color-danger-soft); }
