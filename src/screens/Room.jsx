@@ -313,6 +313,10 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
         onChange={(e) => onMeta({ note: e.target.value })}
       />
       {aiNoteCard}
+      <button className={`ss-room-done ${room.complete ? "on" : ""}`}
+        onClick={() => { tapFeedback("light"); onMeta({ complete: !room.complete }); }}>
+        <Check size={15} /> {room.complete ? "Room complete" : "Mark room complete"}
+      </button>
     </div>
   );
 

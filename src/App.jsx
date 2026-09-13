@@ -678,6 +678,10 @@ export default function SiteSnap() {
       const roomName = (rooms.find((r) => r.id === roomId) || {}).name || "a room";
       logActivity(patch.condition ? `${roomName} rated ${patch.condition}` : `${roomName} rating cleared`);
     }
+    if ("complete" in patch) {
+      const roomName = (rooms.find((r) => r.id === roomId) || {}).name || "a room";
+      logActivity(patch.complete ? `${roomName} marked complete` : `${roomName} reopened`);
+    }
   }
 
   function addRoom(name) {

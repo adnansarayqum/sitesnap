@@ -417,6 +417,23 @@ export function StyleBlock() {
       .ss-cbadge.poor { background: var(--red-tint); color: var(--red); }
       .ss-tree-row .ss-note-flag { margin-left: 6px; vertical-align: -1px; }
 
+      /* Rooms tab: each room as a small card, not a thin list line —
+         name, photo/issue counts, condition and completion at a glance */
+      .ss-roomcard-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+      .ss-roomcard-top { display: flex; align-items: center; gap: 8px; }
+      .ss-roomcard-meta { font-size: 12.5px; color: var(--muted); padding-left: 28px; }
+      .ss-roomcard-todo { color: var(--muted2); }
+      .ss-roomcard-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; margin-left: 8px; }
+      .ss-roomcard-done { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 800; color: var(--pine); white-space: nowrap; }
+
+      /* the "mark room complete" toggle on the Room screen's meta card */
+      .ss-room-done {
+        width: 100%; margin-top: 10px; padding: 11px; border-radius: 8px;
+        display: flex; align-items: center; justify-content: center; gap: 7px;
+        border: 1.5px solid var(--line-strong); color: var(--muted); font-weight: 700; font-size: 13px;
+      }
+      .ss-room-done.on { background: var(--pine-tint); border-color: var(--pine); color: var(--pine-press); }
+
       .ss-meta { background: var(--card); border: 1px solid var(--line); border-radius: 9px; padding: 12px; margin-bottom: 14px; }
       .ss-cond-row { display: flex; align-items: center; gap: 6px; }
       .ss-cond-label { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-right: auto; }

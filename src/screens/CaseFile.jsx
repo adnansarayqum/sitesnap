@@ -1,17 +1,17 @@
 import { useState } from "react";
 import { useRef } from "react";
 import {
-  Camera, Check, Image as ImageIcon, Mail, Pencil, Plus, StickyNote, Share2, Trash2, User,
+  Camera, Check, Image as ImageIcon, Mail, Pencil, Plus, Share2, Trash2, User,
 } from "lucide-react";
 import { ReorderableList } from "../components/shared.jsx";
 import { Coach } from "../components/Hints.jsx";
-import { pad } from "../lib/util.js";
+import { openIssues } from "../evidence.js";
 import { FinishScreen } from "./Finish.jsx";
 import { FindingsTab } from "./Findings.jsx";
 import { coverage, migrateFindings } from "../findings.js";
 import { ClipboardCheck, Sparkles } from "lucide-react";
 import { relativeDay } from "./Home.jsx";
-import { AppHeader, Button, EmptyState, InlineAlert, Modal, ProgressBar, StatusPill, StickyActionBar, SyncIndicator } from "../ui/index.js";
+import { AppHeader, Button, EmptyState, InlineAlert, Modal, ProgressBar, RoomCard, StickyActionBar, SyncIndicator } from "../ui/index.js";
 
 /* ---------------- board (overview) ---------------- */
 
@@ -246,7 +246,7 @@ export function OverviewTab({ inspection, sync, filing, saveStatus, rooms, total
         <div style={{ height: 12 }} />
       </div>
       <StickyActionBar>
-        <Button variant="live" size="big" onClick={() => onWalk(firstEmpty)}>
+        <Button variant="primary" size="big" onClick={() => onWalk(firstEmpty)}>
           <Camera size={20} strokeWidth={2.4} />
           {totalPhotos === 0 ? "Start walkthrough" : "Continue walkthrough"}
         </Button>
@@ -260,12 +260,13 @@ export function RoomsTab({ rooms, photoCache, doneRooms, totalPhotos, onReorder,
   const [name, setName] = useState("");
   const firstEmpty = Math.max(0, rooms.findIndex((r) => r.photoIds.length === 0));
   const pct = rooms.length ? Math.round((doneRooms / rooms.length) * 100) : 0;
+  const completeCount = rooms.filter((r) => r.complete).length;
 
   return (
     <>
       <div className="ss-progress-wrap">
         <ProgressBar value={pct} label="Rooms covered" />
-        <span>{doneRooms}/{rooms.length} rooms covered</span>
+        <span>{doneRooms} of {rooms.length} rooms covered · {pct}%{completeCount ? ` · ${completeCount} complete` : ""}</span>
       </div>
 
       <div className="ss-scroll">
@@ -277,24 +278,9 @@ export function RoomsTab({ rooms, photoCache, doneRooms, totalPhotos, onReorder,
             const lastId = room.photoIds[room.photoIds.length - 1];
             const thumb = lastId ? photoCache[lastId] : null;
             return (
-              <>
-                <div className="ss-row-main">
-                  <span className="ss-index">{pad(index + 1)}</span>
-                  <span className="ss-row-name">{room.name}</span>
-                  {room.condition && <span className={`ss-cdot ${room.condition.toLowerCase()}`} title={room.condition} />}
-                  {room.note ? <StickyNote size={12} className="ss-note-flag" /> : null}
-                </div>
-                <span className="ss-row-right">
-                  {thumb ? (
-                    <img src={thumb.thumb || thumb.dataUrl} alt="" className="ss-thumb" />
-                  ) : (
-                    <span className="ss-thumb ss-thumb-empty"><ImageIcon size={13} /></span>
-                  )}
-                  <StatusPill tone={room.photoIds.length ? "done" : undefined}>
-                    {room.photoIds.length ? room.photoIds.length : "—"}
-                  </StatusPill>
-                </span>
-              </>
+              <RoomCard index={index} name={room.name} photos={room.photoIds.length} issues={openIssues(room).length}
+                condition={room.condition} complete={room.complete} hasNote={!!room.note}
+                thumb={thumb ? (thumb.thumb || thumb.dataUrl) : null} />
             );
           }}
         />
@@ -320,7 +306,7 @@ export function RoomsTab({ rooms, photoCache, doneRooms, totalPhotos, onReorder,
       </div>
 
       <StickyActionBar>
-        <Button variant="live" size="big" onClick={() => onWalk(firstEmpty)}>
+        <Button variant="primary" size="big" onClick={() => onWalk(firstEmpty)}>
           <Camera size={20} strokeWidth={2.4} />
           {totalPhotos === 0 ? "Start walkthrough" : "Continue walkthrough"}
         </Button>
