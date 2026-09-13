@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Loader2, CloudUpload, CircleCheck, X } from "lucide-react";
-import { TopBar } from "../components/shared.jsx";
 import { fetchRemoteCase } from "../sync.js";
 import { relativeDay } from "./Home.jsx";
+import { AppHeader } from "../ui/index.js";
 
 /* ---------------- a colleague's case, from the register ---------------- */
 // Read-only: the full-size photos are on their phone and in their drive;
@@ -22,7 +22,7 @@ export function RemoteCaseScreen({ id, onBack }) {
   if (error) {
     return (
       <div className="ss-col">
-        <TopBar title="Case" eyebrow="Register" onBack={onBack} />
+        <AppHeader title="Case" eyebrow="Register" onBack={onBack} />
         <div className="ss-scroll"><p className="ss-empty-note">Couldn't load this case: {error}</p></div>
       </div>
     );
@@ -39,7 +39,7 @@ export function RemoteCaseScreen({ id, onBack }) {
 
   return (
     <div className="ss-col">
-      <TopBar
+      <AppHeader
         title={c.address}
         eyebrow={`${c.case_no ? `Case No. ${c.case_no} · ` : ""}by ${c.created_by_name || "a colleague"}`}
         onBack={onBack}

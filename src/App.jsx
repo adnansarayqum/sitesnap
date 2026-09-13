@@ -26,6 +26,7 @@ import { migrateFindings } from "./findings.js";
 import { configureTelemetry, track, flushTelemetry } from "./telemetry.js";
 import { configureFiling, enqueueFiling, clearFilingQueue, onFiling, filingState } from "./filing.js";
 import { linkedAccount } from "./cloud/service.js";
+import { Button } from "./ui/index.js";
 
 // Root: owns the open inspection, its rooms and the thumbnail cache, and
 // routes between the top-level tabs and the screens inside a case file.
@@ -994,9 +995,9 @@ export default function SiteSnap() {
               <div className="ss-modal-icon"><CloudUpload size={22} /></div>
               <div className="ss-modal-title">Connect OneDrive?</div>
               <p>Photos file themselves into OneDrive as you shoot — one sign-in now saves you finding somewhere to send them at the end of every job.</p>
-              <button className="ss-btn ss-btn-primary ss-btn-big" disabled={onedrivePromptBusy} onClick={connectOneDriveFromPrompt}>
+              <Button variant="primary" size="big" disabled={onedrivePromptBusy} onClick={connectOneDriveFromPrompt}>
                 {onedrivePromptBusy ? <Loader2 size={18} className="ss-spin" /> : <CloudUpload size={18} />} Connect OneDrive
-              </button>
+              </Button>
               <button className="ss-link" style={{ marginTop: 10 }} disabled={onedrivePromptBusy} onClick={() => setOnedrivePrompt(false)}>Skip for now</button>
             </div>
           </div>

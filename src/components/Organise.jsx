@@ -6,6 +6,7 @@ import { aiConfig, aiPhotoCopy, suggestClusters, transcribeMemo, AI_MAX_PHOTOS }
 import { transcriptFromServer, failedTranscript } from "../evidence.js";
 import { withOfflineRetry } from "../aiRetry.js";
 import { IssuePicker, linkSourceLabel } from "./Evidence.jsx";
+import { Button } from "../ui/index.js";
 
 // Organising a room's evidence into issues after the fact — for cases shot
 // before issues existed, or a room shot in a hurry. Three routes, none
@@ -88,8 +89,8 @@ export function OrganiseSheet({ caseId, room, photoCache, fullPhoto, audioCache,
                     <div className="ss-org-suggest">
                       <Sparkles size={12} /> AI-suggested{i.suggestion && i.suggestion.confidence ? ` · ${i.suggestion.confidence} confidence` : ""}{i.suggestion && i.suggestion.rationale ? ` — ${i.suggestion.rationale}` : ""}
                       <div className="ss-finding-actions" style={{ marginTop: 6 }}>
-                        <button className="ss-btn ss-btn-primary" onClick={() => { onRoom((r) => confirmIssue(r, i.id)); onActivity && onActivity(`${room.name}: confirmed issue “${i.title}”`); }}><Check size={14} /> Confirm</button>
-                        <button className="ss-btn ss-btn-ghost" onClick={() => onRoom((r) => deleteIssue(r, i.id))}><Trash2 size={14} /> Discard</button>
+                        <Button variant="primary" onClick={() => { onRoom((r) => confirmIssue(r, i.id)); onActivity && onActivity(`${room.name}: confirmed issue “${i.title}”`); }}><Check size={14} /> Confirm</Button>
+                        <Button variant="ghost" onClick={() => onRoom((r) => deleteIssue(r, i.id))}><Trash2 size={14} /> Discard</Button>
                       </div>
                     </div>
                   )}
@@ -118,14 +119,14 @@ export function OrganiseSheet({ caseId, room, photoCache, fullPhoto, audioCache,
               {issues.length === 0 && (
                 <div className="ss-org-one">
                   <input className="ss-input" value={oneTitle} onChange={(e) => setOneTitle(e.target.value)} placeholder="Issue title" />
-                  <button className="ss-btn ss-btn-primary" disabled={!oneTitle.trim()} onClick={() => { onRoom((r) => adoptLegacyIssue(r, oneTitle.trim()).room); onActivity && onActivity(`${room.name}: all evidence treated as one issue “${oneTitle.trim()}”`); }}>
+                  <Button variant="primary" disabled={!oneTitle.trim()} onClick={() => { onRoom((r) => adoptLegacyIssue(r, oneTitle.trim()).room); onActivity && onActivity(`${room.name}: all evidence treated as one issue “${oneTitle.trim()}”`); }}>
                     <Check size={15} /> Treat all of it as one issue
-                  </button>
+                  </Button>
                 </div>
               )}
-              <button className="ss-btn ss-btn-ghost ss-btn-big" style={{ marginTop: 8 }} disabled={!!busy} onClick={suggest}>
+              <Button variant="ghost" size="big" style={{ marginTop: 8 }} disabled={!!busy} onClick={suggest}>
                 {busy === "suggest" ? <Loader2 size={16} className="ss-spin" /> : <Sparkles size={16} />} {busy === "suggest" ? "Reading the evidence…" : "Suggest issues (AI)"}
-              </button>
+              </Button>
               {suggested.length > 0 && <p className="ss-fineprint"><Sparkles size={11} /> Suggestions are marked and unconfirmed until you confirm them; they cannot be drafted from before that.</p>}
             </>
           )}
@@ -134,7 +135,7 @@ export function OrganiseSheet({ caseId, room, photoCache, fullPhoto, audioCache,
             <div className="ss-inline-add">
               <input className="ss-input" autoFocus placeholder="Issue, e.g. Damaged flooring" value={title} onChange={(e) => setTitle(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter" && title.trim()) { onRoom((r) => addIssue(r, title.trim()).room); setTitle(""); setAdding(false); } }} />
-              <button className="ss-btn ss-btn-primary ss-btn-sq" disabled={!title.trim()} onClick={() => { onRoom((r) => addIssue(r, title.trim()).room); setTitle(""); setAdding(false); }}><Check size={18} /></button>
+              <Button variant="primary" size="sq" disabled={!title.trim()} onClick={() => { onRoom((r) => addIssue(r, title.trim()).room); setTitle(""); setAdding(false); }}><Check size={18} /></Button>
             </div>
           ) : (
             <button className="ss-dashed" onClick={() => setAdding(true)}><Plus size={15} /> New issue</button>

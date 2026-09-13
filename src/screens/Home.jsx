@@ -1,32 +1,13 @@
 import { useEffect, useState } from "react";
 import {
-  AlertTriangle, ArrowRight, Camera, CircleCheck, CloudUpload, Download, FileText, FolderTree, Home as HomeIcon, Mic, Plus, Search, Settings as SettingsIcon, Smartphone, Star, Trash2, WifiOff, X,
+  AlertTriangle, ArrowRight, Camera, CircleCheck, CloudUpload, Download, FileText, Mic, Plus, Search, Smartphone, Star, Trash2, WifiOff, X,
 } from "lucide-react";
 import {
   loadInspection, loadPhoto,
 } from "../storage.js";
+import { BottomNavigation, Button, StatusPill } from "../ui/index.js";
 
 /* ---------------- home ---------------- */
-
-/* ---------------- top-level tab bar ---------------- */
-
-export function TabBar({ active, onChange }) {
-  const tabs = [
-    ["home", "Home", HomeIcon],
-    ["cases", "Cases", FolderTree],
-    ["settings", "Settings", SettingsIcon],
-  ];
-  return (
-    <div className="ss-tabbar">
-      {tabs.map(([key, label, Icon]) => (
-        <button key={key} className={`ss-tabbar-item ${active === key ? "on" : ""}`} onClick={() => onChange(key)}>
-          <Icon size={19} strokeWidth={active === key ? 2.2 : 1.8} />
-          <span>{label}</span>
-        </button>
-      ))}
-    </div>
-  );
-}
 
 // Until photos have somewhere to go, a slim status line says so — every
 // visit, not a one-time billboard, because "not now" on day one shouldn't
@@ -99,11 +80,11 @@ export function HomeScreen({ index, onNew, onOpen, onTab, orgName, needsCloud })
           </div>
         </div>
         <div className="ss-footer">
-          <button className="ss-btn ss-btn-primary ss-btn-big" onClick={onNew}>
+          <Button variant="primary" size="big" onClick={onNew}>
             <Plus size={20} strokeWidth={2.6} /> New inspection
-          </button>
+          </Button>
         </div>
-        <TabBar active="home" onChange={onTab} />
+        <BottomNavigation active="home" onChange={onTab} />
       </div>
     );
   }
@@ -160,7 +141,7 @@ export function HomeScreen({ index, onNew, onOpen, onTab, orgName, needsCloud })
               {others.map((i) => (
                 <button key={i.id} className="ss-row ss-row-tap-full" onClick={() => onOpen(i.id)}>
                   <span className="ss-row-name">{i.address}</span>
-                  <span className="ss-pill done">{i.photos}</span>
+                  <StatusPill tone="done">{i.photos}</StatusPill>
                 </button>
               ))}
             </div>
@@ -177,11 +158,11 @@ export function HomeScreen({ index, onNew, onOpen, onTab, orgName, needsCloud })
       </div>
 
       <div className="ss-footer">
-        <button className="ss-btn ss-btn-secondary" style={{ width: "100%" }} onClick={onNew}>
+        <Button variant="secondary" style={{ width: "100%" }} onClick={onNew}>
           <Plus size={16} strokeWidth={2.6} /> Start a different inspection
-        </button>
+        </Button>
       </div>
-      <TabBar active="home" onChange={onTab} />
+      <BottomNavigation active="home" onChange={onTab} />
     </div>
   );
 }
@@ -235,11 +216,11 @@ export function CasesScreen({ index, archive, durable, onNew, onOpen, onDiscard,
           <p className="ss-empty-note">No cases yet. Start your first inspection below.</p>
         </div>
         <div className="ss-footer">
-          <button className="ss-btn ss-btn-primary ss-btn-big" onClick={onNew}>
+          <Button variant="primary" size="big" onClick={onNew}>
             <Plus size={20} strokeWidth={2.6} /> New inspection
-          </button>
+          </Button>
         </div>
-        <TabBar active="cases" onChange={onTab} />
+        <BottomNavigation active="cases" onChange={onTab} />
       </div>
     );
   }
@@ -354,9 +335,9 @@ export function CasesScreen({ index, archive, durable, onNew, onOpen, onDiscard,
       </div>
 
       <div className="ss-footer">
-        <button className="ss-btn ss-btn-primary ss-btn-big" onClick={onNew}>
+        <Button variant="primary" size="big" onClick={onNew}>
           <Plus size={20} strokeWidth={2.6} /> New inspection
-        </button>
+        </Button>
       </div>
 
       {target && (
@@ -368,17 +349,17 @@ export function CasesScreen({ index, archive, durable, onNew, onOpen, onDiscard,
               Its {target.photos} photo{target.photos === 1 ? "" : "s"} and notes will be
               deleted from this device. Anything already exported or uploaded is unaffected.
             </p>
-            <button className="ss-btn ss-btn-danger"
+            <Button variant="danger"
               onClick={() => { onDiscard(target.id); setConfirmId(null); }}>
               <Trash2 size={16} /> Delete inspection
-            </button>
-            <button className="ss-btn ss-btn-ghost" style={{ marginTop: 8 }} onClick={() => setConfirmId(null)}>
+            </Button>
+            <Button variant="ghost" style={{ marginTop: 8 }} onClick={() => setConfirmId(null)}>
               Keep it
-            </button>
+            </Button>
           </div>
         </div>
       )}
-      <TabBar active="cases" onChange={onTab} />
+      <BottomNavigation active="cases" onChange={onTab} />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, Loader2, MessageSquare, X } from "lucide-react";
 import { FEEDBACK_KINDS, sendFeedback } from "../telemetry.js";
+import { Button } from "../ui/index.js";
 
 // One tap to say what happened, in the surveyor's words, with the context
 // the founder needs to act on it (screen, case, finding, version) and none
@@ -34,7 +35,7 @@ export function FeedbackSheet({ screen, caseId, findingId, preset, onClose, onSe
           <textarea className="ss-note-input" rows={3} placeholder="Anything else — what you expected, what you got (optional)" value={text} onChange={(e) => setText(e.target.value)} />
           <p className="ss-fineprint">Sent with the screen, case and finding ids and the app version — not your photos, notes or transcripts.</p>
           {error && <p className="ss-fineprint" style={{ color: "var(--red)" }}>{error}</p>}
-          <button className="ss-btn ss-btn-primary ss-btn-big" disabled={!kind || busy} onClick={send}>{busy ? <Loader2 size={16} className="ss-spin" /> : <Check size={16} />} Send</button>
+          <Button variant="primary" size="big" disabled={!kind || busy} onClick={send}>{busy ? <Loader2 size={16} className="ss-spin" /> : <Check size={16} />} Send</Button>
         </div>
       </div>
     </div>

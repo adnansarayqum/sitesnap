@@ -16,6 +16,7 @@ import { EvidenceChips, EvidenceSheet, linkSourceLabel } from "../components/Evi
 import { OrganiseSheet } from "../components/Organise.jsx";
 import { FeedbackButton } from "../components/Feedback.jsx";
 import { listRates, addRate, suggestRows, rateBasis } from "../pricebook.js";
+import { Button } from "../ui/index.js";
 
 // The Findings tab. Coverage first — every room, every issue, what was
 // processed and what wasn't — then the findings themselves, each traceable
@@ -403,8 +404,8 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
             )}
             <p className="ss-fineprint">Saving keeps the AI's original beside your wording and marks the finding <b>edited</b>. It is not approved until you approve it.{editing.costLow !== "" ? " A figure you enter is recorded as yours, not the price book's." : ""}</p>
             <div className="ss-finding-actions">
-              <button className="ss-btn ss-btn-primary" onClick={() => saveEdit(raw)}><Check size={15} /> Save changes</button>
-              <button className="ss-btn ss-btn-ghost" onClick={() => setEditing(null)}>Cancel</button>
+              <Button variant="primary" onClick={() => saveEdit(raw)}><Check size={15} /> Save changes</Button>
+              <Button variant="ghost" onClick={() => setEditing(null)}>Cancel</Button>
             </div>
           </div>
         ) : (
@@ -462,8 +463,8 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
                 {(f.cost.problems || []).filter((p) => !["quantity_required"].includes(p.problem)).map((p, i) => <p key={i} className="ss-muted">{p.row_id}: {p.detail}</p>)}
                 {isQty ? (
                   <div className="ss-finding-actions">
-                    <button className="ss-btn ss-btn-primary" disabled={qty.busy} onClick={() => recalc(raw)}>{qty.busy ? <Loader2 size={14} className="ss-spin" /> : <Check size={14} />} Recalculate from the price book</button>
-                    <button className="ss-btn ss-btn-ghost" onClick={() => setQty(null)}>Cancel</button>
+                    <Button variant="primary" disabled={qty.busy} onClick={() => recalc(raw)}>{qty.busy ? <Loader2 size={14} className="ss-spin" /> : <Check size={14} />} Recalculate from the price book</Button>
+                    <Button variant="ghost" onClick={() => setQty(null)}>Cancel</Button>
                     {qty.error && <span className="ss-muted">{qty.error}</span>}
                   </div>
                 ) : unconfirmedLines.length > 0 && raw.status !== "rejected" && (
@@ -529,11 +530,11 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
             )}
 
             <div className="ss-finding-actions">
-              {canApprove && <button className="ss-btn ss-btn-primary" onClick={() => decide(raw, "approved")}><Check size={15} /> Approve</button>}
-              {["draft", "review_required", "edited"].includes(raw.status) && blockers.length > 0 && <button className="ss-btn ss-btn-ghost" disabled title={blockers.join("; ")}><ShieldAlert size={14} /> Can't approve yet</button>}
-              {raw.status !== "rejected" && raw.status !== "superseded" && !isEditing && <button className="ss-btn ss-btn-ghost" onClick={() => startEdit(raw)}><Pencil size={14} /> Edit</button>}
-              {["draft", "review_required", "edited"].includes(raw.status) && <button className="ss-btn ss-btn-danger-ghost" onClick={() => decide(raw, "rejected")}><X size={15} /> Reject</button>}
-              {["approved", "rejected", "edited"].includes(raw.status) && <button className="ss-btn ss-btn-ghost" onClick={() => decide(raw, "draft", { reason: "surveyor reopened" })}><RotateCcw size={14} /> Back to draft</button>}
+              {canApprove && <Button variant="primary" onClick={() => decide(raw, "approved")}><Check size={15} /> Approve</Button>}
+              {["draft", "review_required", "edited"].includes(raw.status) && blockers.length > 0 && <Button variant="ghost" disabled title={blockers.join("; ")}><ShieldAlert size={14} /> Can't approve yet</Button>}
+              {raw.status !== "rejected" && raw.status !== "superseded" && !isEditing && <Button variant="ghost" onClick={() => startEdit(raw)}><Pencil size={14} /> Edit</Button>}
+              {["draft", "review_required", "edited"].includes(raw.status) && <Button variant="danger-ghost" onClick={() => decide(raw, "rejected")}><X size={15} /> Reject</Button>}
+              {["approved", "rejected", "edited"].includes(raw.status) && <Button variant="ghost" onClick={() => decide(raw, "draft", { reason: "surveyor reopened" })}><RotateCcw size={14} /> Back to draft</Button>}
             </div>
             {issue && room && cfg && cfg.enabled && !(progress && progress.running) && raw.status !== "approved" && (
               <div className="ss-regen">
@@ -597,13 +598,13 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
           </div>
         )}
         <div className="ss-finding-actions" style={{ marginTop: 0 }}>
-          {total > 0 && <button className="ss-btn ss-btn-primary" onClick={approveUnflagged} disabled={!live.some((f) => ["draft", "review_required"].includes(f.status) && !needsAttention(effective(f)) && !(f.gate && f.gate.status !== "review_ready") && !f.stale)}><Check size={16} /> Approve unflagged</button>}
+          {total > 0 && <Button variant="primary" onClick={approveUnflagged} disabled={!live.some((f) => ["draft", "review_required"].includes(f.status) && !needsAttention(effective(f)) && !(f.gate && f.gate.status !== "review_ready") && !f.stale)}><Check size={16} /> Approve unflagged</Button>}
           {progress && progress.running ? (
-            <button className="ss-btn ss-btn-danger-ghost" onClick={cancelDraft}><X size={15} /> Cancel</button>
+            <Button variant="danger-ghost" onClick={cancelDraft}><X size={15} /> Cancel</Button>
           ) : (
-            <button className={`ss-btn ${total > 0 ? "ss-btn-ghost" : "ss-btn-primary"} ${total > 0 ? "" : "ss-btn-big"}`} onClick={() => draftIssues(draftTargets)} disabled={aiOff || !cfg || !draftTargets.length} title={aiOff ? "Set ANTHROPIC_API_KEY on the server" : !draftTargets.length ? "Confirm an issue with evidence first" : undefined}>
+            <Button variant={total > 0 ? "ghost" : "primary"} size={total > 0 ? undefined : "big"} onClick={() => draftIssues(draftTargets)} disabled={aiOff || !cfg || !draftTargets.length} title={aiOff ? "Set ANTHROPIC_API_KEY on the server" : !draftTargets.length ? "Confirm an issue with evidence first" : undefined}>
               <Sparkles size={15} /> {draftLabel}
-            </button>
+            </Button>
           )}
         </div>
       </div>

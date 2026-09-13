@@ -3,7 +3,7 @@ import { useRef } from "react";
 import {
   Camera, Check, Image as ImageIcon, Mail, Pencil, Plus, StickyNote, CloudUpload, CloudOff, Loader2, AlertTriangle, Share2, Trash2, User,
 } from "lucide-react";
-import { ReorderableList, TopBar } from "../components/shared.jsx";
+import { ReorderableList } from "../components/shared.jsx";
 import { Coach } from "../components/Hints.jsx";
 import { pad } from "../lib/util.js";
 import { FinishScreen } from "./Finish.jsx";
@@ -11,6 +11,7 @@ import { FindingsTab } from "./Findings.jsx";
 import { coverage, migrateFindings } from "../findings.js";
 import { ClipboardCheck, Sparkles } from "lucide-react";
 import { relativeDay } from "./Home.jsx";
+import { AppHeader, Button, ProgressBar, StatusPill } from "../ui/index.js";
 
 /* ---------------- board (overview) ---------------- */
 
@@ -44,7 +45,7 @@ export function CaseFileScreen({
 
   return (
     <div className="ss-col">
-      <TopBar
+      <AppHeader
         title={inspection.address}
         eyebrow={inspection.caseNo ? `Case No. ${inspection.caseNo}` : (inspection.postcode || "Inspection in progress")}
         onBack={() => onExit()}
@@ -70,12 +71,12 @@ export function CaseFileScreen({
               Photos already uploaded keep the old folder name — rename before
               uploading, or move that folder in OneDrive afterwards.
             </p>
-            <button className="ss-btn ss-btn-primary" disabled={!draft.address.trim()}
+            <Button variant="primary" disabled={!draft.address.trim()}
               title={!draft.address.trim() ? "Address can't be empty" : undefined}
               onClick={() => { onRename({ address: draft.address.trim(), postcode: draft.postcode.trim() }); setRenaming(false); }}>
               Save
-            </button>
-            <button className="ss-btn ss-btn-ghost" style={{ marginTop: 8 }} onClick={() => setRenaming(false)}>Cancel</button>
+            </Button>
+            <Button variant="ghost" style={{ marginTop: 8 }} onClick={() => setRenaming(false)}>Cancel</Button>
           </div>
         </div>
       )}
@@ -156,7 +157,7 @@ export function InspectionSummary({ inspection, rooms, totalPhotos, onReview }) 
         {failedMemos > 0 && <li className="warn">⚠ {failedMemos} voice note{failedMemos === 1 ? "" : "s"} not transcribed</li>}
         {!issues.length && !loose && <li className="warn">No issues raised — open a room and raise one, or organise its photos</li>}
       </ul>
-      <button className="ss-btn ss-btn-primary ss-btn-big" onClick={onReview}><Sparkles size={18} /> {drafted ? "Review findings" : "Draft findings"}</button>
+      <Button variant="primary" size="big" onClick={onReview}><Sparkles size={18} /> {drafted ? "Review findings" : "Draft findings"}</Button>
     </div>
   );
 }
@@ -256,10 +257,10 @@ export function OverviewTab({ inspection, sync, rooms, totalPhotos, doneRooms, o
         <div style={{ height: 12 }} />
       </div>
       <div className="ss-footer">
-        <button className="ss-btn ss-btn-live ss-btn-big" onClick={() => onWalk(firstEmpty)}>
+        <Button variant="live" size="big" onClick={() => onWalk(firstEmpty)}>
           <Camera size={20} strokeWidth={2.4} />
           {totalPhotos === 0 ? "Start walkthrough" : "Continue walkthrough"}
-        </button>
+        </Button>
       </div>
     </>
   );
@@ -274,7 +275,7 @@ export function RoomsTab({ rooms, photoCache, doneRooms, totalPhotos, onReorder,
   return (
     <>
       <div className="ss-progress-wrap">
-        <div className="ss-progress"><div style={{ width: `${pct}%` }} /></div>
+        <ProgressBar value={pct} label="Rooms covered" />
         <span>{doneRooms}/{rooms.length} rooms covered</span>
       </div>
 
@@ -300,9 +301,9 @@ export function RoomsTab({ rooms, photoCache, doneRooms, totalPhotos, onReorder,
                   ) : (
                     <span className="ss-thumb ss-thumb-empty"><ImageIcon size={13} /></span>
                   )}
-                  <span className={`ss-pill ${room.photoIds.length ? "done" : ""}`}>
+                  <StatusPill tone={room.photoIds.length ? "done" : undefined}>
                     {room.photoIds.length ? room.photoIds.length : "—"}
-                  </span>
+                  </StatusPill>
                 </span>
               </>
             );
@@ -314,10 +315,10 @@ export function RoomsTab({ rooms, photoCache, doneRooms, totalPhotos, onReorder,
             <input className="ss-input" autoFocus placeholder="Room name" value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && name.trim()) { onAddRoom(name.trim()); setName(""); setAdding(false); } }} />
-            <button className="ss-btn ss-btn-primary ss-btn-sq"
+            <Button variant="primary" size="sq"
               onClick={() => { if (name.trim()) onAddRoom(name.trim()); setName(""); setAdding(false); }}>
               <Check size={18} />
-            </button>
+            </Button>
           </div>
         ) : (
           <button className="ss-dashed" onClick={() => setAdding(true)}><Plus size={15} /> Add room</button>
@@ -333,10 +334,10 @@ export function RoomsTab({ rooms, photoCache, doneRooms, totalPhotos, onReorder,
       </div>
 
       <div className="ss-footer">
-        <button className="ss-btn ss-btn-live ss-btn-big" onClick={() => onWalk(firstEmpty)}>
+        <Button variant="live" size="big" onClick={() => onWalk(firstEmpty)}>
           <Camera size={20} strokeWidth={2.4} />
           {totalPhotos === 0 ? "Start walkthrough" : "Continue walkthrough"}
-        </button>
+        </Button>
       </div>
     </>
   );

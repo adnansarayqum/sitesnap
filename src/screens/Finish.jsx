@@ -15,6 +15,7 @@ import { INSPECTION, SITE_PHOTOS, inspectionSegments, photoFolder, photoSegments
 import { ReportView } from "./Report.jsx";
 import { approvedByRoom, findingsFiles, fromLegacyDraft } from "../findings.js";
 import { Coach } from "../components/Hints.jsx";
+import { Button } from "../ui/index.js";
 
 // the ID photo files beside the inspection metadata, never in a room folder
 export const idPhotoName = (inspection) => `ID ${safeFileName(inspection.postcode || inspection.address || "photo")}.jpg`;
@@ -605,27 +606,27 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
         <div className="ss-section-label" style={{ marginTop: 18 }}>Export</div>
         {cloudTarget && (
           <>
-            <button className="ss-btn ss-btn-primary ss-btn-big" onClick={sendToCloud} disabled={cloudBusy || totalPhotos === 0}
+            <Button variant="primary" size="big" onClick={sendToCloud} disabled={cloudBusy || totalPhotos === 0}
               title={totalPhotos === 0 ? "Take at least one photo first" : undefined}>
               <CloudUpload size={19} /> {cloudLabel}
-            </button>
+            </Button>
             {cloudBusy && <div className="ss-upbar"><div style={{ width: `${cloudPct}%` }} /></div>}
           </>
         )}
         <div className="ss-export-row">
-          <button className={`ss-btn ${cloudTarget ? "ss-btn-ghost" : "ss-btn-primary"}`} onClick={openReport} disabled={totalPhotos === 0 || reportBusy}
+          <Button variant={cloudTarget ? "ghost" : "primary"} onClick={openReport} disabled={totalPhotos === 0 || reportBusy}
             title={totalPhotos === 0 ? "Take at least one photo first" : undefined}>
             <FileText size={18} /> Report (PDF)
-          </button>
-          <button className="ss-btn ss-btn-ghost" onClick={exportZip} disabled={zipBusy || totalPhotos === 0}
+          </Button>
+          <Button variant="ghost" onClick={exportZip} disabled={zipBusy || totalPhotos === 0}
             title={totalPhotos === 0 ? "Take at least one photo first" : undefined}>
             <Download size={18} /> {zipBusy ? "Building ZIP…" : "Export ZIP"}
-          </button>
+          </Button>
         </div>
-        <button className="ss-btn ss-btn-ghost ss-btn-big" style={{ marginTop: 8 }} onClick={handleSaveAll} disabled={totalPhotos === 0}
+        <Button variant="ghost" size="big" style={{ marginTop: 8 }} onClick={handleSaveAll} disabled={totalPhotos === 0}
           title={totalPhotos === 0 ? "Take at least one photo first" : undefined}>
           <ImagePlus size={19} /> Save all to Photos app
-        </button>
+        </Button>
         {directError && <p className="ss-fineprint" style={{ color: "var(--red)" }}>{directError}</p>}
         {filing && filing.provider && totalPhotos > 0 && (
           <p className="ss-fineprint ss-filing-note" style={{ textAlign: "center" }}>
@@ -658,7 +659,7 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
       </div>
 
       <div className="ss-footer">
-        <button className="ss-btn ss-btn-ghost" onClick={() => setConfirmClose(true)}>Close inspection & start fresh</button>
+        <Button variant="ghost" onClick={() => setConfirmClose(true)}>Close inspection & start fresh</Button>
       </div>
 
       {confirmClose && (() => {
@@ -692,13 +693,13 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
                   </label>
                 </>
               )}
-              <button className="ss-btn ss-btn-danger" disabled={!safe && !acceptLoss} onClick={onDone}>
+              <Button variant="danger" disabled={!safe && !acceptLoss} onClick={onDone}>
                 <Trash2 size={16} /> Delete &amp; close
-              </button>
-              <button className="ss-btn ss-btn-ghost" style={{ marginTop: 8 }}
+              </Button>
+              <Button variant="ghost" style={{ marginTop: 8 }}
                 onClick={() => { setConfirmClose(false); setAcceptLoss(false); }}>
                 {safe ? "Keep inspection" : "Go back and save it first"}
-              </button>
+              </Button>
             </div>
           </div>
         );
@@ -715,12 +716,12 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
               this phone. Fix the connection and send again, or export a ZIP in
               the meantime.
             </p>
-            <button className="ss-btn ss-btn-primary" onClick={() => { setUploadError(null); sendToCloud(); }}>
+            <Button variant="primary" onClick={() => { setUploadError(null); sendToCloud(); }}>
               Try again
-            </button>
-            <button className="ss-btn ss-btn-ghost" style={{ marginTop: 8 }} onClick={() => setUploadError(null)}>
+            </Button>
+            <Button variant="ghost" style={{ marginTop: 8 }} onClick={() => setUploadError(null)}>
               Close
-            </button>
+            </Button>
           </div>
         </div>
       )}

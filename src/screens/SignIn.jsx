@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Camera, Loader2, Mail, ArrowRight } from "lucide-react";
 import { requestCode, verifyCode, oauthSignIn } from "../auth.js";
+import { Button } from "../ui/index.js";
 
 /* ---------------- sign in ---------------- */
 // No passwords: a six-digit code by email, or Microsoft / Google. The
@@ -79,9 +80,9 @@ export function SignInScreen({ config, invite, inviteToken, onSignedIn }) {
                 autoCapitalize="none" placeholder="you@firm.co.uk" value={email}
                 onChange={(e) => setEmail(e.target.value)} required
               />
-              <button className="ss-btn ss-btn-primary ss-btn-big" style={{ marginTop: 10 }} disabled={busy || !email.trim()}>
+              <Button variant="primary" size="big" style={{ marginTop: 10 }} disabled={busy || !email.trim()}>
                 {busy ? <Loader2 size={18} className="ss-spin" /> : <Mail size={18} />} Email me a code
-              </button>
+              </Button>
             </form>
             {(config.onedrive || config.google) && (
               <>
@@ -116,9 +117,9 @@ export function SignInScreen({ config, invite, inviteToken, onSignedIn }) {
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
               />
             </div>
-            <button className="ss-btn ss-btn-primary ss-btn-big" style={{ marginTop: 14 }} disabled={busy || code.length !== 6}>
+            <Button variant="primary" size="big" style={{ marginTop: 14 }} disabled={busy || code.length !== 6}>
               {busy ? <Loader2 size={18} className="ss-spin" /> : <ArrowRight size={18} />} Sign in
-            </button>
+            </Button>
             <div className="ss-signin-links">
               <button type="button" className="ss-link" onClick={() => { setStep("email"); setError(null); }}>Use a different email</button>
               <button type="button" className="ss-link" disabled={busy} onClick={sendCode}>Send a new code</button>

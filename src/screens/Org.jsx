@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Building2, Loader2, ArrowRight, Users } from "lucide-react";
 import { createOrg, acceptInvite, switchOrg, clearPendingInvite } from "../auth.js";
+import { Button } from "../ui/index.js";
 
 /* ---------------- firm setup ---------------- */
 // Reached once signed in but not yet in a firm: accept the invitation the
@@ -33,10 +34,10 @@ export function OrgScreen({ me, invite, inviteToken, onDone, onSignOut }) {
             <p className="ss-fineprint" style={{ margin: "4px 0 10px" }}>
               Invitation for {invite.email}{invite.role === "admin" ? " (admin)" : ""}.
             </p>
-            <button className="ss-btn ss-btn-primary ss-btn-big" disabled={busy}
+            <Button variant="primary" size="big" disabled={busy}
               onClick={() => run(async () => { await acceptInvite(inviteToken); clearPendingInvite(); })}>
               {busy ? <Loader2 size={18} className="ss-spin" /> : <ArrowRight size={18} />} Accept and join
-            </button>
+            </Button>
           </div>
         )}
 
@@ -57,10 +58,10 @@ export function OrgScreen({ me, invite, inviteToken, onDone, onSignOut }) {
             You'll be its owner and can invite surveyors and admins from Settings.
           </p>
           <input className="ss-input" placeholder="Firm name" value={name} onChange={(e) => setName(e.target.value)} />
-          <button className="ss-btn ss-btn-primary ss-btn-big" style={{ marginTop: 10 }} disabled={busy || name.trim().length < 2}
+          <Button variant="primary" size="big" style={{ marginTop: 10 }} disabled={busy || name.trim().length < 2}
             onClick={() => run(() => createOrg(name.trim()))}>
             {busy ? <Loader2 size={18} className="ss-spin" /> : <ArrowRight size={18} />} Create firm
-          </button>
+          </Button>
         </div>
 
         {error && <p className="ss-fineprint ss-error" role="alert">{error}</p>}

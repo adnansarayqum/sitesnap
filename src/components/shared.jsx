@@ -1,26 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  ChevronLeft, GripVertical,
+  GripVertical,
 } from "lucide-react";
 
 /* ---------------- shared bits ---------------- */
-
-export function TopBar({ title, eyebrow, onBack, right }) {
-  return (
-    <div className="ss-topbar">
-      {onBack ? (
-        <button className="ss-back" onClick={onBack} aria-label="Back"><ChevronLeft size={21} /></button>
-      ) : (
-        <span className="ss-tick" />
-      )}
-      <div className="ss-topbar-text">
-        <div className="ss-eyebrow-sm">{eyebrow}</div>
-        <div className="ss-title">{title}</div>
-      </div>
-      {right || null}
-    </div>
-  );
-}
 
 export function ReorderableList({ items, onReorder, renderRow, onRowTap }) {
   const rowRefs = useRef({});

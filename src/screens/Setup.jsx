@@ -2,9 +2,10 @@ import { useState } from "react";
 import {
   ArrowRight, Briefcase, Check, Minus, Plus,
 } from "lucide-react";
-import { ReorderableList, TopBar } from "../components/shared.jsx";
+import { ReorderableList } from "../components/shared.jsx";
 import { PRESETS, PRESET_GROUPS } from "../lib/presets.js";
 import { pad, uid } from "../lib/util.js";
+import { AppHeader, Button } from "../ui/index.js";
 
 /* ---------------- setup ---------------- */
 // Two presentations sharing one set of state and logic: guided (one
@@ -121,7 +122,7 @@ export function SetupScreen({ onBack, onStart }) {
             value={customName} onChange={(e) => setCustomName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addCustom()}
           />
-          <button className="ss-btn ss-btn-primary ss-btn-sq" onClick={addCustom}><Check size={18} /></button>
+          <Button variant="primary" size="sq" onClick={addCustom}><Check size={18} /></Button>
         </div>
       ) : (
         <button className="ss-dashed" onClick={() => setAddingCustom(true)}>
@@ -134,7 +135,7 @@ export function SetupScreen({ onBack, onStart }) {
   if (mode === "classic") {
     return (
       <div className="ss-col">
-        <TopBar title="New inspection" eyebrow="Set up once, then just shoot" onBack={onBack} />
+        <AppHeader title="New inspection" eyebrow="Set up once, then just shoot" onBack={onBack} />
         <div className="ss-scroll">
           <div className="ss-section-label">Property</div>
           <input className="ss-input" autoFocus placeholder="23 High Street" value={address} onChange={(e) => setAddress(e.target.value)} />
@@ -186,11 +187,11 @@ export function SetupScreen({ onBack, onStart }) {
 
         <div className="ss-footer ss-footer-split">
           <span className="ss-count-note">{items.length} area{items.length === 1 ? "" : "s"}</span>
-          <button className="ss-btn ss-btn-primary" disabled={!canStart}
+          <Button variant="primary" disabled={!canStart}
             title={!address.trim() ? "Enter the property address first" : items.length === 0 ? "Pick at least one room or area" : undefined}
             onClick={start}>
             Start inspection <ArrowRight size={17} strokeWidth={2.4} />
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -203,7 +204,7 @@ export function SetupScreen({ onBack, onStart }) {
 
   return (
     <div className="ss-col">
-      <TopBar title="New inspection" eyebrow={STEP_LABEL[step]} onBack={() => (step > 1 ? setStep(step - 1) : onBack())} />
+      <AppHeader title="New inspection" eyebrow={STEP_LABEL[step]} onBack={() => (step > 1 ? setStep(step - 1) : onBack())} />
       <div className="ss-wiz-progress">
         {[1, 2, 3, 4].map((n) => <div key={n} className={`ss-wiz-seg ${n <= step ? "on" : ""}`} />)}
       </div>
@@ -266,13 +267,13 @@ export function SetupScreen({ onBack, onStart }) {
         {step === 3 && <button className="ss-link ss-wiz-skip" onClick={() => setStep(4)}>Skip</button>}
         <span style={{ flex: 1 }} />
         {step < 4 ? (
-          <button className="ss-btn ss-btn-primary" disabled={!canNext} onClick={() => setStep(step + 1)}>
+          <Button variant="primary" disabled={!canNext} onClick={() => setStep(step + 1)}>
             Next <ArrowRight size={17} strokeWidth={2.4} />
-          </button>
+          </Button>
         ) : (
-          <button className="ss-btn ss-btn-primary" disabled={!canStart} onClick={start}>
+          <Button variant="primary" disabled={!canStart} onClick={start}>
             Start inspection <ArrowRight size={17} strokeWidth={2.4} />
-          </button>
+          </Button>
         )}
       </div>
     </div>

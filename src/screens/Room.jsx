@@ -3,7 +3,6 @@ import {
   Camera, Check, ChevronLeft, ChevronRight, Circle, Gauge, ImagePlus, Images, Loader2, MoveUpRight, Plus, ScanText, Sparkles, Tag, Trash2, Undo2, X,
 } from "lucide-react";
 import { VoiceMemo } from "../components/VoiceMemo.jsx";
-import { TopBar } from "../components/shared.jsx";
 import { THUMB_DIM, drawScaled, processCapture } from "../lib/image.js";
 import { CONDITIONS } from "../lib/presets.js";
 import { aiConfig, aiPhotoCopy, captionRoom, AI_CAPTION_MAX } from "../ai.js";
@@ -16,6 +15,7 @@ import {
 } from "../evidence.js";
 import { IssuePicker, IssueTag, noteSourceLabel } from "../components/Evidence.jsx";
 import { OrganiseSheet } from "../components/Organise.jsx";
+import { AppHeader, Button } from "../ui/index.js";
 
 /* ---------------- room review ---------------- */
 
@@ -291,9 +291,9 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
       <div className="ss-ainote-head"><Sparkles size={13} /> AI suggestion — not your note until you use it</div>
       <p>{room.aiNote.text}</p>
       <div className="ss-finding-actions" style={{ marginTop: 6 }}>
-        <button className="ss-btn ss-btn-primary" onClick={() => { onRoom((r) => adoptAiNote(r, me && me.user ? me.user.id : null)); onActivity && onActivity(`${room.name}: AI note adopted as the room note`); }}><Check size={14} /> Use</button>
-        <button className="ss-btn ss-btn-ghost" onClick={() => { onRoom((r) => adoptAiNote(r, me && me.user ? me.user.id : null)); setTimeout(() => { const el = document.querySelector(".ss-note-input"); el && el.focus(); }, 50); }}>Edit</button>
-        <button className="ss-btn ss-btn-ghost" onClick={() => onRoom(dismissAiNote)}>Dismiss</button>
+        <Button variant="primary" onClick={() => { onRoom((r) => adoptAiNote(r, me && me.user ? me.user.id : null)); onActivity && onActivity(`${room.name}: AI note adopted as the room note`); }}><Check size={14} /> Use</Button>
+        <Button variant="ghost" onClick={() => { onRoom((r) => adoptAiNote(r, me && me.user ? me.user.id : null)); setTimeout(() => { const el = document.querySelector(".ss-note-input"); el && el.focus(); }, 50); }}>Edit</Button>
+        <Button variant="ghost" onClick={() => onRoom(dismissAiNote)}>Dismiss</Button>
       </div>
     </div>
   );
@@ -343,7 +343,7 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
           <span className="ss-ichip-add">
             <input className="ss-input" autoFocus placeholder="e.g. Ceiling mould" value={issueTitle} onChange={(e) => setIssueTitle(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") createIssue(issueTitle); if (e.key === "Escape") setAddingIssue(false); }} />
-            <button className="ss-btn ss-btn-primary ss-btn-sq" disabled={!issueTitle.trim()} onClick={() => createIssue(issueTitle)}><Check size={16} /></button>
+            <Button variant="primary" size="sq" disabled={!issueTitle.trim()} onClick={() => createIssue(issueTitle)}><Check size={16} /></Button>
           </span>
         ) : (
           <button className="ss-ichip add" onClick={() => setAddingIssue(true)}><Plus size={13} /> Issue</button>
@@ -355,8 +355,8 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
             <div className="ss-org-suggest">
               <Sparkles size={12} /> AI-suggested issue{active.suggestion && active.suggestion.rationale ? ` — ${active.suggestion.rationale}` : ""}. Confirm it before anything is drafted from it.
               <div className="ss-finding-actions" style={{ marginTop: 6 }}>
-                <button className="ss-btn ss-btn-primary" onClick={() => onRoom((r) => confirmIssue(r, active.id))}><Check size={14} /> Confirm</button>
-                <button className="ss-btn ss-btn-ghost" onClick={() => { onRoom((r) => deleteIssue(r, active.id)); setFilter("all"); }}><Trash2 size={14} /> Discard</button>
+                <Button variant="primary" onClick={() => onRoom((r) => confirmIssue(r, active.id))}><Check size={14} /> Confirm</Button>
+                <Button variant="ghost" onClick={() => { onRoom((r) => deleteIssue(r, active.id)); setFilter("all"); }}><Trash2 size={14} /> Discard</Button>
               </div>
             </div>
           )}
@@ -382,8 +382,8 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
                 <div className="row">
                   <input className="ss-input" inputMode="decimal" placeholder="Value" value={reading.value} onChange={(e) => setReading({ ...reading, value: e.target.value })} />
                   <input className="ss-input" placeholder="Unit, e.g. %" value={reading.unit} onChange={(e) => setReading({ ...reading, unit: e.target.value })} />
-                  <button className="ss-btn ss-btn-primary ss-btn-sq" disabled={!reading.text.trim()} onClick={saveReading}><Check size={16} /></button>
-                  <button className="ss-btn ss-btn-ghost ss-btn-sq" onClick={() => setReading(null)}><X size={16} /></button>
+                  <Button variant="primary" size="sq" disabled={!reading.text.trim()} onClick={saveReading}><Check size={16} /></Button>
+                  <Button variant="ghost" size="sq" onClick={() => setReading(null)}><X size={16} /></Button>
                 </div>
               </div>
             ) : (
@@ -400,7 +400,7 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
 
   return (
     <div className="ss-col">
-      <TopBar title={room.name} eyebrow={`${photos.length} photo${photos.length === 1 ? "" : "s"}${active ? ` · shooting into ${active.title}` : ""}`} onBack={onBack}
+      <AppHeader title={room.name} eyebrow={`${photos.length} photo${photos.length === 1 ? "" : "s"}${active ? ` · shooting into ${active.title}` : ""}`} onBack={onBack}
         right={photos.length > 0 && (
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             {aiCfg.enabled && (
@@ -490,16 +490,16 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
       </div>
 
       <div className="ss-footer ss-footer-split">
-        <button className="ss-btn ss-btn-primary ss-btn-big"
+        <Button variant="primary" size="big"
           onClick={() => setCameraOpen(true)}>
           <Camera size={20} strokeWidth={2.4} /> {photos.length ? "Take more photos" : "Take photos"}{active ? <small className="ss-btn-sub"> → {active.title}</small> : null}
-        </button>
+        </Button>
         {/* photos already on the phone (taken with the camera app, or sent
             over) file into the same room and active issue as a new shot */}
-        <button className="ss-btn ss-btn-ghost ss-btn-square" onClick={() => libraryRef.current && libraryRef.current.click()}
+        <Button variant="ghost" size="square" onClick={() => libraryRef.current && libraryRef.current.click()}
           aria-label={`Add photos from your library${active ? ` into ${active.title}` : ""}`} title="Add photos already on this phone">
           <Images size={20} />
-        </button>
+        </Button>
       </div>
 
       {shownPhoto && (
@@ -533,21 +533,21 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
               </div>
             )}
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button className="ss-btn ss-btn-ghost" disabled={!shownPhoto.dataUrl}
+              <Button variant="ghost" disabled={!shownPhoto.dataUrl}
                 onClick={() => { if (shownPhoto.dataUrl) setAnnotating(true); }}>
                 <Tag size={16} /> Annotate
-              </button>
-              <button className="ss-btn ss-btn-ghost" disabled={!shownPhoto.dataUrl || scanning} onClick={scanText}
+              </Button>
+              <Button variant="ghost" disabled={!shownPhoto.dataUrl || scanning} onClick={scanText}
                 title="Read a serial or model number straight off this photo, on-device">
                 {scanning ? <Loader2 size={16} className="ss-spin" /> : <ScanText size={16} />} {scanning ? "Reading…" : "Read text"}
-              </button>
-              <button className="ss-btn ss-btn-ghost" onClick={() => { setPicking({ id: shownPhoto.id, kind: "photo" }); }}>
+              </Button>
+              <Button variant="ghost" onClick={() => { setPicking({ id: shownPhoto.id, kind: "photo" }); }}>
                 <Tag size={16} /> Move to issue
-              </button>
-              <button className="ss-btn ss-btn-danger"
+              </Button>
+              <Button variant="danger"
                 onClick={() => { onDelete(shownPhoto.id); closePhoto(); }}>
                 <Trash2 size={16} /> Delete photo
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -703,9 +703,9 @@ export function PhotoAnnotator({ photo, onClose, onDone }) {
       <div className="ss-annotate-tools">
         <button className={`ss-annotate-tool ${tool === "circle" ? "on" : ""}`} onClick={() => setTool("circle")} aria-label="Circle tool"><Circle size={18} /></button>
         <button className={`ss-annotate-tool ${tool === "arrow" ? "on" : ""}`} onClick={() => setTool("arrow")} aria-label="Arrow tool"><MoveUpRight size={18} /></button>
-        <button className="ss-btn ss-btn-primary" style={{ flex: 1 }} onClick={done} disabled={saving}>
+        <Button variant="primary" style={{ flex: 1 }} onClick={done} disabled={saving}>
           {saving ? <Loader2 size={16} className="ss-spin" /> : <Check size={16} />} Done
-        </button>
+        </Button>
       </div>
     </div>
   );

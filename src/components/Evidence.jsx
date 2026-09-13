@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Camera, Check, Gauge, Mic, Pencil, Plus, Sparkles, StickyNote, X } from "lucide-react";
 import { correctTranscript, issueFor, openIssues } from "../evidence.js";
+import { Button } from "../ui/index.js";
 
 // Evidence references as the surveyor sees them: a chip that names the
 // source ("Photo 12", "Voice note 2") and opens it — the photograph, the
@@ -113,8 +114,8 @@ export function EvidenceSheet({ id, finding, room, photoCache, fullPhoto, audioC
                   <textarea rows={5} value={draft} onChange={(e) => setDraft(e.target.value)} />
                   <p className="ss-fineprint">The machine's original is kept. Findings drafted from the old wording will ask to be regenerated.</p>
                   <div className="ss-finding-actions">
-                    <button className="ss-btn ss-btn-primary" onClick={saveCorrection}><Check size={15} /> Save correction</button>
-                    <button className="ss-btn ss-btn-ghost" onClick={() => setEditing(false)}>Cancel</button>
+                    <Button variant="primary" onClick={saveCorrection}><Check size={15} /> Save correction</Button>
+                    <Button variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
                   </div>
                 </div>
               )}
@@ -174,7 +175,7 @@ export function IssuePicker({ room, evidenceId, kind, onPick, onClose }) {
             <div className="ss-inline-add">
               <input className="ss-input" autoFocus placeholder="Issue, e.g. Ceiling mould" value={title} onChange={(e) => setTitle(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter" && title.trim()) onPick("new", title.trim()); }} />
-              <button className="ss-btn ss-btn-primary ss-btn-sq" disabled={!title.trim()} onClick={() => onPick("new", title.trim())}><Check size={18} /></button>
+              <Button variant="primary" size="sq" disabled={!title.trim()} onClick={() => onPick("new", title.trim())}><Check size={18} /></Button>
             </div>
           ) : (
             <button className="ss-dashed" onClick={() => setAdding(true)}><Plus size={15} /> New issue</button>

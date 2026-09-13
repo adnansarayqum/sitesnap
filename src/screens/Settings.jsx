@@ -9,11 +9,11 @@ import {
 import { loadMsGraph } from "../cloud/lazy.js";
 import { cloudServiceConfig, linkedAccount, beginLink, unlink } from "../cloud/service.js";
 import { updateName, switchOrg } from "../auth.js";
-import { TabBar } from "./Home.jsx";
 import { TeamSettings } from "./Team.jsx";
 import { resetHints } from "../components/Hints.jsx";
 import { FeedbackButton } from "../components/Feedback.jsx";
 import { listRates, addRate, removeRate } from "../pricebook.js";
+import { BottomNavigation, Button } from "../ui/index.js";
 
 /* ---------------- the surveyor's own rates ---------------- */
 
@@ -68,8 +68,8 @@ function RatesCard({ accounts, flash }) {
             <input type="number" inputMode="numeric" min="0" placeholder="£ high (opt.)" value={draft.high} onChange={(e) => setDraft({ ...draft, high: e.target.value })} aria-label="High figure" />
           </div>
           <div className="row">
-            <button className="ss-btn ss-btn-primary" disabled={busy || draft.work.trim().length < 3 || draft.low === ""} onClick={add}>{busy ? <Loader2 size={14} className="ss-spin" /> : <Check size={14} />} Save rate</button>
-            <button className="ss-btn ss-btn-ghost" onClick={() => setAdding(false)}>Cancel</button>
+            <Button variant="primary" disabled={busy || draft.work.trim().length < 3 || draft.low === ""} onClick={add}>{busy ? <Loader2 size={14} className="ss-spin" /> : <Check size={14} />} Save rate</Button>
+            <Button variant="ghost" onClick={() => setAdding(false)}>Cancel</Button>
           </div>
         </div>
       ) : (
@@ -92,8 +92,8 @@ function AccountCard({ me, onSignOut, onChanged, flash }) {
       <div className="ss-section-label" style={{ marginTop: 4 }}>Account</div>
       <div className="ss-key-row">
         <input className="ss-input" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} aria-label="Your name" />
-        <button className="ss-btn ss-btn-primary" disabled={busy || name.trim() === (me.user.name || "")}
-          onClick={async () => { setBusy(true); try { await updateName(name.trim()); onChanged(); flash("Name saved"); } finally { setBusy(false); } }}>Save</button>
+        <Button variant="primary" disabled={busy || name.trim() === (me.user.name || "")}
+          onClick={async () => { setBusy(true); try { await updateName(name.trim()); onChanged(); flash("Name saved"); } finally { setBusy(false); } }}>Save</Button>
       </div>
       <div className="ss-ledger-row">
         <div className="ss-ledger-main"><div className="ss-ledger-title">Signed in as</div></div>
@@ -217,7 +217,7 @@ function CrmWebhookCard({ flash }) {
           <p className="ss-fineprint" style={{ margin: "6px 2px 0" }}>
             Every export also POSTs the same photos, voice notes and structured findings JSON here — point it at your firm's CRM, or at a Make/Zapier/n8n scenario in front of one. Leave the address blank to keep exports going to OneDrive only.
           </p>
-          <button className="ss-btn ss-btn-primary" style={{ marginTop: 10 }} onClick={save}>Save</button>
+          <Button variant="primary" style={{ marginTop: 10 }} onClick={save}>Save</Button>
         </div>
       )}
     </div>
@@ -386,7 +386,7 @@ export function SettingsScreen({ fieldMode, onToggleFieldMode, onTab, me, onSign
         {savedNote && <div className="ss-note" style={{ marginTop: 10 }}>{savedNote}</div>}
         <div style={{ height: 16 }} />
       </div>
-      <TabBar active="settings" onChange={onTab} />
+      <BottomNavigation active="settings" onChange={onTab} />
     </div>
   );
 }
@@ -450,13 +450,13 @@ export function CameraCheck() {
         Shows which lens and zoom range this phone's browser lets the live camera use — handy if wide shots look tighter than in the phone's own camera app.
       </p>
       <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-        <button className="ss-btn ss-btn-primary" style={{ flex: 1 }} onClick={run} disabled={busy}>
+        <Button variant="primary" style={{ flex: 1 }} onClick={run} disabled={busy}>
           {busy ? <Loader2 size={15} className="ss-spin" /> : <Aperture size={15} />} {report ? "Check again" : "Check this phone's camera"}
-        </button>
+        </Button>
         {report && (
-          <button className="ss-btn ss-btn-ghost" style={{ flex: "0 0 auto" }} onClick={copy}>
+          <Button variant="ghost" style={{ flex: "0 0 auto" }} onClick={copy}>
             {copied ? <Check size={15} /> : <FileText size={15} />} {copied ? "Copied" : "Copy"}
-          </button>
+          </Button>
         )}
       </div>
       {report && <pre className="ss-camcheck">{report}</pre>}

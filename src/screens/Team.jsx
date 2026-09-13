@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Loader2, UserPlus, Copy, Check } from "lucide-react";
 import { listMembers, listInvites, listAudit, sendInvite, cancelInvite, setMemberRole, removeMember, renameOrg } from "../auth.js";
 import { relativeDay } from "./Home.jsx";
+import { Button } from "../ui/index.js";
 
 /* ---------------- team (admins) ---------------- */
 
@@ -91,17 +92,17 @@ export function TeamSettings({ me, onChanged, flash }) {
       <div className="ss-section-label" style={{ marginTop: 20 }}>Firm</div>
       <div className="ss-key-row">
         <input className="ss-input" value={orgName} onChange={(e) => setOrgName(e.target.value)} aria-label="Firm name" />
-        <button className="ss-btn ss-btn-primary" disabled={busy || orgName.trim().length < 2 || orgName.trim() === me.org.name}
-          onClick={() => act(async () => { await renameOrg(orgName.trim()); onChanged(); }, "Firm renamed")}>Save</button>
+        <Button variant="primary" disabled={busy || orgName.trim().length < 2 || orgName.trim() === me.org.name}
+          onClick={() => act(async () => { await renameOrg(orgName.trim()); onChanged(); }, "Firm renamed")}>Save</Button>
       </div>
 
       <div className="ss-section-label" style={{ marginTop: 22 }}>Invite by email</div>
       <form onSubmit={invite} style={{ display: "flex", gap: 8 }}>
         <input className="ss-input" type="email" inputMode="email" autoCapitalize="none" placeholder="their@email.co.uk"
           value={email} onChange={(e) => setEmail(e.target.value)} required />
-        <button className="ss-btn ss-btn-primary ss-btn-sq" disabled={busy || !email.trim()} aria-label="Send invite">
+        <Button variant="primary" size="sq" disabled={busy || !email.trim()} aria-label="Send invite">
           {busy ? <Loader2 size={15} className="ss-spin" /> : <UserPlus size={15} />}
-        </button>
+        </Button>
       </form>
       <div className="ss-key-row" style={{ marginTop: 8 }}>
         <select className="ss-role-select" value={role} onChange={(e) => setRole(e.target.value)} aria-label="Role">
@@ -119,7 +120,7 @@ export function TeamSettings({ me, onChanged, flash }) {
           </p>
           <div className="ss-key-row">
             <input className="ss-input" readOnly value={lastLink.link} onFocus={(e) => e.target.select()} aria-label="Invitation link" />
-            <button className="ss-btn ss-btn-ghost" onClick={() => copy(lastLink.link)}>{copied ? <Check size={15} /> : <Copy size={15} />}</button>
+            <Button variant="ghost" onClick={() => copy(lastLink.link)}>{copied ? <Check size={15} /> : <Copy size={15} />}</Button>
           </div>
         </div>
       )}
