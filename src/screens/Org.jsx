@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Building2, Loader2, ArrowRight, Users } from "lucide-react";
 import { createOrg, acceptInvite, switchOrg, clearPendingInvite } from "../auth.js";
-import { Button } from "../ui/index.js";
+import { Button, StickyActionBar } from "../ui/index.js";
 
 /* ---------------- firm setup ---------------- */
 // Reached once signed in but not yet in a firm: accept the invitation the
@@ -66,9 +66,9 @@ export function OrgScreen({ me, invite, inviteToken, onDone, onSignOut }) {
 
         {error && <p className="ss-fineprint ss-error" role="alert">{error}</p>}
       </div>
-      <div className="ss-footer" style={{ textAlign: "center" }}>
+      <StickyActionBar style={{ textAlign: "center" }}>
         <button className="ss-link" onClick={onSignOut}>Sign out</button>
-      </div>
+      </StickyActionBar>
     </div>
   );
 }

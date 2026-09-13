@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  AlertTriangle, CloudUpload, Loader2, Undo2, X,
-} from "lucide-react";
+import { CloudUpload, Loader2, Undo2 } from "lucide-react";
 import {
   loadIndex, loadInspection, migrateLegacy, saveState, clearState, loadPhoto, savePhoto, updatePhoto, removePhoto, loadAudio, saveAudio, removeAudio, loadArchive, archiveInspection, sweepOrphans, setStorageErrorHandler, requestDurableStorage, storageEstimate, loadFieldMode, saveFieldMode, nextCaseNo, setStorageNamespace, loadWebhook,
 } from "./storage.js";
@@ -26,7 +24,7 @@ import { migrateFindings } from "./findings.js";
 import { configureTelemetry, track, flushTelemetry } from "./telemetry.js";
 import { configureFiling, enqueueFiling, clearFilingQueue, onFiling, filingState } from "./filing.js";
 import { linkedAccount } from "./cloud/service.js";
-import { Button } from "./ui/index.js";
+import { Banner, Button, Modal, Toast } from "./ui/index.js";
 
 // Root: owns the open inspection, its rooms and the thumbnail cache, and
 // routes between the top-level tabs and the screens inside a case file.
@@ -975,32 +973,21 @@ export default function SiteSnap() {
         })()}
 
         {storageAlert && (
-          <div className="ss-alert">
-            <AlertTriangle size={16} />
-            <span>{storageAlert}</span>
-            <button onClick={() => setStorageAlert(null)} aria-label="Dismiss"><X size={15} /></button>
-          </div>
+          <Banner onDismiss={() => setStorageAlert(null)}>{storageAlert}</Banner>
         )}
 
         {undoItem && (
-          <div className="ss-toast">
-            <span>Photo deleted</span>
-            <button onClick={undoDelete}><Undo2 size={15} /> Undo</button>
-          </div>
+          <Toast action={{ label: "Undo", icon: <Undo2 size={15} />, onClick: undoDelete }}>Photo deleted</Toast>
         )}
 
         {onedrivePrompt && view !== "gate" && (
-          <div className="ss-modal-back" onClick={() => (onedrivePromptBusy ? null : setOnedrivePrompt(false))}>
-            <div className="ss-modal" onClick={(e) => e.stopPropagation()}>
-              <div className="ss-modal-icon"><CloudUpload size={22} /></div>
-              <div className="ss-modal-title">Connect OneDrive?</div>
+          <Modal onClose={() => (onedrivePromptBusy ? null : setOnedrivePrompt(false))} icon={<CloudUpload size={22} />} title="Connect OneDrive?">
               <p>Photos file themselves into OneDrive as you shoot — one sign-in now saves you finding somewhere to send them at the end of every job.</p>
               <Button variant="primary" size="big" disabled={onedrivePromptBusy} onClick={connectOneDriveFromPrompt}>
                 {onedrivePromptBusy ? <Loader2 size={18} className="ss-spin" /> : <CloudUpload size={18} />} Connect OneDrive
               </Button>
               <button className="ss-link" style={{ marginTop: 10 }} disabled={onedrivePromptBusy} onClick={() => setOnedrivePrompt(false)}>Skip for now</button>
-            </div>
-          </div>
+          </Modal>
         )}
       </div>
     </div>

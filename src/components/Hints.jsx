@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { createPortal } from "react-dom";
-import { Info, Lightbulb, X } from "lucide-react";
+import { Info, Lightbulb } from "lucide-react";
+import { BottomSheet } from "../ui/index.js";
 
 // First-time guidance that stays out of the way: one short card per screen,
 // inline with the content (never an overlay that blocks a button), shown
@@ -42,17 +42,9 @@ export function InfoTip({ title, children, label = "What this does" }) {
       </button>
       {/* portalled into .ss-root, not body: that's where the typeface and the
           light/field-mode colour tokens live */}
-      {open && createPortal((
-        <div className="ss-modal-back" onClick={() => setOpen(false)}>
-          <div className="ss-modal ss-modal-left ss-sheet" onClick={(e) => e.stopPropagation()}>
-            <div className="ss-sheet-head">
-              <div className="ss-modal-title" style={{ margin: 0 }}>{title}</div>
-              <button className="ss-sheet-close" onClick={() => setOpen(false)} aria-label="Close"><X size={16} /></button>
-            </div>
-            <div className="ss-sheet-body">{children}</div>
-          </div>
-        </div>
-      ), document.querySelector(".ss-root") || document.body)}
+      {open && (
+        <BottomSheet title={title} onClose={() => setOpen(false)} portal>{children}</BottomSheet>
+      )}
     </>
   );
 }

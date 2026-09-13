@@ -1,12 +1,11 @@
 import { useState } from "react";
-import { createPortal } from "react-dom";
-import { AlertTriangle, Check, Loader2, Mic, Plus, Sparkles, Trash2, X } from "lucide-react";
+import { AlertTriangle, Check, Loader2, Mic, Plus, Sparkles, Trash2 } from "lucide-react";
 import { addIssue, addSuggestedIssues, adoptLegacyIssue, confirmIssue, deleteIssue, linkEvidence, openIssues, unassigned, unlinkEvidence, transcriptUsable } from "../evidence.js";
 import { aiConfig, aiPhotoCopy, suggestClusters, transcribeMemo, AI_MAX_PHOTOS } from "../ai.js";
 import { transcriptFromServer, failedTranscript } from "../evidence.js";
 import { withOfflineRetry } from "../aiRetry.js";
 import { IssuePicker, linkSourceLabel } from "./Evidence.jsx";
-import { Button } from "../ui/index.js";
+import { BottomSheet, Button } from "../ui/index.js";
 
 // Organising a room's evidence into issues after the fact — for cases shot
 // before issues existed, or a room shot in a hurry. Three routes, none
@@ -66,14 +65,9 @@ export function OrganiseSheet({ caseId, room, photoCache, fullPhoto, audioCache,
 
   const thumb = (id) => { const p = photoCache[id]; return p ? <img src={p.thumb || p.dataUrl} alt="" /> : <span className="ss-thumb ss-thumb-empty" />; };
 
-  return createPortal((
-    <div className="ss-modal-back" onClick={onClose}>
-      <div className="ss-modal ss-modal-left ss-sheet ss-organise" onClick={(e) => e.stopPropagation()}>
-        <div className="ss-sheet-head">
-          <div className="ss-modal-title" style={{ margin: 0 }}>Organise {room.name}</div>
-          <button className="ss-sheet-close" onClick={onClose} aria-label="Close"><X size={16} /></button>
-        </div>
-        <div className="ss-sheet-body">
+  return (
+    <BottomSheet title={<>Organise {room.name}</>} onClose={onClose} className="ss-organise" portal
+      after={picking && <IssuePicker room={room} evidenceId={picking.id} kind={picking.kind} onClose={() => setPicking(null)} onPick={(choice, newTitle) => pick(picking.id, picking.kind, choice, newTitle)} />}>
           <p className="ss-fineprint" style={{ marginTop: 0 }}>A finding is drafted per issue, from the evidence linked to it. Nothing is linked for you without your say-so.</p>
 
           {issues.length > 0 && (
@@ -141,9 +135,6 @@ export function OrganiseSheet({ caseId, room, photoCache, fullPhoto, audioCache,
             <button className="ss-dashed" onClick={() => setAdding(true)}><Plus size={15} /> New issue</button>
           )}
           {error && <div className="ss-gaps"><AlertTriangle size={13} /> {error}</div>}
-        </div>
-      </div>
-      {picking && <IssuePicker room={room} evidenceId={picking.id} kind={picking.kind} onClose={() => setPicking(null)} onPick={(choice, newTitle) => pick(picking.id, picking.kind, choice, newTitle)} />}
-    </div>
-  ), document.querySelector(".ss-root") || document.body);
+    </BottomSheet>
+  );
 }

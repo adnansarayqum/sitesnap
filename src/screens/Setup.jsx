@@ -5,7 +5,7 @@ import {
 import { ReorderableList } from "../components/shared.jsx";
 import { PRESETS, PRESET_GROUPS } from "../lib/presets.js";
 import { pad, uid } from "../lib/util.js";
-import { AppHeader, Button } from "../ui/index.js";
+import { AppHeader, Button, StickyActionBar } from "../ui/index.js";
 
 /* ---------------- setup ---------------- */
 // Two presentations sharing one set of state and logic: guided (one
@@ -185,14 +185,14 @@ export function SetupScreen({ onBack, onStart }) {
           <div style={{ height: 12 }} />
         </div>
 
-        <div className="ss-footer ss-footer-split">
+        <StickyActionBar split>
           <span className="ss-count-note">{items.length} area{items.length === 1 ? "" : "s"}</span>
           <Button variant="primary" disabled={!canStart}
             title={!address.trim() ? "Enter the property address first" : items.length === 0 ? "Pick at least one room or area" : undefined}
             onClick={start}>
             Start inspection <ArrowRight size={17} strokeWidth={2.4} />
           </Button>
-        </div>
+        </StickyActionBar>
       </div>
     );
   }
@@ -263,7 +263,7 @@ export function SetupScreen({ onBack, onStart }) {
         <div style={{ height: 12 }} />
       </div>
 
-      <div className="ss-footer ss-wiz-footer">
+      <StickyActionBar className="ss-wiz-footer">
         {step === 3 && <button className="ss-link ss-wiz-skip" onClick={() => setStep(4)}>Skip</button>}
         <span style={{ flex: 1 }} />
         {step < 4 ? (
@@ -275,7 +275,7 @@ export function SetupScreen({ onBack, onStart }) {
             Start inspection <ArrowRight size={17} strokeWidth={2.4} />
           </Button>
         )}
-      </div>
+      </StickyActionBar>
     </div>
   );
 }

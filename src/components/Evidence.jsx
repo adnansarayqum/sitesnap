@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
-import { Camera, Check, Gauge, Mic, Pencil, Plus, Sparkles, StickyNote, X } from "lucide-react";
+import { Camera, Check, Gauge, Mic, Pencil, Plus, Sparkles, StickyNote } from "lucide-react";
 import { correctTranscript, issueFor, openIssues } from "../evidence.js";
-import { Button } from "../ui/index.js";
+import { BottomSheet, Button } from "../ui/index.js";
 
 // Evidence references as the surveyor sees them: a chip that names the
 // source ("Photo 12", "Voice note 2") and opens it — the photograph, the
@@ -78,14 +77,8 @@ export function EvidenceSheet({ id, finding, room, photoCache, fullPhoto, audioC
     setEditing(false);
   }
 
-  return createPortal((
-    <div className="ss-modal-back" onClick={onClose}>
-      <div className="ss-modal ss-modal-left ss-sheet ss-evsheet" onClick={(e) => e.stopPropagation()}>
-        <div className="ss-sheet-head">
-          <div className="ss-modal-title" style={{ margin: 0 }}>{sourceLabel(id)}</div>
-          <button className="ss-sheet-close" onClick={onClose} aria-label="Close"><X size={16} /></button>
-        </div>
-        <div className="ss-sheet-body">
+  return (
+    <BottomSheet title={sourceLabel(id)} onClose={onClose} className="ss-evsheet" portal>
           {photoId && (
             <>
               {(full || (photo && (photo.thumb || photo.dataUrl))) ? <img className="ss-evsheet-img" src={full || photo.thumb || photo.dataUrl} alt="" /> : <p className="ss-fineprint">This photograph is no longer in the case.</p>}
@@ -131,10 +124,8 @@ export function EvidenceSheet({ id, finding, room, photoCache, fullPhoto, audioC
           {issue && (
             <p className="ss-fineprint">In issue <b>{issue.title}</b>{link ? ` · link ${linkSourceLabel(link.source)}` : ""}.</p>
           )}
-        </div>
-      </div>
-    </div>
-  ), document.querySelector(".ss-root") || document.body);
+    </BottomSheet>
+  );
 }
 function issueDescription(finding, room) {
   const issue = room && (room.issues || []).find((i) => i.id === finding.issueId);
@@ -153,14 +144,8 @@ export function IssuePicker({ room, evidenceId, kind, onPick, onClose }) {
   const current = issueFor(room, evidenceId);
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState("");
-  return createPortal((
-    <div className="ss-modal-back" onClick={onClose}>
-      <div className="ss-modal ss-modal-left ss-sheet" onClick={(e) => e.stopPropagation()}>
-        <div className="ss-sheet-head">
-          <div className="ss-modal-title" style={{ margin: 0 }}>Which issue is this {kind === "memo" ? "voice note" : kind === "reading" ? "reading" : "photo"} about?</div>
-          <button className="ss-sheet-close" onClick={onClose} aria-label="Close"><X size={16} /></button>
-        </div>
-        <div className="ss-sheet-body ss-picker">
+  return (
+    <BottomSheet title={<>Which issue is this {kind === "memo" ? "voice note" : kind === "reading" ? "reading" : "photo"} about?</>} onClose={onClose} bodyClassName="ss-picker" portal>
           {openIssues(room).map((i) => (
             <button key={i.id} className={`ss-picker-row ${current && current.id === i.id ? "on" : ""}`} onClick={() => onPick(i.id)}>
               <span>{i.title}{!i.confirmedBySurveyor && <Sparkles size={11} className="ss-inline-ic" title="AI-suggested issue" />}</span>
@@ -180,10 +165,8 @@ export function IssuePicker({ room, evidenceId, kind, onPick, onClose }) {
           ) : (
             <button className="ss-dashed" onClick={() => setAdding(true)}><Plus size={15} /> New issue</button>
           )}
-        </div>
-      </div>
-    </div>
-  ), document.querySelector(".ss-root") || document.body);
+    </BottomSheet>
+  );
 }
 
 // the small tag on a photo cell or a voice-note row

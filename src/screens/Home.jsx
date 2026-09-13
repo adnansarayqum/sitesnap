@@ -5,7 +5,7 @@ import {
 import {
   loadInspection, loadPhoto,
 } from "../storage.js";
-import { BottomNavigation, Button, StatusPill } from "../ui/index.js";
+import { BottomNavigation, Button, EmptyState, InlineAlert, Modal, StatusPill, StickyActionBar } from "../ui/index.js";
 
 /* ---------------- home ---------------- */
 
@@ -79,11 +79,11 @@ export function HomeScreen({ index, onNew, onOpen, onTab, orgName, needsCloud })
             {needsCloud && <CloudStatusRow onTab={onTab} />}
           </div>
         </div>
-        <div className="ss-footer">
+        <StickyActionBar>
           <Button variant="primary" size="big" onClick={onNew}>
             <Plus size={20} strokeWidth={2.6} /> New inspection
           </Button>
-        </div>
+        </StickyActionBar>
         <BottomNavigation active="home" onChange={onTab} />
       </div>
     );
@@ -149,19 +149,16 @@ export function HomeScreen({ index, onNew, onOpen, onTab, orgName, needsCloud })
         )}
 
         {active.photos === 0 && (
-          <div className="ss-tip info">
-            <Star size={14} />
-            <span>Rate each room Good, Fair or Poor as you shoot — it feeds straight into the AI draft later.</span>
-          </div>
+          <InlineAlert tone="info" icon={<Star size={14} />}>Rate each room Good, Fair or Poor as you shoot — it feeds straight into the AI draft later.</InlineAlert>
         )}
         <div style={{ height: 16 }} />
       </div>
 
-      <div className="ss-footer">
+      <StickyActionBar>
         <Button variant="secondary" style={{ width: "100%" }} onClick={onNew}>
           <Plus size={16} strokeWidth={2.6} /> Start a different inspection
         </Button>
-      </div>
+      </StickyActionBar>
       <BottomNavigation active="home" onChange={onTab} />
     </div>
   );
@@ -213,13 +210,13 @@ export function CasesScreen({ index, archive, durable, onNew, onOpen, onDiscard,
           </div>
         </div>
         <div className="ss-scroll">
-          <p className="ss-empty-note">No cases yet. Start your first inspection below.</p>
+          <EmptyState note>No cases yet. Start your first inspection below.</EmptyState>
         </div>
-        <div className="ss-footer">
+        <StickyActionBar>
           <Button variant="primary" size="big" onClick={onNew}>
             <Plus size={20} strokeWidth={2.6} /> New inspection
           </Button>
-        </div>
+        </StickyActionBar>
         <BottomNavigation active="cases" onChange={onTab} />
       </div>
     );
@@ -244,7 +241,7 @@ export function CasesScreen({ index, archive, durable, onNew, onOpen, onDiscard,
 
       <div className="ss-scroll">
         {needle && openShown.length === 0 && doneShown.length === 0 && (
-          <p className="ss-empty-note">Nothing matches “{q.trim()}”.</p>
+          <EmptyState note>Nothing matches “{q.trim()}”.</EmptyState>
         )}
         <div className="ss-list">
           {openShown.map((i) => (
@@ -276,16 +273,13 @@ export function CasesScreen({ index, archive, durable, onNew, onOpen, onDiscard,
           ))}
         </div>
         {durable === false && (
-          <div className="ss-tip">
-            <Smartphone size={14} />
-            <span>
+          <InlineAlert icon={<Smartphone size={14} />}>
               Add SiteSnap to your home screen (Share → Add to Home Screen). It
               stops the browser clearing photos you haven't uploaded yet.
-            </span>
-          </div>
+            </InlineAlert>
         )}
         {open.length === 0 && !needle && (
-          <p className="ss-empty-note">Nothing in progress on this phone. Start a new inspection below.</p>
+          <EmptyState note>Nothing in progress on this phone. Start a new inspection below.</EmptyState>
         )}
 
         {remoteOpen.length > 0 && (
@@ -334,17 +328,14 @@ export function CasesScreen({ index, archive, durable, onNew, onOpen, onDiscard,
         </p>
       </div>
 
-      <div className="ss-footer">
+      <StickyActionBar>
         <Button variant="primary" size="big" onClick={onNew}>
           <Plus size={20} strokeWidth={2.6} /> New inspection
         </Button>
-      </div>
+      </StickyActionBar>
 
       {target && (
-        <div className="ss-modal-back" onClick={() => setConfirmId(null)}>
-          <div className="ss-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="ss-modal-icon"><AlertTriangle size={22} /></div>
-            <div className="ss-modal-title">Discard {target.address}?</div>
+        <Modal onClose={() => setConfirmId(null)} icon={<AlertTriangle size={22} />} title={<>Discard {target.address}?</>}>
             <p>
               Its {target.photos} photo{target.photos === 1 ? "" : "s"} and notes will be
               deleted from this device. Anything already exported or uploaded is unaffected.
@@ -356,8 +347,7 @@ export function CasesScreen({ index, archive, durable, onNew, onOpen, onDiscard,
             <Button variant="ghost" style={{ marginTop: 8 }} onClick={() => setConfirmId(null)}>
               Keep it
             </Button>
-          </div>
-        </div>
+        </Modal>
       )}
       <BottomNavigation active="cases" onChange={onTab} />
     </div>

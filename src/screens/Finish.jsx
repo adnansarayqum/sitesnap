@@ -15,7 +15,7 @@ import { INSPECTION, SITE_PHOTOS, inspectionSegments, photoFolder, photoSegments
 import { ReportView } from "./Report.jsx";
 import { approvedByRoom, findingsFiles, fromLegacyDraft } from "../findings.js";
 import { Coach } from "../components/Hints.jsx";
-import { Button } from "../ui/index.js";
+import { Button, Modal, StickyActionBar } from "../ui/index.js";
 
 // the ID photo files beside the inspection metadata, never in a room folder
 export const idPhotoName = (inspection) => `ID ${safeFileName(inspection.postcode || inspection.address || "photo")}.jpg`;
@@ -658,21 +658,17 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
         </p>
       </div>
 
-      <div className="ss-footer">
+      <StickyActionBar>
         <Button variant="ghost" onClick={() => setConfirmClose(true)}>Close inspection & start fresh</Button>
-      </div>
+      </StickyActionBar>
 
       {confirmClose && (() => {
         const filed = !!(inspection.lastUpload && inspection.lastUpload.confirmed);
         const exported = !!inspection.lastExport;
         const safe = filed || exported;
         return (
-          <div className="ss-modal-back" onClick={() => { setConfirmClose(false); setAcceptLoss(false); }}>
-            <div className="ss-modal" onClick={(e) => e.stopPropagation()}>
-              <div className="ss-modal-icon"><AlertTriangle size={22} /></div>
-              <div className="ss-modal-title">
-                {safe ? "Close this inspection?" : "This isn't saved anywhere yet"}
-              </div>
+          <Modal onClose={() => { setConfirmClose(false); setAcceptLoss(false); }} icon={<AlertTriangle size={22} />}
+            title={safe ? "Close this inspection?" : "This isn't saved anywhere yet"}>
               {safe ? (
                 <p>
                   All {totalPhotos} photo{totalPhotos === 1 ? "" : "s"} and notes will be removed
@@ -700,16 +696,12 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
                 onClick={() => { setConfirmClose(false); setAcceptLoss(false); }}>
                 {safe ? "Keep inspection" : "Go back and save it first"}
               </Button>
-            </div>
-          </div>
+          </Modal>
         );
       })()}
 
       {uploadError && (
-        <div className="ss-modal-back" onClick={() => setUploadError(null)}>
-          <div className="ss-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="ss-modal-icon"><CloudUpload size={22} /></div>
-            <div className="ss-modal-title">Upload didn't finish</div>
+        <Modal onClose={() => setUploadError(null)} icon={<CloudUpload size={22} />} title="Upload didn't finish">
             <p>{uploadError}</p>
             <p style={{ marginBottom: 16 }}>
               <strong>Nothing has been lost.</strong> Every photo and note is still on
@@ -722,8 +714,7 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
             <Button variant="ghost" style={{ marginTop: 8 }} onClick={() => setUploadError(null)}>
               Close
             </Button>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {reportOpen && (

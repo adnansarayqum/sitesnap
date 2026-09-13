@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Camera, Loader2, Mail, ArrowRight } from "lucide-react";
 import { requestCode, verifyCode, oauthSignIn } from "../auth.js";
-import { Button } from "../ui/index.js";
+import { Button, StickyActionBar } from "../ui/index.js";
 
 /* ---------------- sign in ---------------- */
 // No passwords: a six-digit code by email, or Microsoft / Google. The
@@ -129,11 +129,11 @@ export function SignInScreen({ config, invite, inviteToken, onSignedIn }) {
 
         {error && <p className="ss-fineprint ss-error" role="alert">{error}</p>}
       </div>
-      <div className="ss-footer">
+      <StickyActionBar>
         <p className="ss-fineprint" style={{ margin: 0, textAlign: "center" }}>
           No passwords to remember. Your photos stay on this phone and in your own cloud drive.
         </p>
-      </div>
+      </StickyActionBar>
     </div>
   );
 }

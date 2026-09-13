@@ -15,7 +15,7 @@ import {
 } from "../evidence.js";
 import { IssuePicker, IssueTag, noteSourceLabel } from "../components/Evidence.jsx";
 import { OrganiseSheet } from "../components/Organise.jsx";
-import { AppHeader, Button } from "../ui/index.js";
+import { AppHeader, Button, EmptyState, InlineAlert, SegmentedControl, StickyActionBar } from "../ui/index.js";
 
 /* ---------------- room review ---------------- */
 
@@ -302,14 +302,8 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
     <div className="ss-meta">
       <div className="ss-cond-row">
         <span className="ss-cond-label" title="Rated rooms show a coloured badge in the report and board">Condition</span>
-        {CONDITIONS.map((c) => (
-          <button key={c}
-            className={`ss-cond ${c.toLowerCase()} ${room.condition === c ? "on" : ""}`}
-            title={`Rate this room ${c}`}
-            onClick={() => { tapFeedback("light"); onMeta({ condition: room.condition === c ? null : c }); }}>
-            {c}
-          </button>
-        ))}
+        <SegmentedControl bare options={CONDITIONS} value={room.condition} itemClass="ss-cond" titleFor={(c) => `Rate this room ${c}`}
+          onChange={(c) => { tapFeedback("light"); onMeta({ condition: room.condition === c ? null : c }); }} />
       </div>
       <span className="ss-field-label">Room notes{room.noteSource === "human_adopted_ai" ? <span className="ss-field-label-hint"> — adopted from an AI suggestion</span> : room.noteSource === "legacy_unknown" ? <span className="ss-field-label-hint"> — origin unknown (written before 2.0)</span> : null}</span>
       <textarea
@@ -441,10 +435,9 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
           // notes/condition card — still one tap away — follows rather than
           // standing between them and the camera.
           <>
-            <div className="ss-empty">
-              <Camera size={22} />
+            <EmptyState icon={<Camera size={22} />}>
               <p>No photos in {room.name} yet.<br />{active ? <>Shooting into <b>{active.title}</b>.</> : <>Raise an issue below, open the camera, or add photos you've already taken.</>}</p>
-            </div>
+            </EmptyState>
             {issueStrip}
             {metaCard}
             <VoiceMemo memos={room.memos || []} onAdd={onAddMemo} onDelete={onDeleteMemo} renderTag={(m) => <IssueTag room={room} evidenceId={m.id} onClick={() => setPicking({ id: m.id, kind: "memo" })} />} />
@@ -455,15 +448,12 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
               Raise an <b>issue</b> per defect and shoot into it — photos and voice notes land where they belong. Tap a photo's tag to move it. <b>AI captions</b> fills blank captions.
             </Coach>
             {legacyLoose && (
-              <div className="ss-tip warn">
-                <Tag size={14} />
-                <span>These photos aren't organised into issues yet — findings are drafted per issue. <button className="ss-link" onClick={() => setOrganising(true)}>Organise</button></span>
-              </div>
+              <InlineAlert tone="warn" icon={<Tag size={14} />}>These photos aren't organised into issues yet — findings are drafted per issue. <button className="ss-link" onClick={() => setOrganising(true)}>Organise</button></InlineAlert>
             )}
             {issueStrip}
             {metaCard}
             <VoiceMemo memos={activeMemos} onAdd={onAddMemo} onDelete={onDeleteMemo} renderTag={(m) => <IssueTag room={room} evidenceId={m.id} onClick={() => setPicking({ id: m.id, kind: "memo" })} />} />
-            {shown.length === 0 && <p className="ss-empty-note">No photos {filter === "general" ? "at room level" : "in this issue"} yet — the camera shoots into it.</p>}
+            {shown.length === 0 && <EmptyState note>No photos {filter === "general" ? "at room level" : "in this issue"} yet — the camera shoots into it.</EmptyState>}
             <div className="ss-shots">
               {ordered.map((p, i) => (
                 <div key={p.id} className="ss-shot">
@@ -489,7 +479,7 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
         <div style={{ height: 12 }} />
       </div>
 
-      <div className="ss-footer ss-footer-split">
+      <StickyActionBar split>
         <Button variant="primary" size="big"
           onClick={() => setCameraOpen(true)}>
           <Camera size={20} strokeWidth={2.4} /> {photos.length ? "Take more photos" : "Take photos"}{active ? <small className="ss-btn-sub"> → {active.title}</small> : null}
@@ -500,7 +490,7 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
           aria-label={`Add photos from your library${active ? ` into ${active.title}` : ""}`} title="Add photos already on this phone">
           <Images size={20} />
         </Button>
-      </div>
+      </StickyActionBar>
 
       {shownPhoto && (
         <div className="ss-lightbox" onClick={closePhoto}>

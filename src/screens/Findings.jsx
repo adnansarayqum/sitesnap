@@ -16,7 +16,7 @@ import { EvidenceChips, EvidenceSheet, linkSourceLabel } from "../components/Evi
 import { OrganiseSheet } from "../components/Organise.jsx";
 import { FeedbackButton } from "../components/Feedback.jsx";
 import { listRates, addRate, suggestRows, rateBasis } from "../pricebook.js";
-import { Button } from "../ui/index.js";
+import { Button, EmptyState, StickyActionBar } from "../ui/index.js";
 
 // The Findings tab. Coverage first — every room, every issue, what was
 // processed and what wasn't — then the findings themselves, each traceable
@@ -574,12 +574,11 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
           </div>
         )}
         {visible.length === 0 && !(progress && progress.running) && (
-          <div className="ss-empty">
-            <ShieldCheck size={22} />
+          <EmptyState icon={<ShieldCheck size={22} />}>
             <p>
               {draftable.length ? <>{draftable.length} issue{draftable.length === 1 ? " is" : "s are"} ready to draft from.</> : cov.some((c) => c.loose.photoIds.length) ? <>Organise each room's evidence into issues first — tap <b>Organise</b> above.</> : <>Raise an issue in a room and add a note, voice note or reading to draft from.</>}
             </p>
-          </div>
+          </EmptyState>
         )}
         {rooms.map((room) => {
           const items = visible.filter((f) => f.roomId === room.id);
@@ -591,7 +590,7 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
         )}
         <div style={{ height: 12 }} />
       </div>
-      <div className="ss-footer">
+      <StickyActionBar>
         {total > 0 && (
           <div style={{ textAlign: "center", fontSize: 12.5, fontWeight: 700, color: "var(--muted)", marginBottom: 8 }}>
             {approved} of {total} approved{attention ? ` · ${attention} need${attention === 1 ? "s" : ""} your attention` : ""}
@@ -607,7 +606,7 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
             </Button>
           )}
         </div>
-      </div>
+      </StickyActionBar>
       {sheetEl}
       {organiseEl}
     </>

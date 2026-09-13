@@ -11,7 +11,7 @@ import { FindingsTab } from "./Findings.jsx";
 import { coverage, migrateFindings } from "../findings.js";
 import { ClipboardCheck, Sparkles } from "lucide-react";
 import { relativeDay } from "./Home.jsx";
-import { AppHeader, Button, ProgressBar, StatusPill } from "../ui/index.js";
+import { AppHeader, Button, EmptyState, InlineAlert, Modal, ProgressBar, StatusPill, StickyActionBar } from "../ui/index.js";
 
 /* ---------------- board (overview) ---------------- */
 
@@ -60,9 +60,7 @@ export function CaseFileScreen({
       />
 
       {renaming && (
-        <div className="ss-modal-back" onClick={() => setRenaming(false)}>
-          <div className="ss-modal ss-modal-left" onClick={(e) => e.stopPropagation()}>
-            <div className="ss-modal-title">Property details</div>
+        <Modal onClose={() => setRenaming(false)} left title="Property details">
             <input className="ss-input" autoFocus placeholder="Address"
               value={draft.address} onChange={(e) => setDraft({ ...draft, address: e.target.value })} />
             <input className="ss-input" style={{ marginTop: 8 }} placeholder="Postcode"
@@ -77,8 +75,7 @@ export function CaseFileScreen({
               Save
             </Button>
             <Button variant="ghost" style={{ marginTop: 8 }} onClick={() => setRenaming(false)}>Cancel</Button>
-          </div>
-        </div>
+        </Modal>
       )}
 
       <div className="ss-case-tabs">
@@ -251,17 +248,17 @@ export function OverviewTab({ inspection, sync, rooms, totalPhotos, doneRooms, o
             ))}
           </div>
         ) : (
-          <p className="ss-empty-note">No activity yet.</p>
+          <EmptyState note>No activity yet.</EmptyState>
         )}
 
         <div style={{ height: 12 }} />
       </div>
-      <div className="ss-footer">
+      <StickyActionBar>
         <Button variant="live" size="big" onClick={() => onWalk(firstEmpty)}>
           <Camera size={20} strokeWidth={2.4} />
           {totalPhotos === 0 ? "Start walkthrough" : "Continue walkthrough"}
         </Button>
-      </div>
+      </StickyActionBar>
     </>
   );
 }
@@ -325,20 +322,17 @@ export function RoomsTab({ rooms, photoCache, doneRooms, totalPhotos, onReorder,
         )}
 
         {totalPhotos === 0 && (
-          <div className="ss-tip info">
-            <ImageIcon size={14} />
-            <span>Drag the grip on the left to reorder rooms — that order sets the numbering used in the report and cloud folders.</span>
-          </div>
+          <InlineAlert tone="info" icon={<ImageIcon size={14} />}>Drag the grip on the left to reorder rooms — that order sets the numbering used in the report and cloud folders.</InlineAlert>
         )}
         <div style={{ height: 12 }} />
       </div>
 
-      <div className="ss-footer">
+      <StickyActionBar>
         <Button variant="live" size="big" onClick={() => onWalk(firstEmpty)}>
           <Camera size={20} strokeWidth={2.4} />
           {totalPhotos === 0 ? "Start walkthrough" : "Continue walkthrough"}
         </Button>
-      </div>
+      </StickyActionBar>
     </>
   );
 }

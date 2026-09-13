@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { createPortal } from "react-dom";
-import { Check, Loader2, MessageSquare, X } from "lucide-react";
+import { Check, Loader2, MessageSquare } from "lucide-react";
 import { FEEDBACK_KINDS, sendFeedback } from "../telemetry.js";
-import { Button } from "../ui/index.js";
+import { BottomSheet, Button } from "../ui/index.js";
 
 // One tap to say what happened, in the surveyor's words, with the context
 // the founder needs to act on it (screen, case, finding, version) and none
@@ -19,14 +18,8 @@ export function FeedbackSheet({ screen, caseId, findingId, preset, onClose, onSe
     catch (e) { setError(e.message); }
     finally { setBusy(false); }
   }
-  return createPortal((
-    <div className="ss-modal-back" onClick={onClose}>
-      <div className="ss-modal ss-modal-left ss-sheet" onClick={(e) => e.stopPropagation()}>
-        <div className="ss-sheet-head">
-          <div className="ss-modal-title" style={{ margin: 0 }}>{findingId ? "About this finding" : "Tell us what happened"}</div>
-          <button className="ss-sheet-close" onClick={onClose} aria-label="Close"><X size={16} /></button>
-        </div>
-        <div className="ss-sheet-body">
+  return (
+    <BottomSheet title={findingId ? "About this finding" : "Tell us what happened"} onClose={onClose} portal>
           <div className="ss-fb-kinds">
             {FEEDBACK_KINDS.filter(([k]) => findingId ? !["slowed_me_down", "missing_feature"].includes(k) : true).map(([k, label]) => (
               <button key={k} className={`ss-ichip ${kind === k ? "on active" : ""}`} onClick={() => setKind(k)}>{label}</button>
@@ -36,10 +29,8 @@ export function FeedbackSheet({ screen, caseId, findingId, preset, onClose, onSe
           <p className="ss-fineprint">Sent with the screen, case and finding ids and the app version — not your photos, notes or transcripts.</p>
           {error && <p className="ss-fineprint" style={{ color: "var(--red)" }}>{error}</p>}
           <Button variant="primary" size="big" disabled={!kind || busy} onClick={send}>{busy ? <Loader2 size={16} className="ss-spin" /> : <Check size={16} />} Send</Button>
-        </div>
-      </div>
-    </div>
-  ), document.querySelector(".ss-root") || document.body);
+    </BottomSheet>
+  );
 }
 
 export function FeedbackButton({ screen, caseId, findingId, preset, className, children, onSent }) {

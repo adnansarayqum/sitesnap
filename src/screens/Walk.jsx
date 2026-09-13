@@ -8,6 +8,7 @@ import { CONDITIONS } from "../lib/presets.js";
 import { pad } from "../lib/util.js";
 import { tapFeedback } from "../haptics.js";
 import { addIssue, addReading, openIssues, setActiveIssue, unassigned, updateIssue } from "../evidence.js";
+import { BottomSheet, SegmentedControl } from "../ui/index.js";
 
 /* ---------------- walkthrough capture ---------------- */
 
@@ -567,12 +568,8 @@ export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCa
           </button>
         )}
 
-        <div className="ss-live-cond">
-          {CONDITIONS.map((c) => (
-            <button key={c} className={`${c.toLowerCase()} ${room.condition === c ? "on" : ""}`} title={`Rate this room ${c}`}
-              onClick={() => { tapFeedback("light"); onMeta({ condition: room.condition === c ? null : c }); }}>{c}</button>
-          ))}
-        </div>
+        <SegmentedControl className="ss-live-cond" options={CONDITIONS} value={room.condition} titleFor={(c) => `Rate this room ${c}`}
+          onChange={(c) => { tapFeedback("light"); onMeta({ condition: room.condition === c ? null : c }); }} />
 
         {panel === "note" && (
           <textarea className="ss-live-note" autoFocus rows={3}
@@ -627,13 +624,7 @@ export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCa
       </div>
 
       {roomsOpen && (
-        <div className="ss-modal-back" onClick={() => setRoomsOpen(false)}>
-          <div className="ss-modal ss-modal-left ss-sheet ss-roomsheet" onClick={(e) => e.stopPropagation()}>
-            <div className="ss-sheet-head">
-              <div className="ss-modal-title" style={{ margin: 0 }}>Rooms</div>
-              <button className="ss-sheet-close" onClick={() => setRoomsOpen(false)} aria-label="Close"><X size={16} /></button>
-            </div>
-            <div className="ss-sheet-body ss-picker">
+        <BottomSheet title="Rooms" onClose={() => setRoomsOpen(false)} className="ss-roomsheet" bodyClassName="ss-picker">
               {rooms.map((r, i) => {
                 const n = r.photoIds.length, iss = openIssues(r).length, lo = unassigned(r);
                 const state = i === index ? "current" : n > 0 ? "done" : "todo";
@@ -648,9 +639,7 @@ export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCa
                   </button>
                 );
               })}
-            </div>
-          </div>
-        </div>
+        </BottomSheet>
       )}
     </div>
   );

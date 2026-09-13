@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Loader2, CloudUpload, CircleCheck, X } from "lucide-react";
 import { fetchRemoteCase } from "../sync.js";
 import { relativeDay } from "./Home.jsx";
-import { AppHeader } from "../ui/index.js";
+import { AppHeader, EmptyState } from "../ui/index.js";
 
 /* ---------------- a colleague's case, from the register ---------------- */
 // Read-only: the full-size photos are on their phone and in their drive;
@@ -23,7 +23,7 @@ export function RemoteCaseScreen({ id, onBack }) {
     return (
       <div className="ss-col">
         <AppHeader title="Case" eyebrow="Register" onBack={onBack} />
-        <div className="ss-scroll"><p className="ss-empty-note">Couldn't load this case: {error}</p></div>
+        <div className="ss-scroll"><EmptyState note>Couldn't load this case: {error}</EmptyState></div>
       </div>
     );
   }
