@@ -405,6 +405,9 @@ export function LiveCamera({ label, count, lastThumb, resumeKey, onCapture, onCl
 }
 
 export const BAD_IMAGE_MSG = "That image couldn't be read, so it wasn't added — try the shot again.";
+// A starting point, not the only option — anything can still be typed.
+// "Other" clears the field rather than writing the word "Other" as the title.
+const ISSUE_CATEGORIES = ["Damp", "Cracking", "Damage", "Leak", "Electrical", "Wear", "Other"];
 
 export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCapture, onDeleteLast, onMeta, onRoom, onAddMemo, onDeleteMemo, onActivity, onOpenRoom, onFinish, onExit, onError, filing, sync, saveStatus, fieldMode, onToggleFieldMode }) {
   const inputRef = useRef(null);
@@ -525,10 +528,15 @@ export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCa
         {/* the one thing that must never be ambiguous */}
         <div className={`ss-cap-active ${active ? "" : "none"}`}>
           <span className="ss-cap-active-label">{active ? "Active issue" : issues.length ? "No issue selected" : "Issues"}</span>
-          <span className="ss-cap-active-title">{active ? active.title : issues.length ? "Photos go to the room in general" : "Raise an issue to group evidence by defect"}</span>
+          <span className="ss-cap-active-title">{active ? active.title : issues.length ? "Photos go to the room in general" : "Add an issue to group evidence by defect"}</span>
           <span className="ss-cap-active-sub">{active
             ? `${activePhotos.length} photo${activePhotos.length === 1 ? "" : "s"} · ${activeMemos} voice · ${activeReadings} reading${activeReadings === 1 ? "" : "s"} — everything you capture now is filed here`
             : `Next shot: exhibit ${nextExhibitNo}`}</span>
+          {active && (
+            <button className="ss-cap-finish-issue" onClick={() => { tapFeedback("light"); onRoom((r) => setActiveIssue(r, null)); }}>
+              <Check size={13} /> Finish issue
+            </button>
+          )}
         </div>
 
         {/* one tap to switch, one tap to raise */}
@@ -538,16 +546,28 @@ export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCa
               {room.activeIssueId === i.id && <span className="ss-cap-dot" />}{i.title} <small>{(i.evidence || []).filter((e) => e.kind === "photo").length}</small>
             </button>
           ))}
-          {addingIssue ? (
+          <button className={`ss-live-ichip add ${addingIssue ? "on" : ""}`} onClick={() => setAddingIssue((a) => !a)}>
+            {addingIssue ? <>Cancel</> : <><Plus size={14} /> Add issue</>}
+          </button>
+        </div>
+
+        {/* a starting point for the title, not a form — tap a category to
+            fill it in, then edit or just go */}
+        {addingIssue && (
+          <div className="ss-cap-issuepanel">
+            <div className="ss-cap-issuequick">
+              {ISSUE_CATEGORIES.map((cat) => (
+                <button key={cat} className={`ss-live-ichip ${issueTitle === cat ? "on" : ""}`}
+                  onClick={() => { tapFeedback("light"); setIssueTitle(cat === "Other" ? "" : cat); }}>{cat}</button>
+              ))}
+            </div>
             <span className="ss-live-iadd">
               <input autoFocus placeholder="e.g. Ceiling mould" value={issueTitle} onChange={(e) => setIssueTitle(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") createIssue(); if (e.key === "Escape") setAddingIssue(false); }} />
               <button onClick={createIssue} disabled={!issueTitle.trim()} aria-label="Add issue"><Check size={15} /></button>
             </span>
-          ) : (
-            <button className="ss-live-ichip add" onClick={() => setAddingIssue(true)}><Plus size={14} /> New issue</button>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* what's been captured here, newest first; tap to review or move */}
         {stripIds.length > 0 && (

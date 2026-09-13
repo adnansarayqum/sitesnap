@@ -299,7 +299,7 @@ try {
   rec("S7b rating toggles off; voice note records via mic", onCount === 0 && memos === 1 && /Recording — Kitchen/.test(recording) ? "PASS" : "FAIL", `ratingOn=${onCount} memos=${memos} head="${head}" recording="${recording}"`);
   // an issue raised in two taps; the next photo lands in it, not the room —
   // the shutter is always live now, no separate tap to open the camera first
-  await page.getByRole("button", { name: /New issue/ }).click(); await w(page, 150);
+  await page.getByRole("button", { name: /Add issue/ }).click(); await w(page, 150);
   await page.locator(".ss-live-iadd input").fill("Ceiling mould"); await page.keyboard.press("Enter"); await w(page, 300);
   const activeTitle = await page.locator(".ss-cap-active-title").innerText();
   await page.locator(".ss-livecam-shutter").click(); await w(page, 800);

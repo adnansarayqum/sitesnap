@@ -1070,6 +1070,7 @@ export function StyleBlock() {
       .ss-live-ichip small { opacity: .7; }
       .ss-live-ichip.on { background: var(--hivis); color: var(--ss-color-on-accent); border-color: var(--hivis); }
       .ss-live-ichip.add { border-style: dashed; }
+      .ss-live-ichip.add.on { border-style: solid; }
       .ss-live-iadd { display: inline-flex; gap: 6px; }
       .ss-live-iadd input { background: rgba(255,255,255,.08); border: 1px solid rgba(var(--ss-color-accent-rgb),.35); color: #fff; border-radius: 999px; padding: 6px 11px; font: inherit; font-size: 13px; width: 170px; }
       .ss-live-iadd button { background: var(--hivis); color: var(--ss-color-on-accent); border-radius: 999px; width: 32px; display: inline-flex; align-items: center; justify-content: center; }
@@ -1199,6 +1200,14 @@ export function StyleBlock() {
       .ss-cap-active-label { font-size: 10.5px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; opacity: .75; }
       .ss-cap-active-title { font-size: 22px; font-weight: 900; line-height: 1.15; }
       .ss-cap-active-sub { font-size: 12.5px; font-weight: 700; opacity: .8; margin-top: 2px; }
+      .ss-cap-finish-issue {
+        display: inline-flex; align-items: center; gap: 5px; align-self: flex-start; margin-top: 10px;
+        background: rgba(4,63,56,.14); color: var(--ss-color-on-accent); font-weight: 800; font-size: 12.5px;
+        padding: 7px 12px; border-radius: 999px; border: 1px solid rgba(4,63,56,.25);
+      }
+      /* the quick-category + title panel that opens under the issue chips */
+      .ss-cap-issuepanel { width: 100%; max-width: 420px; margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+      .ss-cap-issuequick { display: flex; flex-wrap: wrap; gap: 6px; }
       .ss-cap-chips { display: flex; gap: 8px; overflow-x: auto; width: 100%; max-width: 420px; padding: 12px 2px 6px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
       .ss-cap-chips::-webkit-scrollbar { display: none; }
       .ss-cap-chips .ss-live-ichip { flex: 0 0 auto; min-height: 40px; font-size: 14px; padding: 8px 14px; }
