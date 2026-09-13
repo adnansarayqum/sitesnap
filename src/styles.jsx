@@ -985,8 +985,9 @@ export function StyleBlock() {
 
       /* ---- firm register ---- */
       .ss-sync { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--muted); margin: 10px 2px 0; }
-      .ss-sync-error { color: var(--red); }
+      .ss-sync-error, .ss-sync-failed { color: var(--red); }
       .ss-sync-offline { color: var(--amber); }
+      .ss-sync-syncing { color: var(--muted); }
       .ss-remote-room { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-top: 10px; }
       .ss-remote-room-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
       .ss-remote-note { margin: 6px 0 0; font-size: 13px; color: var(--muted); white-space: pre-wrap; }
@@ -1157,6 +1158,7 @@ export function StyleBlock() {
       .ss-cap-status { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 800; letter-spacing: .03em; padding: 4px 8px; border-radius: 999px; background: rgba(255,255,255,.08); color: rgba(255,255,255,.75); white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
       .ss-cap-status.ok { color: var(--hivis); }
       .ss-cap-status.offline { background: rgba(var(--ss-color-warning-rgb),.18); color: var(--ss-color-accent); }
+      .ss-cap-status.failed { background: rgba(255,138,115,.22); color: var(--ss-color-danger-soft); }
       .ss-cap-body { justify-content: flex-start; padding-top: 10px; gap: 0; }
       .ss-cap-active { width: 100%; max-width: 420px; border-radius: 14px; padding: 14px 16px; background: var(--hivis); color: var(--ss-color-on-accent); text-align: left; display: flex; flex-direction: column; gap: 2px; }
       .ss-cap-active.none { background: rgba(255,255,255,.08); color: #fff; border: 1px dashed rgba(var(--ss-color-accent-rgb),.45); }

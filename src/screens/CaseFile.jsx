@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useRef } from "react";
 import {
-  Camera, Check, Image as ImageIcon, Mail, Pencil, Plus, StickyNote, CloudUpload, CloudOff, Loader2, AlertTriangle, Share2, Trash2, User,
+  Camera, Check, Image as ImageIcon, Mail, Pencil, Plus, StickyNote, Share2, Trash2, User,
 } from "lucide-react";
 import { ReorderableList } from "../components/shared.jsx";
 import { Coach } from "../components/Hints.jsx";
@@ -11,7 +11,7 @@ import { FindingsTab } from "./Findings.jsx";
 import { coverage, migrateFindings } from "../findings.js";
 import { ClipboardCheck, Sparkles } from "lucide-react";
 import { relativeDay } from "./Home.jsx";
-import { AppHeader, Button, EmptyState, InlineAlert, Modal, ProgressBar, StatusPill, StickyActionBar } from "../ui/index.js";
+import { AppHeader, Button, EmptyState, InlineAlert, Modal, ProgressBar, StatusPill, StickyActionBar, SyncIndicator } from "../ui/index.js";
 
 /* ---------------- board (overview) ---------------- */
 
@@ -27,7 +27,7 @@ const TAB_STYLE = { display: "flex", flexDirection: "column", flex: 1, minHeight
 // Evidence (the live camera and a room's photos) still push on top of this,
 // same as before; only the finished-case wizard collapsed into tabs.
 export function CaseFileScreen({
-  inspection, sync, filing, onFiled, rooms, photoCache, totalPhotos, doneRooms,
+  inspection, sync, filing, saveStatus, onFiled, rooms, photoCache, totalPhotos, doneRooms,
   caseTab, onCaseTab, onExit, onReorder, onAddRoom, onRename, onOpenRoom, onWalk,
   filesForRoom, filesForUpload, fullPhoto, audioCache,
   onUploadResult, onExportResult, onFindings, onTranscripts, onRoom, me, syncNow, onTrack, onActivity, onSaveAll, onDone,
@@ -88,7 +88,7 @@ export function CaseFileScreen({
 
       {caseTab === "overview" && (
         <div className="ss-screen-in" style={TAB_STYLE}>
-          <OverviewTab inspection={inspection} sync={sync} rooms={rooms} totalPhotos={totalPhotos} doneRooms={doneRooms} onWalk={onWalk}
+          <OverviewTab inspection={inspection} sync={sync} filing={filing} saveStatus={saveStatus} rooms={rooms} totalPhotos={totalPhotos} doneRooms={doneRooms} onWalk={onWalk}
             idPhoto={idPhoto} onIdPhoto={onIdPhoto} onRemoveIdPhoto={onRemoveIdPhoto} onShareIdPhoto={onShareIdPhoto} onEmailIdPhoto={onEmailIdPhoto} idPhotoNote={idPhotoNote} onCaseTab={onCaseTab} />
         </div>
       )}
@@ -159,7 +159,7 @@ export function InspectionSummary({ inspection, rooms, totalPhotos, onReview }) 
   );
 }
 
-export function OverviewTab({ inspection, sync, rooms, totalPhotos, doneRooms, onWalk, idPhoto, onIdPhoto, onRemoveIdPhoto, onShareIdPhoto, onEmailIdPhoto, idPhotoNote, onCaseTab }) {
+export function OverviewTab({ inspection, sync, filing, saveStatus, rooms, totalPhotos, doneRooms, onWalk, idPhoto, onIdPhoto, onRemoveIdPhoto, onShareIdPhoto, onEmailIdPhoto, idPhotoNote, onCaseTab }) {
   const idInput = useRef(null);
   const firstEmpty = Math.max(0, rooms.findIndex((r) => r.photoIds.length === 0));
   const rank = { Poor: 3, Fair: 2, Good: 1 };
@@ -204,15 +204,7 @@ export function OverviewTab({ inspection, sync, rooms, totalPhotos, doneRooms, o
           </div>
         </div>
 
-        {sync && (
-          <div className={`ss-sync ss-sync-${sync.status}`} role="status">
-            {sync.status === "synced" && <><CloudUpload size={12} /> In the firm register · updated {relativeDay(sync.at)}</>}
-            {sync.status === "syncing" && <><Loader2 size={12} className="ss-spin" /> Updating the firm register…</>}
-            {sync.status === "offline" && <><CloudOff size={12} /> Offline — the register catches up when you're back on signal</>}
-            {sync.status === "error" && <><AlertTriangle size={12} /> Register not updated: {sync.error}</>}
-            {sync.status === "idle" && <><CloudUpload size={12} /> Not in the firm register yet</>}
-          </div>
-        )}
+        <SyncIndicator variant="line" saveStatus={saveStatus} sync={sync} filing={filing} />
 
         {/* The surveyor's ID selfie for the file: its own slot, so it never
             lands in a room folder and never needs pulling out of the batch

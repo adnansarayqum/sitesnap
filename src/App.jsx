@@ -874,6 +874,7 @@ export default function SiteSnap() {
           <Screen><CaseFileScreen
             inspection={inspection}
             sync={accounts && me.org ? sync : null}
+            saveStatus={saveStatus}
             rooms={rooms}
             photoCache={photoCache}
             totalPhotos={totalPhotos}

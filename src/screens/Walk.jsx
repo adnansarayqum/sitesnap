@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  Aperture, ArrowLeft, ArrowRight, Camera, Check, ChevronDown, ChevronRight, CloudOff, Expand, Gauge, Images, Loader2, Moon, Plus, RefreshCw, StickyNote, Sun, SwitchCamera, Trash2, X,
+  Aperture, ArrowLeft, ArrowRight, Camera, Check, ChevronDown, ChevronRight, Expand, Gauge, Images, Loader2, Moon, Plus, RefreshCw, StickyNote, Sun, SwitchCamera, Trash2, X,
 } from "lucide-react";
 import { VoiceMemo } from "../components/VoiceMemo.jsx";
 import { PHOTO_DIM, THUMB_DIM, drawScaled, processCapture } from "../lib/image.js";
@@ -8,7 +8,7 @@ import { CONDITIONS } from "../lib/presets.js";
 import { pad } from "../lib/util.js";
 import { tapFeedback } from "../haptics.js";
 import { addIssue, addReading, openIssues, setActiveIssue, unassigned, updateIssue } from "../evidence.js";
-import { BottomSheet, SegmentedControl } from "../ui/index.js";
+import { BottomSheet, SegmentedControl, SyncIndicator } from "../ui/index.js";
 
 /* ---------------- walkthrough capture ---------------- */
 
@@ -486,16 +486,6 @@ export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCa
     }
   }
 
-  // quiet, always-true answer to "did that save?"
-  const online = typeof navigator === "undefined" || navigator.onLine !== false;
-  const status = saveStatus === "saving" ? "Saving…"
-    : !online ? "Offline — saved on this phone"
-    : sync && sync.status === "syncing" ? "Syncing…"
-    : sync && sync.status === "error" ? "Saved on this phone · register not updated"
-    : sync && sync.status === "synced" ? "Saved · in the firm register"
-    : "Saved on this phone";
-  const statusTone = saveStatus === "saving" ? "busy" : !online ? "offline" : "ok";
-
   return (
     <div className="ss-col ss-live ss-cap">
       <input ref={inputRef} type="file" accept="image/*" capture="environment" multiple className="ss-hidden" onChange={handleFile} />
@@ -528,7 +518,7 @@ export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCa
         </button>
         <div className="ss-cap-head-right">
           {onToggleFieldMode && <button className="ss-live-fieldmode" onClick={onToggleFieldMode} title="Field mode — high-contrast for bright daylight">{fieldMode ? <Moon size={16} /> : <Sun size={16} />}</button>}
-          <span className={`ss-cap-status ${statusTone}`} role="status">{statusTone === "busy" ? <Loader2 size={11} className="ss-spin" /> : statusTone === "offline" ? <CloudOff size={11} /> : <Check size={11} />} {status}</span>
+          <SyncIndicator saveStatus={saveStatus} sync={sync} filing={filing} />
         </div>
       </div>
 
