@@ -1249,6 +1249,13 @@ export function StyleBlock() {
       .ss-cap .ss-live-nav button { min-height: 48px; }
       .ss-cap .ss-last { margin-top: 10px; }
       .ss-roomsheet .ss-sheet-body { max-height: 70vh; overflow-y: auto; }
+      .ss-finish-stats { display: flex; flex-direction: column; gap: 8px; font-size: 14px; font-weight: 600; color: var(--ink); margin-bottom: 14px; }
+      .ss-finish-stats b { font-weight: 800; }
+      .ss-finish-warnings { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+      .ss-finish-warning { display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; border-radius: 8px; background: var(--amber-tint); color: var(--amber); font-size: 13px; font-weight: 600; line-height: 1.4; }
+      .ss-finish-warning svg { flex-shrink: 0; margin-top: 1px; }
+      .ss-finish-clear { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 8px; background: var(--pine-tint); color: var(--pine-press); font-size: 13px; font-weight: 700; margin-bottom: 16px; }
+      .ss-finish-actions { display: flex; flex-direction: column; gap: 8px; }
       .ss-roomrow { display: grid; grid-template-columns: 26px 1fr auto; gap: 10px; align-items: center; min-height: 52px; }
       .ss-roomrow-ic { display: inline-flex; justify-content: center; color: var(--pine); }
       .ss-roomrow-empty { width: 12px; height: 12px; border-radius: 999px; border: 2px solid var(--line); display: inline-block; }

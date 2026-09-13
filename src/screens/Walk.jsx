@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  Aperture, ArrowLeft, ArrowRight, Camera, Check, ChevronDown, ChevronRight, Expand, Gauge, Images, Loader2, Moon, Plus, RefreshCw, StickyNote, Sun, SwitchCamera, Trash2, X,
+  AlertTriangle, Aperture, ArrowLeft, ArrowRight, Camera, Check, ChevronDown, ChevronRight, Expand, Gauge, Images, Loader2, Moon, Plus, RefreshCw, StickyNote, Sun, SwitchCamera, Trash2, X,
 } from "lucide-react";
 import { VoiceMemo } from "../components/VoiceMemo.jsx";
 import { PHOTO_DIM, THUMB_DIM, drawScaled, processCapture } from "../lib/image.js";
@@ -8,7 +8,8 @@ import { CONDITIONS } from "../lib/presets.js";
 import { pad } from "../lib/util.js";
 import { tapFeedback } from "../haptics.js";
 import { addIssue, addReading, openIssues, setActiveIssue, unassigned, updateIssue } from "../evidence.js";
-import { BottomSheet, SyncIndicator } from "../ui/index.js";
+import { inspectionHealth } from "../findings.js";
+import { BottomSheet, Button, SyncIndicator } from "../ui/index.js";
 
 /* ---------------- walkthrough capture ---------------- */
 
@@ -415,6 +416,7 @@ export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCa
   const libraryRef = useRef(null);
   const [panel, setPanel] = useState(null); // note | reading | null
   const [roomsOpen, setRoomsOpen] = useState(false);
+  const [finishCheck, setFinishCheck] = useState(null); // inspectionHealth() result, or null when closed
   const [resumeKey, setResumeKey] = useState(0);
   const room = rooms[index];
   const count = room.photoIds.length;
@@ -621,7 +623,7 @@ export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCa
           <button disabled={index === 0} onClick={() => onIndex(index - 1)}>
             <ArrowLeft size={17} /> {index > 0 ? rooms[index - 1].name : "—"}
           </button>
-          <button className="next" onClick={() => (isLast ? (onFinish ? onFinish() : onExit()) : onIndex(index + 1))}>
+          <button className="next" onClick={() => (isLast ? setFinishCheck(inspectionHealth(inspection, rooms)) : onIndex(index + 1))}>
             {isLast ? "Finish inspection" : rooms[index + 1].name} {isLast ? <Check size={17} /> : <ArrowRight size={17} />}
           </button>
         </div>
@@ -643,6 +645,30 @@ export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCa
                   </button>
                 );
               })}
+        </BottomSheet>
+      )}
+
+      {finishCheck && (
+        <BottomSheet title="Ready to finish?" onClose={() => setFinishCheck(null)} className="ss-finishsheet">
+          <div className="ss-finish-stats">
+            <div><b>{finishCheck.doneRooms}</b> of {finishCheck.rooms} room{finishCheck.rooms === 1 ? "" : "s"} covered</div>
+            <div><b>{finishCheck.totalPhotos}</b> photo{finishCheck.totalPhotos === 1 ? "" : "s"}</div>
+            {finishCheck.findingsTotal > 0 && <div><b>{finishCheck.findingsApproved}</b> of {finishCheck.findingsTotal} finding{finishCheck.findingsTotal === 1 ? "" : "s"} reviewed</div>}
+            <div>{finishCheck.address}{finishCheck.postcode ? `, ${finishCheck.postcode}` : ""}</div>
+          </div>
+          {finishCheck.warnings.length > 0 ? (
+            <div className="ss-finish-warnings">
+              {finishCheck.warnings.map((msg, i) => <div key={i} className="ss-finish-warning"><AlertTriangle size={14} /> {msg}</div>)}
+            </div>
+          ) : (
+            <div className="ss-finish-clear"><Check size={14} /> Nothing to flag</div>
+          )}
+          <div className="ss-finish-actions">
+            {finishCheck.warnings.length > 0 && <Button variant="ghost" onClick={() => setFinishCheck(null)}>Review warnings</Button>}
+            <Button variant="primary" onClick={() => { setFinishCheck(null); onFinish ? onFinish() : onExit(); }}>
+              {finishCheck.warnings.length > 0 ? "Finish anyway" : "Finish inspection"} <Check size={16} />
+            </Button>
+          </div>
         </BottomSheet>
       )}
     </div>

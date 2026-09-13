@@ -4,7 +4,7 @@
 // only approved findings are reportable; legacy "edited" findings stay
 // reportable with a record of why.
 import { describe, expect, it } from "vitest";
-import { emptyFindings, mergeRun, transition, reconcile, approvedByRoom, migrateFindings, liveItems, effective, coverage } from "../src/findings.js";
+import { emptyFindings, mergeRun, transition, reconcile, approvedByRoom, migrateFindings, liveItems, effective, coverage, inspectionHealth } from "../src/findings.js";
 import { isReportable } from "../shared/findingRules.js";
 import { addIssue, linkEvidence, issueFingerprint, migrateRoom } from "../src/evidence.js";
 
@@ -141,5 +141,37 @@ describe("coverage", () => {
     expect(cov[0].issues[0].failedMemos).toEqual(["m1"]);
     expect(cov[0].loose.photoIds).toEqual(["p2", "p3"]);
     expect(cov[0].legacy).not.toBeNull();
+  });
+});
+
+describe("inspectionHealth", () => {
+  it("flags empty rooms, unfinished rooms and unreviewed findings without ever blocking", () => {
+    const empty = migrateRoom({ id: "r1", name: "Bathroom", photoIds: [], memos: [] });
+    const shot = migrateRoom({ id: "r2", name: "Kitchen", photoIds: ["p1"], memos: [] });
+    const inspection = { address: "1 Test St", postcode: "SE1 1AA", findings: emptyFindings() };
+    const h = inspectionHealth(inspection, [empty, shot]);
+    expect(h.rooms).toBe(2);
+    expect(h.doneRooms).toBe(1);
+    expect(h.totalPhotos).toBe(1);
+    expect(h.warnings).toEqual(["No photos in Bathroom", "1 room not marked complete"]);
+  });
+  it("clears the coverage warnings once photographed rooms are marked complete", () => {
+    const shot = migrateRoom({ id: "r2", name: "Kitchen", photoIds: ["p1"], memos: [], complete: true });
+    const inspection = { address: "1 Test St", findings: emptyFindings() };
+    expect(inspectionHealth(inspection, [shot]).warnings).toEqual([]);
+  });
+  it("flags findings still awaiting review, using the same reportable state as the Findings tab", () => {
+    const { state } = (() => {
+      let room = migrateRoom({ id: "room_h1", name: "Bathroom", photoIds: ["p1"], memos: [], complete: true });
+      const a = addIssue(room, "Damp"); room = a.room;
+      room = linkEvidence(room, a.issue.id, { id: "p1", kind: "photo", source: "capture_session" });
+      const res = { run: { id: "run-1", at: 1, snapshot: "x", model: "mock", stageHashes: {}, stages: {} }, finding: { id: "f-1", title: "Damp", defect: "", remedial: { works: "" }, cost: { unpriced: true }, legislation: [], assessment: {}, review_flags: [], gate: { status: "review_ready", reasons: [], flags: [] }, confidence: "medium" } };
+      return { room, state: mergeRun(emptyFindings(), { issue: room.issues[0], room }, res) };
+    })();
+    const room = migrateRoom({ id: "room_h1", name: "Bathroom", photoIds: ["p1"], memos: [], complete: true });
+    const h = inspectionHealth({ address: "1 Test St", findings: state }, [room]);
+    expect(h.findingsTotal).toBe(1);
+    expect(h.findingsApproved).toBe(0);
+    expect(h.warnings).toContain("1 finding not yet reviewed");
   });
 });

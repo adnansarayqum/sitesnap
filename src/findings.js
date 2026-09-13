@@ -185,6 +185,33 @@ export function coverage(rooms, state, transcripts = {}) {
   });
 }
 
+// ---- pre-finish health check: a plain summary with warnings, never a blocker ----------------------
+// Nothing here stops the surveyor finishing — it only tells them what's
+// thin before they do, the same way the rest of the app surfaces status
+// rather than gating on it.
+export function inspectionHealth(inspection, rooms) {
+  const list = rooms || [];
+  const state = migrateFindings(inspection.findings);
+  const items = liveItems(state).filter((f) => f.status !== "rejected");
+  const approved = items.filter((f) => f.status === "approved").length;
+  const emptyRooms = list.filter((r) => r.photoIds.length === 0);
+  const unfinishedRooms = list.filter((r) => r.photoIds.length > 0 && !r.complete);
+  const warnings = [];
+  if (emptyRooms.length) warnings.push(`No photos in ${emptyRooms.length === 1 ? emptyRooms[0].name : `${emptyRooms.length} rooms`}`);
+  if (unfinishedRooms.length) warnings.push(`${unfinishedRooms.length} room${unfinishedRooms.length === 1 ? "" : "s"} not marked complete`);
+  if (items.length > approved) warnings.push(`${items.length - approved} finding${items.length - approved === 1 ? "" : "s"} not yet reviewed`);
+  return {
+    rooms: list.length,
+    doneRooms: list.filter((r) => r.photoIds.length > 0).length,
+    totalPhotos: list.reduce((n, r) => n + r.photoIds.length, 0),
+    findingsTotal: items.length,
+    findingsApproved: approved,
+    address: inspection.address || "",
+    postcode: inspection.postcode || "",
+    warnings,
+  };
+}
+
 // ---- exports -------------------------------------------------------------------------------------------
 export const SCHEDULE_COLUMNS = ["Item", "Location", "Defect", "Cause", "Legislation", "HHSRS", "Remedial works", "Scope", "Conditions", "Price low", "Price high", "Price basis", "Photos", "Confidence"];
 export function scheduleRows(byRoom) {
