@@ -777,6 +777,9 @@ export function StyleBlock() {
       /* ---- draft findings ---- */
       .ss-findings-count { font-size: 12.5px; font-weight: 700; color: var(--muted); }
       .ss-findings-page { max-width: 560px; }
+      .ss-findings-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 2px 0 12px; flex-wrap: wrap; }
+      .ss-findings-head h2 { font-size: 19px; font-weight: 800; letter-spacing: -0.01em; margin: 0; }
+      .ss-findings-head span { font-size: 12px; font-weight: 700; color: var(--amber); white-space: nowrap; }
       .ss-findings-banner {
         display: flex; gap: 9px; align-items: flex-start; background: var(--amber-tint); color: var(--amber);
         border-radius: 8px; padding: 12px 14px; font-size: 12.5px; font-weight: 600; line-height: 1.45; margin-bottom: 16px;

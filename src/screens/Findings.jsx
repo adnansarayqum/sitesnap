@@ -229,7 +229,7 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
     <div className="ss-ai-bar">
       <Sparkles size={15} />
       <span>
-        {cfg.enabled ? <>Drafted by <b>{cfg.model}</b>, checked separately, against <b>{cfg.reference && cfg.reference.label}</b>.</> : <>Drafting is <b>off</b> on this server — it needs an ANTHROPIC_API_KEY.</>}
+        {cfg.enabled ? <>Drafted by AI and checked separately, against <b>{cfg.reference && cfg.reference.label}</b>. Model and run details are in each finding's History &amp; audit.</> : <>Drafting is <b>off</b> on this server — it needs an ANTHROPIC_API_KEY.</>}
         {cfg.enabled && !cfg.transcription && <> Voice notes can't be transcribed here (no OPENAI_API_KEY) — issues with voice notes will be marked incomplete.</>}
       </span>
       {cfg.enabled && (
@@ -332,7 +332,7 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
           <span className="ss-finding-title">{f.title}</span>
           <span className={`ss-finding-status ${raw.status}`}>{STATUS_LABEL[raw.status] || raw.status}</span>
         </div>
-        <div className="ss-finding-sub">{room ? room.name : f.roomName}{issue ? ` · ${issue.title}` : raw.issueId === legacyIssueId(f.roomId) ? " · previous version" : ""}{run && run.at ? ` · ${when(run.at)}` : ""}</div>
+        <div className="ss-finding-sub">{room ? room.name : f.roomName}{issue ? ` · ${issue.title}` : raw.issueId === legacyIssueId(f.roomId) ? " · previous version" : ""}{issue ? ` · ${issuePhotoIds(issue).length} photo${issuePhotoIds(issue).length === 1 ? "" : "s"}${issueMemoIds(issue).length ? ` · ${issueMemoIds(issue).length} voice note${issueMemoIds(issue).length === 1 ? "" : "s"}` : ""}` : ""}{run && run.at ? ` · ${when(run.at)}` : ""}</div>
         {issue && (
           <div className="ss-evstrip" aria-label="Evidence for this issue">
             {issuePhotoIds(issue).map((pid) => { const p = photoCache[pid]; return p ? <button key={pid} className="ss-evstrip-thumb" onClick={() => openEv(`PHOTO-${p.no}`)} title={`Photo ${p.no}`}><img src={p.thumb || p.dataUrl} alt="" /><small>{p.no}</small></button> : null; })}
@@ -567,6 +567,12 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
         {statusBar}
         {notice && <div className="ss-note">{notice}</div>}
         {coverageView}
+        {total > 0 && (
+          <div className="ss-findings-head">
+            <h2>{total - approved > 0 ? `${total - approved} finding${total - approved === 1 ? "" : "s"} ready for review` : `All ${total} finding${total === 1 ? "" : "s"} reviewed`}</h2>
+            {attention > 0 && <span>{attention} need{attention === 1 ? "s" : ""} your attention</span>}
+          </div>
+        )}
         {visible.length > 0 && (
           <div className="ss-findings-banner">
             <ShieldCheck size={16} />
