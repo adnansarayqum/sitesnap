@@ -66,7 +66,7 @@ export function StyleBlock() {
         border-bottom: 1px solid var(--line);
         padding: 12px 16px; display: flex; align-items: center; gap: 10px;
       }
-      .ss-back { width: 34px; height: 34px; margin-left: -6px; display: flex; align-items: center; justify-content: center; border-radius: 10px; }
+      .ss-back { width: var(--ss-touch-min); height: var(--ss-touch-min); margin-left: -11px; display: flex; align-items: center; justify-content: center; border-radius: 10px; }
       .ss-back:active { background: var(--line-soft); }
       .ss-tick { width: 6px; height: 26px; background: var(--pine); border-radius: 3px; }
       .ss-topbar-text { flex: 1; min-width: 0; }
@@ -279,7 +279,7 @@ export function StyleBlock() {
       .ss-live-top { display: flex; align-items: center; justify-content: space-between; padding: 16px; }
       .ss-live-exit { display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 14px; color: rgba(var(--ss-color-accent-rgb),.75); }
       .ss-live-flag { font-size: 12px; font-weight: 900; letter-spacing: .14em; animation: ss-pulse 1.6s ease-in-out infinite; }
-      .ss-live-fieldmode { width: 32px; height: 32px; border-radius: 999px; background: rgba(255,255,255,.1); color: rgba(255,255,255,.85); display: flex; align-items: center; justify-content: center; }
+      .ss-live-fieldmode { width: var(--ss-touch-min); height: var(--ss-touch-min); border-radius: 999px; background: rgba(255,255,255,.1); color: rgba(255,255,255,.85); display: flex; align-items: center; justify-content: center; }
       @keyframes ss-pulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
       @media (prefers-reduced-motion: reduce) { .ss-live-flag { animation: none; } }
       .ss-live-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 0 24px; }
@@ -320,6 +320,7 @@ export function StyleBlock() {
       /* ---- lightbox ---- */
       .ss-lightbox { position: fixed; inset: 0; z-index: 40; background: #0A0E0B; display: flex; flex-direction: column; max-width: 430px; margin: 0 auto; animation: ss-fade-in .18s ease both; }
       @keyframes ss-fade-in { from { opacity: 0; } to { opacity: 1; } }
+      @media (prefers-reduced-motion: reduce) { .ss-lightbox { animation: none; } }
       .ss-lightbox-top { display: flex; align-items: center; justify-content: space-between; padding: 14px; flex-shrink: 0; }
       .ss-lightbox-top button { width: 40px; height: 40px; border-radius: 999px; background: rgba(255,255,255,.12); color: #fff; display: flex; align-items: center; justify-content: center; }
       .ss-lightbox-count { font-family: var(--ss-font-mono); color: rgba(255,255,255,.7); font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -392,7 +393,7 @@ export function StyleBlock() {
         display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; vertical-align: middle;
       }
       .ss-sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
-      .ss-sheet-close { width: 30px; height: 30px; border-radius: 999px; background: var(--paper-deep); color: var(--muted); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+      .ss-sheet-close { width: var(--ss-touch-min); height: var(--ss-touch-min); border-radius: 999px; background: var(--paper-deep); color: var(--muted); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
       .ss-sheet-body { font-size: 14px; line-height: 1.5; color: var(--ink); text-align: left; }
       .ss-sheet-body p { margin: 0 0 10px; }
       .ss-sheet-body p:last-child { margin-bottom: 0; }
@@ -510,7 +511,7 @@ export function StyleBlock() {
       }
       .ss-alert svg { flex-shrink: 0; margin-top: 1px; }
       .ss-alert span { flex: 1; }
-      .ss-alert button { color: rgba(255,255,255,.85); flex-shrink: 0; }
+      .ss-alert button { color: rgba(255,255,255,.85); flex-shrink: 0; width: var(--ss-touch-min); height: var(--ss-touch-min); margin: -12px -14px -12px 0; display: flex; align-items: center; justify-content: center; }
 
       .ss-tip { display: flex; gap: 9px; align-items: flex-start; background: var(--amber-tint); color: var(--amber); border-radius: 8px; padding: 11px 13px; margin-top: 14px; font-size: 12.5px; font-weight: 600; line-height: 1.45; }
       .ss-tip svg { flex-shrink: 0; margin-top: 1px; }
@@ -603,6 +604,7 @@ export function StyleBlock() {
       .ss-livecam-cond button.on.poor { background: var(--ss-color-danger-soft); border-color: var(--ss-color-danger-soft); color: var(--ss-color-on-danger-soft); }
       .ss-livecam-flash { position: absolute; inset: 0; background: #fff; opacity: .85; animation: ss-flashfade .13s ease-out forwards; pointer-events: none; }
       @keyframes ss-flashfade { from { opacity: .85; } to { opacity: 0; } }
+      @media (prefers-reduced-motion: reduce) { .ss-livecam-flash { animation: none; opacity: 0; } }
       .ss-livecam-top {
         position: absolute; top: 0; left: 0; right: 0;
         padding: 14px 14px calc(14px + env(safe-area-inset-top));
@@ -610,7 +612,7 @@ export function StyleBlock() {
         display: flex; align-items: center; gap: 10px;
         background: linear-gradient(rgba(0,0,0,.55), transparent);
       }
-      .ss-livecam-close { width: 36px; height: 36px; border-radius: 999px; background: rgba(0,0,0,.4); color: #fff; display: flex; align-items: center; justify-content: center; }
+      .ss-livecam-close { width: var(--ss-touch-min); height: var(--ss-touch-min); border-radius: 999px; background: rgba(0,0,0,.4); color: #fff; display: flex; align-items: center; justify-content: center; }
       .ss-livecam-label { flex: 1; color: #fff; font-weight: 800; font-size: 15px; text-shadow: 0 1px 3px rgba(0,0,0,.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .ss-livecam-count { min-width: 28px; text-align: center; background: var(--hivis); color: var(--hivis-deep); font-weight: 900; font-size: 14px; border-radius: 999px; padding: 4px 10px; font-variant-numeric: tabular-nums; }
       .ss-livecam-lens { height: 34px; padding: 0 10px; border-radius: 999px; background: rgba(0,0,0,.4); color: #fff; display: flex; align-items: center; justify-content: center; gap: 5px; flex-shrink: 0; font-weight: 800; font-size: 12px; font-variant-numeric: tabular-nums; }
@@ -665,6 +667,7 @@ export function StyleBlock() {
       }
       .ss-vm-btn.rec { background: var(--red); border-color: var(--red); color: #fff; }
       .ss-vm-pulse { width: 9px; height: 9px; border-radius: 999px; background: #fff; animation: ss-pulse 1.2s ease-in-out infinite; }
+      @media (prefers-reduced-motion: reduce) { .ss-vm-pulse { animation: none; } }
       .ss-vm-item {
         display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700;
         background: var(--pine-tint); color: var(--pine); border-radius: 999px; padding: 6px 6px 6px 11px;
@@ -734,7 +737,7 @@ export function StyleBlock() {
       /* ---- settings / home header ---- */
       .ss-home-top { display: flex; align-items: center; justify-content: space-between; padding: 16px 16px 0; }
       .ss-icon-btn {
-        width: 34px; height: 34px; border-radius: 10px; background: var(--card); border: 1px solid var(--line);
+        width: var(--ss-touch-min); height: var(--ss-touch-min); border-radius: 10px; background: var(--card); border: 1px solid var(--line);
         display: flex; align-items: center; justify-content: center; color: var(--muted); flex-shrink: 0;
       }
       .ss-icon-btn:active { background: var(--line-soft); }
@@ -874,7 +877,7 @@ export function StyleBlock() {
       .ss-idphoto-main b { display: block; font-size: 14px; }
       .ss-idphoto-main span { font-size: 12px; color: var(--muted); }
       .ss-idphoto-actions { display: flex; gap: 6px; }
-      .ss-idphoto-actions button { width: 34px; height: 34px; border-radius: 9px; background: var(--paper-deep); color: var(--pine); display: flex; align-items: center; justify-content: center; }
+      .ss-idphoto-actions button { width: var(--ss-touch-min); height: var(--ss-touch-min); border-radius: 9px; background: var(--paper-deep); color: var(--pine); display: flex; align-items: center; justify-content: center; }
       /* report */
       .ss-rep-finding { border-left: 3px solid var(--pine); padding: 6px 0 6px 12px; margin: 10px 0 12px; font-size: 13.5px; line-height: 1.5; break-inside: avoid; }
       .ss-rep-finding p { margin: 4px 0; }
@@ -893,7 +896,7 @@ export function StyleBlock() {
         display: flex; align-items: center; justify-content: space-between; padding: 16px 18px;
         font-size: 13px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: rgba(255,255,255,.7);
       }
-      .ss-annotate-top button { width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,.12); display: flex; align-items: center; justify-content: center; color: #fff; }
+      .ss-annotate-top button { width: var(--ss-touch-min); height: var(--ss-touch-min); border-radius: 50%; background: rgba(255,255,255,.12); display: flex; align-items: center; justify-content: center; color: #fff; }
       .ss-annotate-top button:disabled { opacity: .35; }
       .ss-annotate-stage { position: relative; flex: 1; min-height: 0; margin: 0 14px 12px; border-radius: 16px; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #000; }
       .ss-annotate-stage img { max-width: 100%; max-height: 100%; width: 100%; height: 100%; object-fit: contain; display: block; user-select: none; }
@@ -993,7 +996,7 @@ export function StyleBlock() {
       .ss-member-name { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .ss-member-sub { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .ss-role-select { appearance: none; -webkit-appearance: none; background: var(--paper-deep); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font: inherit; font-size: 13px; font-weight: 700; color: var(--ink); }
-      .ss-icon-btn { width: 32px; height: 32px; border-radius: 999px; display: flex; align-items: center; justify-content: center; color: var(--muted); background: var(--paper-deep); flex-shrink: 0; }
+      .ss-icon-btn { width: var(--ss-touch-min); height: var(--ss-touch-min); border-radius: 999px; display: flex; align-items: center; justify-content: center; color: var(--muted); background: var(--paper-deep); flex-shrink: 0; }
       .ss-invite-result { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line-soft); }
       .ss-account-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; font-size: 13.5px; }
       .ss-account-row .ss-muted { color: var(--muted); }

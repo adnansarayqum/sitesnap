@@ -50,6 +50,12 @@ const WAL = {
   writeCaption(photoId, patch) { try { localStorage.setItem(WAL.capKey(photoId), JSON.stringify(patch)); } catch { /* as above */ } },
   readCaption(photoId) { try { const s = localStorage.getItem(WAL.capKey(photoId)); return s ? JSON.parse(s) : null; } catch { return null; } },
   clearCaption(photoId) { try { localStorage.removeItem(WAL.capKey(photoId)); } catch { /* nothing to clear */ } },
+  // where the surveyor was inside a case — so a killed app, or "Resume
+  // case" from Home, reopens on the same room instead of always Overview
+  posKey: (id) => `sitesnap:pos:${id}`,
+  writePosition(id, pos) { try { localStorage.setItem(WAL.posKey(id), JSON.stringify(pos)); } catch { /* not critical — worst case it reopens on Overview */ } },
+  readPosition(id) { try { const s = localStorage.getItem(WAL.posKey(id)); return s ? JSON.parse(s) : null; } catch { return null; } },
+  clearPosition(id) { try { localStorage.removeItem(WAL.posKey(id)); } catch { /* nothing to clear */ } },
 };
 
 const SCREEN_STYLE = { display: "flex", flexDirection: "column", flex: 1, minHeight: 0 };
@@ -206,6 +212,15 @@ export default function SiteSnap() {
   // moving between screens is a natural checkpoint
   useEffect(() => { flushAll(); /* eslint-disable-line react-hooks/exhaustive-deps */ }, [screen]);
 
+  // where inside the case the surveyor last was — a synchronous write, like
+  // the rest of the WAL, so a kill mid-walkthrough still resumes on the
+  // same room rather than always landing back on Overview
+  useEffect(() => {
+    if (!inspection || !["casefile", "walk", "evidence", "complete"].includes(screen)) return;
+    WAL.writePosition(inspection.id, { screen, caseTab, walkIndex });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inspection && inspection.id, screen, caseTab, walkIndex]);
+
   useEffect(() => {
     // A dropped write means photos that cannot be reshot, so it has to be
     // visible on screen rather than only in the console.
@@ -337,14 +352,20 @@ export default function SiteSnap() {
     if (wal && wal.inspection && wal.inspection.id === id) { data.inspection = wal.inspection; data.rooms = wal.rooms || data.rooms; }
     suppressSaveId.current = null;
     setReturnTab(fromTab);
-    setCaseTab("overview");
     resetSyncState(id);
     // pre-2.0 cases open as they were: rooms gain an (empty) issue list and
     // honest provenance markers, transcripts become records, findings move
     // to the state machine — nothing is guessed about who wrote what
     const insp = { ...data.inspection, transcripts: migrateTranscripts(data.inspection.transcripts), findings: data.inspection.findings ? migrateFindings(data.inspection.findings) : data.inspection.findings };
     setInspection(insp);
-    setRooms(migrateRooms(data.rooms || []));
+    const roomsList = migrateRooms(data.rooms || []);
+    setRooms(roomsList);
+    // resume exactly where the surveyor left off — the same room mid-walk,
+    // or the same case-file tab — rather than always landing on Overview
+    const pos = WAL.readPosition(id);
+    const resumeWalk = !!(pos && pos.screen === "walk" && Number.isInteger(pos.walkIndex) && pos.walkIndex >= 0 && pos.walkIndex < roomsList.length);
+    if (resumeWalk) { setWalkIndex(pos.walkIndex); setCaseTab("overview"); }
+    else setCaseTab(pos && ["overview", "rooms", "findings", "export"].includes(pos.caseTab) ? pos.caseTab : "overview");
     const ids = (data.rooms || []).flatMap((r) => r.photoIds);
     const entries = await Promise.all(ids.map(async (pid) => [pid, await loadPhoto(pid)]));
     const cache = {};
@@ -380,7 +401,7 @@ export default function SiteSnap() {
       photoSeq.current[r.id] = (r.photoIds || [])
         .reduce((m, pid) => Math.max(m, (cache[pid] && cache[pid].no) || 0), r.seq || 0);
     }
-    setScreen("casefile");
+    setScreen(resumeWalk ? "walk" : "casefile");
     // anything shot offline, or before a drive was linked, files now
     const p = await refreshAutoFiling();
     clearFilingQueue();
@@ -695,6 +716,7 @@ export default function SiteSnap() {
     if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
     pendingSave.current = null;
     WAL.clear(inspection.id);
+    WAL.clearPosition(inspection.id);
     Object.values(photoTimers.current).forEach(clearTimeout);
     photoTimers.current = {};
     pendingPhotos.current = {};
@@ -729,6 +751,7 @@ export default function SiteSnap() {
   async function discardInspection(id) {
     const data = await loadInspection(id);
     WAL.clear(id);
+    WAL.clearPosition(id);
     if (data && data.rooms) {
       data.rooms.flatMap((r) => r.photoIds).forEach((pid) => { removePhoto(pid); WAL.clearCaption(pid); });
       data.rooms.flatMap((r) => (r.memos || []).map((m) => m.id)).forEach((mid) => removeAudio(mid));

@@ -221,14 +221,17 @@ try {
   // no wait: reload immediately — the debounce must be flushed by pagehide/focusout
   await page.reload({ waitUntil: "networkidle" }); await w(page, 500);
   await page.getByRole("button", { name: /Resume case/i }).click(); await w(page, 500);
+  // resumed on the Rooms tab, where the Kitchen room was open before the reload
+  const resumedOnRooms = await page.locator(".ss-case-tab.on").innerText().catch(() => "");
+  await tab(page, "Overview");
   const overview = await page.locator("body").innerText();
   await openRoom(page, "Kitchen");
   const cap = await page.locator(".ss-caption").first().inputValue();
   const note = await page.locator(".ss-note-input").first().inputValue();
   const poorOn = await page.locator(".ss-cond.poor.on").count();
   const cells = await page.locator(".ss-cell").count();
-  const ok = cells === 2 && poorOn === 1 && note.includes("extractor") && cap.includes("before reload") && overview.includes("REF-9") && overview.includes("Acme Homes");
-  rec("S5 everything survives an immediate reload (caption/note/rating/photos/details)", ok ? "PASS" : "FAIL", `cells=${cells} poor=${poorOn} note="${note}" caption="${cap}"`);
+  const ok = cells === 2 && poorOn === 1 && note.includes("extractor") && cap.includes("before reload") && overview.includes("REF-9") && overview.includes("Acme Homes") && /Rooms/i.test(resumedOnRooms);
+  rec("S5 everything survives an immediate reload (caption/note/rating/photos/details); resumes on the same tab", ok ? "PASS" : "FAIL", `cells=${cells} poor=${poorOn} note="${note}" caption="${cap}" resumedTab="${resumedOnRooms}"`);
   const e = errs(page); if (e.length) rec("S5 console", "FAIL", e.join(" | "));
   await ctx.close();
 } catch (e) { rec("S5", "FAIL", e.message); }
