@@ -12,6 +12,7 @@ import { RoomScreen } from "./screens/Room.jsx";
 import { SettingsScreen } from "./screens/Settings.jsx";
 import { SetupScreen } from "./screens/Setup.jsx";
 import { WalkScreen } from "./screens/Walk.jsx";
+import { CompleteScreen } from "./screens/Complete.jsx";
 import { StyleBlock } from "./styles.jsx";
 import { beginLink, claimFromUrl, setAccountLinks } from "./cloud/service.js";
 import { fetchMe, signOut as apiSignOut, captureInviteFromUrl, clearPendingInvite, inviteInfo, acceptInvite, cloudServiceConfig, emailIdPhoto as apiEmailIdPhoto } from "./auth.js";
@@ -591,8 +592,7 @@ export default function SiteSnap() {
       logActivity(`Inspection complete — ${rooms.filter((r) => r.photoIds.length).length} of ${rooms.length} rooms, ${issues} issue${issues === 1 ? "" : "s"}, ${totalPhotos} photo${totalPhotos === 1 ? "" : "s"}`);
       track("inspection_completed", { case: inspection.id, rooms: rooms.length, issues, photos: totalPhotos, memos, durationMs: Date.now() - (inspection.startedAt || Date.now()) });
     }
-    setCaseTab("overview");
-    setScreen("casefile");
+    setScreen("complete");
   }
   function setTranscripts(fn) {
     setInspection((prev) => (prev ? { ...prev, transcripts: typeof fn === "function" ? fn(prev.transcripts || {}) : fn } : prev));
@@ -898,7 +898,15 @@ export default function SiteSnap() {
             fullPhoto={fullPhoto}
             audioCache={audioCache}
             onUploadResult={(r) => { setInspectionMeta({ lastUpload: r }); logActivity(r.ok ? (r.confirmed ? "Filed in the cloud" : "Sent to the cloud") : "Upload didn't finish"); if (r.ok) track("export_cloud", { case: inspection.id, count: r.total }); }}
-            onExportResult={(r) => { setInspectionMeta({ lastExport: r, ...(r.kind === "report" ? { lastReport: r } : {}) }); track(r.kind === "report" ? "report_generated" : "export_zip", { case: inspection.id, sinceStartMs: Date.now() - (inspection.startedAt || Date.now()) }); }}
+            onExportResult={(r) => {
+              setInspectionMeta({
+                lastExport: r,
+                ...(r.kind === "report" ? { lastReport: r } : {}),
+                ...(r.kind === "zip" ? { lastZip: r } : {}),
+                ...(r.kind === "photos" ? { lastPhotos: r } : {}),
+              });
+              track(r.kind === "report" ? "report_generated" : "export_zip", { case: inspection.id, sinceStartMs: Date.now() - (inspection.startedAt || Date.now()) });
+            }}
             onFindings={(f) => setInspectionMeta({ findings: f })}
             onTranscripts={setTranscripts}
             onRoom={updateRoom}
@@ -946,6 +954,17 @@ export default function SiteSnap() {
             filing={filing}
             fieldMode={fieldMode}
             onToggleFieldMode={toggleFieldMode}
+          /></Screen>
+        )}
+
+        {view === "complete" && inspection && (
+          <Screen><CompleteScreen
+            inspection={inspection}
+            rooms={rooms}
+            totalPhotos={totalPhotos}
+            onReviewFindings={() => { setCaseTab("findings"); setScreen("casefile"); }}
+            onExportReport={() => { setCaseTab("export"); setScreen("casefile"); }}
+            onContinue={() => { setCaseTab("overview"); setScreen("casefile"); }}
           /></Screen>
         )}
 

@@ -103,6 +103,8 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
     loadWebhookKey().then((k) => setHookKey(k || ""));
   }, []);
 
+  const when = (iso) => new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
   function flash(msg, ms = 3500) {
     setNote(msg);
     setTimeout(() => setNote(null), ms);
@@ -554,6 +556,7 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
         <Coach id="export" title="Getting it off the phone">
           One tap files everything to <b>OneDrive</b>. <b>Report</b> makes the PDF; <b>ZIP</b> mirrors the folder structure below. Export as often as you like.
         </Coach>
+        <div className="ss-deliver-title">Ready to deliver</div>
         <div className="ss-summary">
           <MapPin size={15} />
           <div>
@@ -615,19 +618,28 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
           </>
         )}
         <div className="ss-export-row">
-          <Button variant={cloudTarget ? "ghost" : "primary"} onClick={openReport} disabled={totalPhotos === 0 || reportBusy}
-            title={totalPhotos === 0 ? "Take at least one photo first" : undefined}>
-            <FileText size={18} /> Report (PDF)
-          </Button>
-          <Button variant="ghost" onClick={exportZip} disabled={zipBusy || totalPhotos === 0}
-            title={totalPhotos === 0 ? "Take at least one photo first" : undefined}>
-            <Download size={18} /> {zipBusy ? "Building ZIP…" : "Export ZIP"}
-          </Button>
+          <div className="ss-export-opt">
+            <Button variant={cloudTarget ? "ghost" : "primary"} onClick={openReport} disabled={totalPhotos === 0 || reportBusy}
+              title={totalPhotos === 0 ? "Take at least one photo first" : undefined}>
+              <FileText size={18} /> Report (PDF)
+            </Button>
+            {inspection.lastReport && <span className="ss-export-when">Last made {when(inspection.lastReport.at)}</span>}
+          </div>
+          <div className="ss-export-opt">
+            <Button variant="ghost" onClick={exportZip} disabled={zipBusy || totalPhotos === 0}
+              title={totalPhotos === 0 ? "Take at least one photo first" : undefined}>
+              <Download size={18} /> {zipBusy ? "Building ZIP…" : "Export ZIP"}
+            </Button>
+            {inspection.lastZip && <span className="ss-export-when">Last made {when(inspection.lastZip.at)}</span>}
+          </div>
         </div>
-        <Button variant="ghost" size="big" style={{ marginTop: 8 }} onClick={handleSaveAll} disabled={totalPhotos === 0}
-          title={totalPhotos === 0 ? "Take at least one photo first" : undefined}>
-          <ImagePlus size={19} /> Save all to Photos app
-        </Button>
+        <div className="ss-export-opt full">
+          <Button variant="ghost" size="big" style={{ marginTop: 8 }} onClick={handleSaveAll} disabled={totalPhotos === 0}
+            title={totalPhotos === 0 ? "Take at least one photo first" : undefined}>
+            <ImagePlus size={19} /> Save all to Photos app
+          </Button>
+          {inspection.lastPhotos && <span className="ss-export-when">Last saved {when(inspection.lastPhotos.at)}</span>}
+        </div>
         {directError && <p className="ss-fineprint" style={{ color: "var(--red)" }}>{directError}</p>}
         {filing && filing.provider && totalPhotos > 0 && (
           <p className="ss-fineprint ss-filing-note" style={{ textAlign: "center" }}>

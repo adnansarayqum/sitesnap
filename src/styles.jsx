@@ -136,6 +136,13 @@ export function StyleBlock() {
       .ss-stat-value { display: block; font-family: var(--ss-font-display); font-size: 24px; font-weight: 800; color: var(--ink); line-height: 1; }
       .ss-stat-label { display: block; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin-top: 8px; }
 
+      /* the completion screen shown once, right after "Finish inspection" */
+      .ss-complete-hero { text-align: center; padding: 28px 8px 4px; }
+      .ss-complete-check { display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: 999px; background: var(--pine-tint); color: var(--pine-press); margin-bottom: 14px; }
+      .ss-complete-hero h1 { font-family: var(--ss-font-display); font-size: 24px; font-weight: 800; margin: 0 0 6px; }
+      .ss-complete-hero p { font-size: 14px; color: var(--muted); font-weight: 600; margin: 0; }
+      .ss-complete-findings { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--pine-press); margin-top: 18px; }
+
       /* the rooms-covered bar inside the dark "resume case" hero */
       .ss-case-hero-progress { margin-top: 16px; }
       .ss-case-hero-progress .ss-progress { background: rgba(255,255,255,.24); }
@@ -391,6 +398,11 @@ export function StyleBlock() {
       .ss-sheet-body p:last-child { margin-bottom: 0; }
       .ss-export-row { display: flex; gap: 8px; margin-top: 8px; }
       .ss-export-row .ss-btn { flex: 1; padding: 16px 10px; font-size: 15px; }
+      .ss-export-opt { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+      .ss-export-opt.full { flex: none; width: 100%; }
+      .ss-export-opt .ss-btn { width: 100%; }
+      .ss-export-when { font-size: 11px; font-weight: 600; color: var(--muted2); }
+      .ss-deliver-title { font-size: 19px; font-weight: 800; letter-spacing: -0.01em; margin: 2px 0 12px; }
       .ss-hook { background: var(--card); border: 1px solid var(--line); border-radius: 9px; padding: 12px; margin-top: 8px; }
 
       /* ---- toast ---- */
