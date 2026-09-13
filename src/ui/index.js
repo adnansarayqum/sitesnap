@@ -13,3 +13,4 @@ export { StickyActionBar } from "./StickyActionBar.jsx";
 export { EmptyState } from "./EmptyState.jsx";
 export { SegmentedControl } from "./SegmentedControl.jsx";
 export { SyncIndicator, useOnline } from "./SyncIndicator.jsx";
+export { InspectionCard } from "./InspectionCard.jsx";

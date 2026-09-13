@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import {
-  AlertTriangle, ArrowRight, Camera, CircleCheck, CloudUpload, Download, FileText, Mic, Plus, Search, Smartphone, Star, Trash2, WifiOff, X,
+  AlertTriangle, ArrowRight, Camera, CircleCheck, CloudUpload, Download, Plus, Search, Smartphone, Trash2, X,
 } from "lucide-react";
 import {
   loadInspection, loadPhoto,
 } from "../storage.js";
-import { BottomNavigation, Button, EmptyState, InlineAlert, Modal, StatusPill, StickyActionBar } from "../ui/index.js";
+import { BottomNavigation, Button, EmptyState, InlineAlert, InspectionCard, Modal, StickyActionBar } from "../ui/index.js";
 
 /* ---------------- home ---------------- */
 
@@ -22,20 +22,37 @@ function CloudStatusRow({ onTab }) {
   );
 }
 
-export function HomeScreen({ index, onNew, onOpen, onTab, orgName, needsCloud }) {
+function timeGreeting(now = new Date()) {
+  const h = now.getHours();
+  if (h < 12) return "Good morning";
+  if (h < 18) return "Good afternoon";
+  return "Good evening";
+}
+
+// An open case's status, derived from fields already on its index summary
+// — no state of its own. `completedAt` is set once the surveyor taps
+// Finish inspection at the end of the walkthrough; "exported" means the
+// cloud upload was confirmed filed, or the surveyor generated a ZIP/PDF.
+function caseStatus(c) {
+  if (!c.photos) return { tone: undefined, label: "Draft" };
+  const exported = !!c.lastExport || !!(c.lastUpload && c.lastUpload.confirmed);
+  if (!c.completedAt) return { tone: "active", label: "In progress" };
+  return exported ? { tone: "done", label: "Complete" } : { tone: "warn", label: "Awaiting export" };
+}
+
+export function HomeScreen({ index, archive, onNew, onOpen, onTab, orgName, needsCloud, me }) {
   const open = [...index].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   const active = open[0] || null;
   const others = open.slice(1, 5);
-  const [activity, setActivity] = useState([]);
   const [thumbs, setThumbs] = useState([]);
+  const firstName = me && me.user && me.user.name ? me.user.name.trim().split(/\s+/)[0] : null;
 
   useEffect(() => {
-    if (!active) { setActivity([]); setThumbs([]); return; }
+    if (!active) { setThumbs([]); return; }
     let cancelled = false;
     (async () => {
       const data = await loadInspection(active.id);
       if (cancelled || !data) return;
-      setActivity([...(data.inspection.activity || [])].reverse().slice(0, 4));
       const ids = (data.rooms || []).flatMap((r) => r.photoIds).slice(-4).reverse();
       const thumbList = await Promise.all(ids.map(async (pid) => {
         const p = await loadPhoto(pid);
@@ -47,118 +64,89 @@ export function HomeScreen({ index, onNew, onOpen, onTab, orgName, needsCloud })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active && active.id, active && active.updatedAt]);
 
-  if (!active) {
-    return (
-      <div className="ss-col">
-        <div className="ss-home-hero">
-          <div className="ss-home-orbs" aria-hidden="true">
-            <span className="ss-orb ss-orb-a" />
-            <span className="ss-orb ss-orb-b" />
-          </div>
-          <div className="ss-home-hero-content">
-            <div className="ss-mark"><Camera size={20} strokeWidth={2.4} /></div>
-            <div className="ss-eyebrow">{orgName || "Property inspections"}</div>
-            <h1 className="ss-h1">Every photo,<br />already filed.</h1>
-            <p className="ss-lede">
-              Walk the property, shoot as you go. Photos sort themselves into
-              numbered rooms while you rate, note and go — no filing later.
-            </p>
-            <div className="ss-home-features">
-              <span className="ss-home-feature"><CloudUpload size={13} /> Auto-files to your drive</span>
-              <span className="ss-home-feature"><Star size={13} /> Condition ratings</span>
-              <span className="ss-home-feature"><Mic size={13} /> Voice notes</span>
-              <span className="ss-home-feature"><WifiOff size={13} /> Works offline</span>
-              <span className="ss-home-feature"><FileText size={13} /> One-tap PDF export</span>
-            </div>
-            <div className="ss-home-steps-label">How it works</div>
-            <div className="ss-home-steps">
-              <div><span className="ss-step-n">1</span> Set up the property</div>
-              <div><span className="ss-step-n">2</span> Walk, shoot &amp; rate each room</div>
-              <div><span className="ss-step-n">3</span> Export — Photos, ZIP, OneDrive, PDF report</div>
-            </div>
-            {needsCloud && <CloudStatusRow onTab={onTab} />}
-          </div>
-        </div>
-        <StickyActionBar>
-          <Button variant="primary" size="big" onClick={onNew}>
-            <Plus size={20} strokeWidth={2.6} /> New inspection
-          </Button>
-        </StickyActionBar>
-        <BottomNavigation active="home" onChange={onTab} />
-      </div>
-    );
-  }
+  // Stats are computed from cases on this device — the same source the
+  // Cases tab already treats as the record for "here". A closed case's
+  // photos are gone from the phone, so "awaiting export" only ever looks
+  // at open ones; "total" and "this month" count everything, open or not.
+  const closed = archive || [];
+  const totalCases = index.length + closed.length;
+  const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+  const thisMonth = [...index, ...closed].filter((c) => (c.startedAt || 0) >= monthStart.getTime()).length;
+  const awaitingExport = index.filter((c) => c.photos > 0 && !(c.lastExport || (c.lastUpload && c.lastUpload.confirmed))).length;
 
   return (
     <div className="ss-col">
-      <div className="ss-home-top">
-        <div>
-          <div className="ss-eyebrow-sm">{orgName || "SiteSnap"}</div>
-          <div className="ss-title-lg">Dashboard</div>
-        </div>
-      </div>
-
       <div className="ss-scroll">
-        {needsCloud && <CloudStatusRow onTab={onTab} />}
-        <button className="ss-case-hero" onClick={() => onOpen(active.id)}>
-          <div className="ss-case-hero-head">
-            <span className="ss-stamp light">Case No. {active.caseNo || "—"}</span>
-            <span className="ss-case-hero-time">{relativeDay(active.updatedAt)}</span>
-          </div>
-          <div className="ss-case-hero-title">{active.address}</div>
-          <div className="ss-case-hero-sub">
-            {active.postcode ? active.postcode + " · " : ""}{active.photos} photo{active.photos === 1 ? "" : "s"} · {active.rooms} area{active.rooms === 1 ? "" : "s"}
-          </div>
-          {thumbs.length > 0 && (
-            <div className="ss-case-hero-collage">
-              {thumbs.map((t, i) => <img key={i} src={t} alt="" />)}
-            </div>
-          )}
-          <div className="ss-case-hero-cta"><span>Resume case</span><ArrowRight size={15} /></div>
-        </button>
+        <div className="ss-eyebrow-sm">{orgName || "SiteSnap"}</div>
+        <h1 className="ss-h1">{timeGreeting()}{firstName ? `, ${firstName}` : ""}</h1>
+        <p className="ss-lede">Ready for your next inspection?</p>
 
-        {activity.length > 0 && (
+        <Button variant="primary" size="big" onClick={onNew}>
+          <Plus size={20} strokeWidth={2.6} /> New inspection
+        </Button>
+
+        {needsCloud && <CloudStatusRow onTab={onTab} />}
+
+        {totalCases > 0 && (
+          <div className="ss-stat-row">
+            <div className="ss-stat-tile"><span className="ss-stat-value">{totalCases}</span><span className="ss-stat-label">Total cases</span></div>
+            <div className="ss-stat-tile"><span className="ss-stat-value">{thisMonth}</span><span className="ss-stat-label">This month</span></div>
+            <div className="ss-stat-tile"><span className="ss-stat-value">{awaitingExport}</span><span className="ss-stat-label">Awaiting export</span></div>
+          </div>
+        )}
+
+        {active && (
           <>
-            <div className="ss-section-label" style={{ marginTop: 20 }}>Recent activity</div>
-            <div className="ss-activity">
-              {activity.map((a, i) => (
-                <div key={i} className="ss-activity-row">
-                  <span className="ss-activity-time">
-                    {new Date(a.ts).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
-                  </span>
-                  <span className="ss-activity-dot" />
-                  <span className="ss-activity-text">{a.text}</span>
+            <div className="ss-section-label" style={{ marginTop: 24 }}>Continue where you left off</div>
+            <button className="ss-case-hero" onClick={() => onOpen(active.id)}>
+              <div className="ss-case-hero-head">
+                <span className="ss-stamp light">Case No. {active.caseNo || "—"}</span>
+                <span className="ss-case-hero-time">{relativeDay(active.updatedAt)}</span>
+              </div>
+              <div className="ss-case-hero-title">{active.address}</div>
+              <div className="ss-case-hero-sub">
+                {active.postcode ? active.postcode + " · " : ""}{active.photos} photo{active.photos === 1 ? "" : "s"} · {active.rooms} area{active.rooms === 1 ? "" : "s"}
+              </div>
+              {thumbs.length > 0 && (
+                <div className="ss-case-hero-collage">
+                  {thumbs.map((t, i) => <img key={i} src={t} alt="" />)}
                 </div>
-              ))}
-            </div>
+              )}
+              {active.rooms > 0 && (
+                <div className="ss-case-hero-progress">
+                  <div className="ss-progress"><div style={{ width: `${Math.round(((active.doneRooms || 0) / active.rooms) * 100)}%` }} /></div>
+                  <span className="ss-case-hero-progress-label">{active.doneRooms || 0} of {active.rooms} rooms covered</span>
+                </div>
+              )}
+              <div className="ss-case-hero-cta"><span>Resume case</span><ArrowRight size={15} /></div>
+            </button>
           </>
         )}
 
         {others.length > 0 && (
           <>
-            <div className="ss-section-label" style={{ marginTop: 20 }}>Also in progress</div>
+            <div className="ss-section-label" style={{ marginTop: 24 }}>Recent inspections</div>
             <div className="ss-list">
-              {others.map((i) => (
-                <button key={i.id} className="ss-row ss-row-tap-full" onClick={() => onOpen(i.id)}>
-                  <span className="ss-row-name">{i.address}</span>
-                  <StatusPill tone="done">{i.photos}</StatusPill>
-                </button>
+              {others.map((c) => (
+                <InspectionCard key={c.id}
+                  address={c.address} caseNo={c.caseNo} date={relativeDay(c.updatedAt)}
+                  photos={c.photos} rooms={c.rooms} doneRooms={c.doneRooms}
+                  status={caseStatus(c)} onClick={() => onOpen(c.id)} />
               ))}
             </div>
           </>
         )}
 
-        {active.photos === 0 && (
-          <InlineAlert tone="info" icon={<Star size={14} />}>Rate each room Good, Fair or Poor as you shoot — it feeds straight into the AI draft later.</InlineAlert>
+        {totalCases === 0 && (
+          <div style={{ marginTop: 24 }}>
+            <EmptyState icon={<Camera size={22} />}>
+              <p>Nothing here yet. Start your first inspection and it will appear here, ready to resume any time.</p>
+            </EmptyState>
+          </div>
         )}
         <div style={{ height: 16 }} />
       </div>
 
-      <StickyActionBar>
-        <Button variant="secondary" style={{ width: "100%" }} onClick={onNew}>
-          <Plus size={16} strokeWidth={2.6} /> Start a different inspection
-        </Button>
-      </StickyActionBar>
       <BottomNavigation active="home" onChange={onTab} />
     </div>
   );

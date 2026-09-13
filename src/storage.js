@@ -89,8 +89,14 @@ export function saveState(inspection, rooms) {
         caseNo: inspection.caseNo || null,
         photos: rooms.reduce((n, r) => n + r.photoIds.length, 0),
         rooms: rooms.length,
+        doneRooms: rooms.filter((r) => r.photoIds.length > 0).length,
         ref: inspection.ref || "",
         lastUpload: inspection.lastUpload || null,
+        // added for the Home screen's stats and status badges — an entry
+        // saved before this field existed just reads as undefined (not
+        // completed / not exported) until its next save
+        completedAt: inspection.completedAt || null,
+        lastExport: inspection.lastExport || null,
         updatedAt: Date.now(),
       };
       const i = list.findIndex((x) => x.id === inspection.id);

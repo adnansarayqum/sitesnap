@@ -348,7 +348,7 @@ try {
   await page.getByRole("button", { name: /^Next/ }).click(); await w(page);
   await page.getByRole("button", { name: /Start inspection/ }).click(); await w(page, 500);
   const caseNo = await page.locator(".ss-eyebrow-sm").first().innerText();
-  rec("S8 three cases → also-in-progress, search, discard, case numbers never reused", /also in progress/i.test(homeText) && count === "3" && shown.length === 1 && nothing && remaining.length === 2 && /Case No\. 4/i.test(caseNo) ? "PASS" : "FAIL", `badge=${count} search=${JSON.stringify(shown)} noMatchMsg=${nothing} afterDiscard=${JSON.stringify(remaining)} newCase="${caseNo}"`);
+  rec("S8 three cases → recent inspections, search, discard, case numbers never reused", /recent inspections/i.test(homeText) && count === "3" && shown.length === 1 && nothing && remaining.length === 2 && /Case No\. 4/i.test(caseNo) ? "PASS" : "FAIL", `badge=${count} search=${JSON.stringify(shown)} noMatchMsg=${nothing} afterDiscard=${JSON.stringify(remaining)} newCase="${caseNo}"`);
   const e = errs(page); if (e.length) rec("S8 console", "FAIL", e.join(" | "));
   await ctx.close();
 } catch (e) { rec("S8", "FAIL", e.message); }
@@ -373,7 +373,8 @@ try {
   const home = await page.locator("body").innerText();
   await page.locator(".ss-tabbar-item", { hasText: "Cases" }).click(); await w(page, 400);
   const cases = await page.locator("body").innerText();
-  rec("S9 close: blocked until exported/acknowledged; archived as 'Exported only'", guarded && /isn't saved anywhere/.test(modal) && unguarded && /Close this inspection\?/.test(modal2) && /Every photo,/.test(home) && /Exported only/.test(cases) && /5 Closing Court/.test(cases) ? "PASS" : "FAIL", `guarded=${guarded} unguardedAfterExport=${unguarded} homeEmpty=${/Every photo,/.test(home)} archiveShows=${/Exported only/.test(cases)}`);
+  const homeEmpty = !/Resume case/.test(home);
+  rec("S9 close: blocked until exported/acknowledged; archived as 'Exported only'", guarded && /isn't saved anywhere/.test(modal) && unguarded && /Close this inspection\?/.test(modal2) && homeEmpty && /Exported only/.test(cases) && /5 Closing Court/.test(cases) ? "PASS" : "FAIL", `guarded=${guarded} unguardedAfterExport=${unguarded} homeEmpty=${homeEmpty} archiveShows=${/Exported only/.test(cases)}`);
   const e = errs(page); if (e.length) rec("S9 console", "FAIL", e.join(" | "));
   await ctx.close();
 } catch (e) { rec("S9", "FAIL", e.message); }

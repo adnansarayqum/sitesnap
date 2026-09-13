@@ -829,8 +829,10 @@ export default function SiteSnap() {
         {view === "home" && (
           <Screen><HomeScreen
             index={index}
+            archive={archive}
             orgName={accounts && me.org ? me.org.name : null}
             needsCloud={needsCloud}
+            me={me}
             onNew={() => { setReturnTab("home"); setScreen("setup"); }}
             onOpen={(id) => openInspection(id, "home")}
             onTab={setScreen}
