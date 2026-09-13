@@ -122,7 +122,7 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
   function inspectionNotes() {
     return {
       inspectionId: inspection.id, address: inspection.address, postcode: inspection.postcode || "",
-      reference: inspection.ref || "", client: inspection.client || "", occupier: inspection.occupier || "",
+      type: inspection.type || "", reference: inspection.ref || "", client: inspection.client || "", occupier: inspection.occupier || "",
       solicitor: inspection.solicitor || "", inspectedAt: new Date(inspection.startedAt).toISOString(), totalPhotos,
       rooms: rooms.map((r, i) => ({
         order: i + 1, folder: photoFolder(i, r.name), room: r.name, condition: r.condition || "",
@@ -336,6 +336,7 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
       inspectionId: inspection.id,
       address: inspection.address,
       postcode: inspection.postcode || "",
+      type: inspection.type || "",
       reference: inspection.ref || "",
       client: inspection.client || "",
       occupier: inspection.occupier || "",

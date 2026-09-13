@@ -1,17 +1,18 @@
 import { useState } from "react";
 import {
-  ArrowRight, Briefcase, Check, Minus, Plus,
+  ArrowRight, Briefcase, Check, Minus, Pencil, Plus, ScanLine, X,
 } from "lucide-react";
 import { ReorderableList } from "../components/shared.jsx";
 import { PRESETS, PRESET_GROUPS } from "../lib/presets.js";
 import { pad, uid } from "../lib/util.js";
-import { AppHeader, Button, StickyActionBar } from "../ui/index.js";
+import { AppHeader, Button, InlineAlert, SegmentedControl, StickyActionBar } from "../ui/index.js";
 
 /* ---------------- setup ---------------- */
 // Two presentations sharing one set of state and logic: guided (one
-// question per screen, the default for a first-timer) and classic (the
-// original single scrolling form, faster once someone knows the drill).
-// Whichever a surveyor last used is remembered per device.
+// question per screen — Property, Rooms, Start — the default for a
+// first-timer) and classic (the original single scrolling form, faster
+// once someone knows the drill). Whichever a surveyor last used is
+// remembered per device.
 
 const MODE_KEY = "sitesnap:setupMode";
 function loadMode() {
@@ -19,11 +20,13 @@ function loadMode() {
 }
 function saveMode(m) { try { localStorage.setItem(MODE_KEY, m); } catch { /* per-device convenience only */ } }
 
+const INSPECTION_TYPES = ["Standard", "Inventory", "Other"];
+
 export function SetupScreen({ onBack, onStart }) {
   const [mode, setMode] = useState(loadMode);
   const [address, setAddress] = useState("");
   const [postcode, setPostcode] = useState("");
-  const [items, setItems] = useState([]); // {id, base, custom?}
+  const [items, setItems] = useState([]); // {id, base, custom?, customLabel?}
   const [customName, setCustomName] = useState("");
   const [addingCustom, setAddingCustom] = useState(false);
   const [caseOpen, setCaseOpen] = useState(false);
@@ -32,6 +35,10 @@ export function SetupScreen({ onBack, onStart }) {
   const [client, setClient] = useState("");
   const [occupier, setOccupier] = useState("");
   const [solicitor, setSolicitor] = useState("");
+  const [type, setType] = useState("Standard");
+  const [scanNotice, setScanNotice] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editingValue, setEditingValue] = useState("");
   const [step, setStep] = useState(1);
 
   function switchMode(next) { saveMode(next); setMode(next); }
@@ -56,12 +63,25 @@ export function SetupScreen({ onBack, onStart }) {
     setAddingCustom(false);
   }
 
-  // display names: number duplicates in walk order
+  function removeItem(id) {
+    setItems((p) => p.filter((i) => i.id !== id));
+    if (editingId === id) setEditingId(null);
+  }
+  function startRename(item) { setEditingId(item.id); setEditingValue(item.name); }
+  function commitRename() {
+    const id = editingId;
+    if (id) setItems((p) => p.map((i) => (i.id === id ? { ...i, customLabel: editingValue.trim() || undefined } : i)));
+    setEditingId(null);
+  }
+
+  // display names: a renamed item keeps its own label; everything else is
+  // numbered in walk order among same-preset duplicates
   const named = (() => {
     const totals = {};
-    items.forEach((i) => { totals[i.base] = (totals[i.base] || 0) + 1; });
+    items.forEach((i) => { if (!i.customLabel) totals[i.base] = (totals[i.base] || 0) + 1; });
     const seen = {};
     return items.map((i) => {
+      if (i.customLabel) return { ...i, name: i.customLabel };
       seen[i.base] = (seen[i.base] || 0) + 1;
       return { ...i, name: totals[i.base] > 1 ? `${i.base} ${seen[i.base]}` : i.base };
     });
@@ -72,6 +92,7 @@ export function SetupScreen({ onBack, onStart }) {
     onStart(address.trim(), postcode.trim(), named, {
       ref: ref.trim(), client: client.trim(),
       occupier: occupier.trim(), solicitor: solicitor.trim(),
+      type,
     });
   }
 
@@ -96,7 +117,44 @@ export function SetupScreen({ onBack, onStart }) {
     );
   };
 
-  const roomsField = (
+  const propertyFields = (
+    <>
+      <div className="ss-scan-row">
+        <input
+          className="ss-input" autoFocus placeholder="23 High Street"
+          value={address} onChange={(e) => { setAddress(e.target.value); setScanNotice(false); }}
+        />
+        <button className="ss-scan-btn" onClick={() => setScanNotice(true)} title="Scan an address from a letter or document">
+          <ScanLine size={16} /> Scan
+        </button>
+      </div>
+      <input className="ss-input" placeholder="Postcode (optional)" style={{ marginTop: 8 }} value={postcode} onChange={(e) => setPostcode(e.target.value.toUpperCase())} />
+      {scanNotice && (
+        <InlineAlert tone="info" icon={<ScanLine size={14} />}>
+          Address scanning isn't built yet — type it in above for now.
+        </InlineAlert>
+      )}
+
+      <div className="ss-field-label" style={{ margin: "14px 2px 6px" }}>Inspection type</div>
+      <SegmentedControl className="ss-seg-row" itemClass="ss-seg-item" options={INSPECTION_TYPES} value={type} onChange={setType} />
+
+      <input className="ss-input" style={{ marginTop: 8 }} placeholder="Your reference (optional)" value={ref} onChange={(e) => setRef(e.target.value)} />
+      <input className="ss-input" style={{ marginTop: 8 }} placeholder="Client (optional)" value={client} onChange={(e) => setClient(e.target.value)} />
+
+      <button className="ss-case-toggle" onClick={() => setCaseOpen((o) => !o)}>
+        <Briefcase size={13} />
+        {caseOpen ? "Hide more details" : "Occupier or instructing solicitor?"}
+      </button>
+      {caseOpen && (
+        <div className="ss-case">
+          <input className="ss-input" placeholder="Occupier / tenant" value={occupier} onChange={(e) => setOccupier(e.target.value)} />
+          <input className="ss-input" placeholder="Instructing solicitor" value={solicitor} onChange={(e) => setSolicitor(e.target.value)} />
+        </div>
+      )}
+    </>
+  );
+
+  const roomsPicker = (
     <>
       <input
         className="ss-input ss-filter" placeholder="Filter areas…"
@@ -132,53 +190,58 @@ export function SetupScreen({ onBack, onStart }) {
     </>
   );
 
+  // the rooms picked so far — drag to set the walk order, tap the pencil to
+  // rename one, or remove it; this is also where "Bedroom 2" becomes
+  // "Box room" without starting over
+  const addedRooms = named.length > 0 && (
+    <>
+      <div className="ss-section-label" style={{ marginTop: 20 }}>
+        Added rooms <span className="ss-hint">— drag to reorder; this sets the folder numbering</span>
+      </div>
+      <ReorderableList
+        items={named}
+        onReorder={(next) => setItems(next.map(({ id, base, custom, customLabel }) => ({ id, base, custom, customLabel })))}
+        renderRow={(item, index) => (
+          <>
+            <div className="ss-row-main">
+              <span className="ss-index">{pad(index + 1)}</span>
+              {editingId === item.id ? (
+                <input
+                  className="ss-input ss-room-rename" autoFocus value={editingValue}
+                  onChange={(e) => setEditingValue(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") commitRename(); if (e.key === "Escape") setEditingId(null); }}
+                  onBlur={commitRename}
+                />
+              ) : (
+                <span className="ss-row-name">{item.name}</span>
+              )}
+            </div>
+            <span className="ss-row-right">
+              {editingId !== item.id && (
+                <button className="ss-icon-btn" onClick={() => startRename(item)} aria-label={`Rename ${item.name}`}><Pencil size={14} /></button>
+              )}
+              <button className="ss-icon-btn" onClick={() => removeItem(item.id)} aria-label={`Remove ${item.name}`}><X size={14} /></button>
+            </span>
+          </>
+        )}
+      />
+    </>
+  );
+
   if (mode === "classic") {
     return (
       <div className="ss-col">
         <AppHeader title="New inspection" eyebrow="Set up once, then just shoot" onBack={onBack} />
         <div className="ss-scroll">
           <div className="ss-section-label">Property</div>
-          <input className="ss-input" autoFocus placeholder="23 High Street" value={address} onChange={(e) => setAddress(e.target.value)} />
-          <input className="ss-input" placeholder="Postcode (optional)" style={{ marginTop: 8 }} value={postcode} onChange={(e) => setPostcode(e.target.value.toUpperCase())} />
-
-          <button className="ss-case-toggle" onClick={() => setCaseOpen((o) => !o)}>
-            <Briefcase size={13} />
-            {caseOpen ? "Hide case details" : "Add case details (optional)"}
-          </button>
-          {caseOpen && (
-            <div className="ss-case">
-              <input className="ss-input" placeholder="Your reference" value={ref} onChange={(e) => setRef(e.target.value)} />
-              <input className="ss-input" placeholder="Client" value={client} onChange={(e) => setClient(e.target.value)} />
-              <input className="ss-input" placeholder="Occupier / tenant" value={occupier} onChange={(e) => setOccupier(e.target.value)} />
-              <input className="ss-input" placeholder="Instructing solicitor" value={solicitor} onChange={(e) => setSolicitor(e.target.value)} />
-              <p className="ss-fineprint" style={{ margin: "4px 2px 0" }}>
-                Carried into the report, the ZIP and the cloud upload, so they don't have to be typed into the spreadsheet again.
-              </p>
-            </div>
-          )}
+          {propertyFields}
 
           <div className="ss-section-label" style={{ marginTop: 20 }}>
             Rooms &amp; areas <span className="ss-hint">— tap to add; use +/− for bedrooms, bathrooms &amp; extra claim items</span>
           </div>
-          {roomsField}
+          {roomsPicker}
+          {addedRooms}
 
-          {named.length > 0 && (
-            <>
-              <div className="ss-section-label" style={{ marginTop: 20 }}>
-                Walk order <span className="ss-hint">— drag to match your route; sets folder numbering</span>
-              </div>
-              <ReorderableList
-                items={named}
-                onReorder={(next) => setItems(next.map(({ id, base, custom }) => ({ id, base, custom })))}
-                renderRow={(item, index) => (
-                  <div className="ss-row-main">
-                    <span className="ss-index">{pad(index + 1)}</span>
-                    <span className="ss-row-name">{item.name}</span>
-                  </div>
-                )}
-              />
-            </>
-          )}
           <button className="ss-link" style={{ margin: "16px auto 0" }} onClick={() => switchMode("guided")}>
             Prefer step-by-step guidance?
           </button>
@@ -197,8 +260,8 @@ export function SetupScreen({ onBack, onStart }) {
     );
   }
 
-  // ---- guided: one question per screen ----
-  const STEP_LABEL = { 1: "Step 1 of 4 · Property", 2: "Step 2 of 4 · Rooms", 3: "Step 3 of 4 · Details", 4: "Step 4 of 4 · Walk order" };
+  // ---- guided: Property → Rooms → Start ----
+  const STEP_LABEL = { 1: "Step 1 of 3 · Property", 2: "Step 2 of 3 · Rooms", 3: "Step 3 of 3 · Start" };
   const canNext = step === 1 ? address.trim().length > 0 : step === 2 ? items.length > 0 : true;
   const areaCount = items.length;
 
@@ -206,15 +269,14 @@ export function SetupScreen({ onBack, onStart }) {
     <div className="ss-col">
       <AppHeader title="New inspection" eyebrow={STEP_LABEL[step]} onBack={() => (step > 1 ? setStep(step - 1) : onBack())} />
       <div className="ss-wiz-progress">
-        {[1, 2, 3, 4].map((n) => <div key={n} className={`ss-wiz-seg ${n <= step ? "on" : ""}`} />)}
+        {[1, 2, 3].map((n) => <div key={n} className={`ss-wiz-seg ${n <= step ? "on" : ""}`} />)}
       </div>
 
       <div className="ss-scroll">
         {step === 1 && (
           <div className="ss-wiz-step">
             <h1 className="ss-wiz-title">Which property?</h1>
-            <input className="ss-input" autoFocus placeholder="23 High Street" value={address} onChange={(e) => setAddress(e.target.value)} />
-            <input className="ss-input" placeholder="Postcode (optional)" value={postcode} onChange={(e) => setPostcode(e.target.value.toUpperCase())} />
+            {propertyFields}
             <p className="ss-fineprint" style={{ margin: "6px 2px 0" }}>The address names the folder your photos file into.</p>
             <button className="ss-link" style={{ marginTop: 14 }} onClick={() => switchMode("classic")}>Prefer everything on one screen?</button>
           </div>
@@ -224,39 +286,20 @@ export function SetupScreen({ onBack, onStart }) {
           <div className="ss-wiz-step">
             <h1 className="ss-wiz-title">Which rooms and areas?</h1>
             <p className="ss-wiz-lede">Tap to add. Use +/− where there's more than one.</p>
-            {roomsField}
+            {roomsPicker}
+            {addedRooms}
           </div>
         )}
 
         {step === 3 && (
           <div className="ss-wiz-step">
-            <h1 className="ss-wiz-title">Any case details?</h1>
-            <input className="ss-input" placeholder="Your reference" value={ref} onChange={(e) => setRef(e.target.value)} />
-            <input className="ss-input" placeholder="Client" value={client} onChange={(e) => setClient(e.target.value)} />
-            <input className="ss-input" placeholder="Occupier / tenant" value={occupier} onChange={(e) => setOccupier(e.target.value)} />
-            <input className="ss-input" placeholder="Instructing solicitor" value={solicitor} onChange={(e) => setSolicitor(e.target.value)} />
-            <p className="ss-fineprint" style={{ margin: "6px 2px 0" }}>Optional. Carried into the report and the cloud folder so nobody retypes them.</p>
-          </div>
-        )}
-
-        {step === 4 && (
-          <div className="ss-wiz-step">
-            <h1 className="ss-wiz-title">In what order?</h1>
-            <p className="ss-wiz-lede">Drag to match your route. This sets the folder numbering.</p>
-            <ReorderableList
-              items={named}
-              onReorder={(next) => setItems(next.map(({ id, base, custom }) => ({ id, base, custom })))}
-              renderRow={(item, index) => (
-                <div className="ss-row-main">
-                  <span className="ss-index">{pad(index + 1)}</span>
-                  <span className="ss-row-name">{item.name}</span>
-                </div>
-              )}
-            />
+            <h1 className="ss-wiz-title">Ready to start?</h1>
             <div className="ss-wiz-summary">
               <div className="ss-section-label" style={{ margin: 0 }}>Property</div>
               <div className="ss-wiz-summary-address">{address.trim() || "The property"}</div>
-              <div className="ss-wiz-summary-sub">{postcode ? postcode + " · " : ""}{areaCount} area{areaCount === 1 ? "" : "s"}</div>
+              <div className="ss-wiz-summary-sub">
+                {postcode ? postcode + " · " : ""}{ref ? ref + " · " : ""}{areaCount} area{areaCount === 1 ? "" : "s"}
+              </div>
             </div>
           </div>
         )}
@@ -264,9 +307,8 @@ export function SetupScreen({ onBack, onStart }) {
       </div>
 
       <StickyActionBar className="ss-wiz-footer">
-        {step === 3 && <button className="ss-link ss-wiz-skip" onClick={() => setStep(4)}>Skip</button>}
         <span style={{ flex: 1 }} />
-        {step < 4 ? (
+        {step < 3 ? (
           <Button variant="primary" disabled={!canNext} onClick={() => setStep(step + 1)}>
             Next <ArrowRight size={17} strokeWidth={2.4} />
           </Button>

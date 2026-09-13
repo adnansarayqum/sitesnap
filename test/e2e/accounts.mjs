@@ -86,7 +86,6 @@ async function newCase(page, address, rooms = ["Kitchen"]) {
   await page.getByRole("button", { name: /^Next/ }).click(); await w(page);
   for (const r of rooms) { await page.getByText(r, { exact: true }).first().click(); await w(page, 80); }
   await page.getByRole("button", { name: /^Next/ }).click(); await w(page);
-  await page.getByRole("button", { name: /^Next/ }).click(); await w(page);
   await page.getByRole("button", { name: /Start inspection/ }).click(); await w(page, 500);
 }
 const api = (page, path, init) => page.evaluate(async ({ path, init }) => { const r = await fetch(path, init); let body = null; try { body = await r.json(); } catch { /* not json */ } return { status: r.status, body }; }, { path, init });

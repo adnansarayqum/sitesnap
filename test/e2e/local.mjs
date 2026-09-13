@@ -67,11 +67,10 @@ async function newCase(page, { address = "14 Elmfield Road", postcode = "SE13 6H
   await page.getByRole("button", { name: /new inspection|different inspection/i }).first().click(); await w(page);
   await page.locator('input[placeholder="23 High Street"]').fill(address);
   if (postcode) await page.locator('input[placeholder="Postcode (optional)"]').fill(postcode);
+  if (ref) await page.locator('input[placeholder="Your reference (optional)"]').fill(ref);
+  if (client) await page.locator('input[placeholder="Client (optional)"]').fill(client);
   await page.getByRole("button", { name: /^Next/ }).click(); await w(page);
   for (const r of rooms) { await page.getByText(r, { exact: true }).first().click(); await w(page, 80); }
-  await page.getByRole("button", { name: /^Next/ }).click(); await w(page);
-  if (ref) await page.locator('input[placeholder="Your reference"]').fill(ref);
-  if (client) await page.locator('input[placeholder="Client"]').fill(client);
   await page.getByRole("button", { name: /^Next/ }).click(); await w(page);
   await page.getByRole("button", { name: /Start inspection/ }).click(); await w(page, 500);
 }
@@ -105,12 +104,12 @@ try {
   await page.getByText("Bedroom", { exact: true }).first().click(); await w(page, 80);
   await page.getByRole("button", { name: "Add Bedroom" }).click(); await w(page, 80);
   await page.getByRole("button", { name: "Add Bedroom" }).click(); await w(page, 80);
+  const rows = await page.locator(".ss-row-name").allInnerTexts();
   await next.click(); await w(page);
-  // back from step 3 returns to step 2, not out of setup
+  // back from step 3 (Start) returns to step 2 (Rooms), not out of setup
   await page.locator(".ss-back").first().click(); await w(page);
   const stillSetup = /step 2/i.test(await page.locator(".ss-eyebrow-sm").first().innerText());
-  await next.click(); await w(page); await next.click(); await w(page);
-  const rows = await page.locator(".ss-row-name").allInnerTexts();
+  await next.click(); await w(page);
   await page.getByRole("button", { name: /Start inspection/ }).click(); await w(page, 500);
   await tab(page, "Rooms");
   const roomNames = await page.locator(".ss-row-name").allInnerTexts();
@@ -344,7 +343,6 @@ try {
   await page.locator('input[placeholder="23 High Street"]').fill("4 Delta Road");
   await page.getByRole("button", { name: /^Next/ }).click(); await w(page);
   await page.getByText("Kitchen", { exact: true }).first().click();
-  await page.getByRole("button", { name: /^Next/ }).click(); await w(page);
   await page.getByRole("button", { name: /^Next/ }).click(); await w(page);
   await page.getByRole("button", { name: /Start inspection/ }).click(); await w(page, 500);
   const caseNo = await page.locator(".ss-eyebrow-sm").first().innerText();

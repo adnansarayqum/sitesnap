@@ -194,6 +194,30 @@ export function StyleBlock() {
       .ss-wiz-summary-address { font-family: var(--ss-font-display); font-size: 18px; font-weight: 700; margin-top: 4px; }
       .ss-wiz-summary-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
 
+      /* the address field's "Scan" placeholder — a real button, honest
+         about not doing anything yet (InlineAlert says so on tap) rather
+         than a dead-looking control */
+      .ss-scan-row { display: flex; gap: 8px; align-items: stretch; }
+      .ss-scan-row .ss-input { flex: 1; }
+      .ss-scan-btn {
+        flex-shrink: 0; display: flex; align-items: center; gap: 5px; padding: 0 14px;
+        border: 1px solid var(--line); border-radius: 12px; background: var(--card);
+        color: var(--pine); font-weight: 700; font-size: 13px; white-space: nowrap;
+      }
+      .ss-scan-btn:active { background: var(--line-soft); }
+
+      /* a small neutral segmented control (inspection type, and anything
+         else that isn't a Good/Fair/Poor severity choice) */
+      .ss-seg-row { display: flex; gap: 8px; }
+      .ss-seg-item {
+        flex: 1; padding: 10px 4px; border-radius: 10px; border: 1px solid var(--line);
+        background: var(--card); color: var(--muted); font-weight: 700; font-size: 13px; text-align: center;
+      }
+      .ss-seg-item.on { background: var(--pine); border-color: var(--pine); color: #fff; }
+
+      /* an added-room row's inline rename field, in place of its label */
+      .ss-room-rename { padding: 6px 8px; font-size: 14px; }
+
       /* ---- room chips ---- */
       .ss-chip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
       .ss-chip {

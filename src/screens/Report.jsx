@@ -44,8 +44,9 @@ export function ReportView({ inspection, rooms, photoCache, onClose }) {
             <span>{date}</span>
             <span>{totalPhotos} photo{totalPhotos === 1 ? "" : "s"} · {covered} of {rooms.length} areas{totalFindings ? ` · ${totalFindings} finding${totalFindings === 1 ? "" : "s"}` : ""}</span>
           </div>
-          {(inspection.ref || inspection.client || inspection.occupier || inspection.solicitor) && (
+          {(inspection.ref || inspection.client || inspection.occupier || inspection.solicitor || (inspection.type && inspection.type !== "Standard")) && (
             <dl className="ss-rep-case">
+              {inspection.type && inspection.type !== "Standard" && (<><dt>Type</dt><dd>{inspection.type}</dd></>)}
               {inspection.ref && (<><dt>Reference</dt><dd>{inspection.ref}</dd></>)}
               {inspection.client && (<><dt>Client</dt><dd>{inspection.client}</dd></>)}
               {inspection.occupier && (<><dt>Occupier</dt><dd>{inspection.occupier}</dd></>)}
