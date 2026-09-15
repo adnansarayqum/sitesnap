@@ -27,7 +27,7 @@
     "@capacitor/splash-screen": "^8.0.2",
     "@capacitor/status-bar": "^8.0.3",
     "@sentry/node": "^10.73.0",
-    "@sentry/react": "^10.73.0",
+    "@sentry/react": "^10.74.0",
     "express": "^5.2.1",
     "idb-keyval": "^6.3.0",
     "jszip": "^3.10.1",
