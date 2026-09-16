@@ -4,7 +4,7 @@
 // src/export/mlaXlsm.js's header comment), but the string/XML mechanics
 // here are exactly what would silently corrupt a report if they drifted.
 import { describe, expect, it } from "vitest";
-import { applyCellWrites, excelDateSerial } from "../src/export/xlsxCells.js";
+import { applyCellWrites, clearFormulaCache, excelDateSerial } from "../src/export/xlsxCells.js";
 
 describe("excelDateSerial", () => {
   it("matches Excel's day-count from 1899-12-30", () => {
@@ -66,5 +66,29 @@ describe("applyCellWrites", () => {
     const out = applyCellWrites(sheet, [{ ref: "A40", type: "str", value: "x" }], { styleTemplateRow: { A: 164 } });
     expect(out.indexOf('r="30"')).toBeLessThan(out.indexOf('<row r="40"'));
     expect(out.trim().endsWith("</sheetData>")).toBe(true);
+  });
+});
+
+describe("clearFormulaCache", () => {
+  const sheet = `<sheetData><row r="1"><c r="L3"><f>SUM(E1:E42)</f><v>1646</v></c><c r="L4" s="9"><f>L3*0.2</f><v>329.2</v></c><c r="M5" t="str"><f>IF(L3=E45,"OK","ERROR")</f><v>OK</v></c></row></sheetData>`;
+
+  it("strips the cached <v> from a formula cell, leaving the formula and style intact", () => {
+    const out = clearFormulaCache(sheet, ["L3"]);
+    expect(out).toContain('<c r="L3"><f>SUM(E1:E42)</f></c>');
+    expect(out).not.toContain("<v>1646</v>");
+  });
+
+  it("clears multiple cells across a row in one call", () => {
+    const out = clearFormulaCache(sheet, ["L3", "L4", "M5"]);
+    expect(out).toContain('<c r="L3"><f>SUM(E1:E42)</f></c>');
+    expect(out).toContain('<c r="L4" s="9"><f>L3*0.2</f></c>');
+    expect(out).toContain('<c r="M5" t="str"><f>IF(L3=E45,"OK","ERROR")</f></c>');
+    expect(out).not.toMatch(/<v>/);
+  });
+
+  it("leaves a cell with no cached value, and cells not named, untouched", () => {
+    const noCache = `<sheetData><row r="1"><c r="A1"><f>1+1</f></c></row></sheetData>`;
+    expect(clearFormulaCache(noCache, ["A1"])).toBe(noCache);
+    expect(clearFormulaCache(sheet, ["L4"])).toContain("<v>1646</v>"); // L3 left alone
   });
 });

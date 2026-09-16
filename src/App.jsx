@@ -929,7 +929,7 @@ export default function SiteSnap() {
                 ...(r.kind === "photos" ? { lastPhotos: r } : {}),
                 ...(r.kind === "mla" ? { lastMla: r } : {}),
               });
-              track(r.kind === "report" ? "report_generated" : r.kind === "mla" ? "export_mla" : "export_zip", { case: inspection.id, sinceStartMs: Date.now() - (inspection.startedAt || Date.now()) });
+              track(r.kind === "report" ? "report_generated" : r.kind === "mla" ? "export_mla" : "export_zip", { case: inspection.id, sinceStartMs: Date.now() - (inspection.startedAt || Date.now()), ...(r.kind === "mla" && r.agency ? { agency: r.agency } : {}) });
             }}
             onFindings={(f) => setInspectionMeta({ findings: f })}
             onTranscripts={setTranscripts}

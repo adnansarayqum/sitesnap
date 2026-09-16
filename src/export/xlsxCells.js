@@ -94,6 +94,25 @@ function insertRowSorted(sheetXml, r, newRowXml) {
   return sheetXml.slice(0, insertAt) + newRowXml + sheetXml.slice(insertAt);
 }
 
+// Strips the cached <v> off specific formula cells, forcing any compliant
+// reader to recompute them rather than trust a stale value carried over
+// from the source template. `fullCalcOnLoad` on the workbook (see
+// mlaXlsm.js/tlbXlsm.js) is supposed to make this unnecessary, but it
+// turned out not to be reliable for whole-range SUM() formulas under
+// LibreOffice's headless recalculation — direct cell references and
+// XLOOKUPs recalculated fine, totals summing a changed range didn't. This
+// is the belt-and-braces fix: with no cached value at all, there is
+// nothing stale to fall back on. Only touches cells that already contain
+// a formula (<f>); anything else is left alone.
+export function clearFormulaCache(sheetXml, refs) {
+  let xml = sheetXml;
+  for (const ref of refs) {
+    const re = new RegExp(`(<c r="${ref}"[^>]*><f>[\\s\\S]*?</f>)<v>[\\s\\S]*?</v>(</c>)`);
+    xml = xml.replace(re, "$1$2");
+  }
+  return xml;
+}
+
 // Days since 1899-12-30, the epoch Excel's date serials use (UTC, so a
 // "YYYY-MM-DD" string always lands on the same calendar day regardless of
 // the server's local timezone).

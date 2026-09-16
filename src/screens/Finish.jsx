@@ -17,7 +17,18 @@ import { approvedByRoom, findingsFiles, fromLegacyDraft } from "../findings.js";
 import { Coach } from "../components/Hints.jsx";
 import { Button, Modal, StickyActionBar } from "../ui/index.js";
 import { fillMlaTemplate } from "../export/mlaXlsm.js";
+import { fillTlbTemplate } from "../export/tlbXlsm.js";
 import { reportRows } from "../export/reportRows.js";
+
+// TLB's meta only has a single free-text "Instructed by" fallback field —
+// its template derives "Instructed by" / "Instructing Agent" from the
+// TLBS-/TLBR- prefix on the case reference instead (see tlbXlsm.js).
+// Agency defaults to MLA — the firm's own more common report — for a case
+// where it hasn't been set yet, same as before agency existed as a field.
+const AGENCY_REPORT = {
+  MLA: { fill: fillMlaTemplate, template: "/templates/mla-template.xlsm", label: "MLA", suffix: "MLA report" },
+  TLB: { fill: fillTlbTemplate, template: "/templates/tlb-template.xlsm", label: "TLB", suffix: "TLB report" },
+};
 
 // the ID photo files beside the inspection metadata, never in a room folder
 export const idPhotoName = (inspection) => `ID ${safeFileName(inspection.postcode || inspection.address || "photo")}.jpg`;
@@ -202,17 +213,21 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
     setZipBusy(false);
   }
 
-  // Fills MLA's own report template directly from the approved findings —
-  // one row per room, matching how Shah's own workflow already pastes
-  // into this same tab. See src/export/mlaXlsm.js for what's touched and
-  // what isn't.
+  // Fills the firm's own report template directly from the approved
+  // findings — one row per room, matching how Shah's own workflow already
+  // pastes into this same tab. Which template (MLA or TLB) depends on the
+  // case's agency (Case details); an agency of "Other" or unset falls back
+  // to MLA, the firm's more common report. See src/export/mlaXlsm.js and
+  // tlbXlsm.js for what's touched and what isn't in each.
   async function exportMla() {
     if (mlaBusy) return;
     const { rows, warnings } = reportRows(inspection, rooms);
     if (!rows.length) { flash("No approved findings yet — review and approve findings first"); return; }
+    const agency = AGENCY_REPORT[inspection.agency] ? inspection.agency : "MLA";
+    const { fill, template, label, suffix } = AGENCY_REPORT[agency];
     setMlaBusy(true);
     try {
-      const res = await fetch("/templates/mla-template.xlsm");
+      const res = await fetch(template);
       if (!res.ok) throw new Error(`template fetch ${res.status}`);
       const templateBytes = await res.arrayBuffer();
       const today = new Date().toISOString().slice(0, 10);
@@ -225,15 +240,21 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
         inspectionDate: inspected, reportDated: today, weather: inspection.weather,
         temperature: inspection.temperature, propertyDescription: inspection.propertyDescription,
         timeToCompleteWorks: inspection.timeToCompleteWorks, decanting: inspection.decanting,
+        conditionInternally: inspection.conditionInternally, conditionExternally: inspection.conditionExternally,
       };
-      const blob = await fillMlaTemplate(templateBytes, { meta, items: rows });
-      const fileName = `${safeName(inspection.address) || "Inspection"} - MLA report.xlsm`;
-      const mlaFile = new File([blob], fileName, { type: "application/vnd.ms-excel.sheet.macroEnabled.12" });
-      if (canShareFiles() && navigator.canShare({ files: [mlaFile] })) {
+      const { blob, truncated } = await fill(templateBytes, { meta, items: rows });
+      const fileName = `${safeName(inspection.address) || "Inspection"} - ${suffix}.xlsm`;
+      const flagged = warnings.length + (truncated ? 1 : 0);
+      const note = [
+        warnings.length ? `check ${warnings.length} flagged item${warnings.length === 1 ? "" : "s"}` : "",
+        truncated ? `${truncated} room${truncated === 1 ? "" : "s"} past the template's item limit — add by hand` : "",
+      ].filter(Boolean).join("; ");
+      const reportFile = new File([blob], fileName, { type: "application/vnd.ms-excel.sheet.macroEnabled.12" });
+      if (canShareFiles() && navigator.canShare({ files: [reportFile] })) {
         try {
-          await navigator.share({ files: [mlaFile], title: fileName });
-          onExportResult && onExportResult({ at: Date.now(), kind: "mla" });
-          flash(warnings.length ? `MLA report shared — check ${warnings.length} flagged item${warnings.length === 1 ? "" : "s"} before sending` : "MLA report shared");
+          await navigator.share({ files: [reportFile], title: fileName });
+          onExportResult && onExportResult({ at: Date.now(), kind: "mla", agency });
+          flash(note ? `${label} report shared — ${note}` : `${label} report shared`);
           setMlaBusy(false);
           return;
         } catch (e) {
@@ -248,11 +269,11 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
       a.click();
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 5000);
-      onExportResult && onExportResult({ at: Date.now(), kind: "mla" });
-      flash(warnings.length ? `MLA report downloaded — check ${warnings.length} flagged item${warnings.length === 1 ? "" : "s"} before sending` : "MLA report downloaded");
+      onExportResult && onExportResult({ at: Date.now(), kind: "mla", agency });
+      flash(note ? `${label} report downloaded — ${note}` : `${label} report downloaded`);
     } catch (e) {
       console.error(e);
-      flash("MLA export failed — try again");
+      flash(`${label} export failed — try again`);
     }
     setMlaBusy(false);
   }
@@ -693,11 +714,12 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
         </div>
         {(() => {
           const mlaRows = reportRows(inspection, rooms).rows.length;
+          const agencyLabel = AGENCY_REPORT[inspection.agency] ? inspection.agency : "MLA";
           return (
             <div className="ss-export-opt full">
               <Button variant="ghost" size="big" style={{ marginTop: 8 }} onClick={exportMla} disabled={mlaBusy || mlaRows === 0}
                 title={mlaRows === 0 ? "Approve at least one finding first (Findings tab)" : undefined}>
-                <FileText size={19} /> {mlaBusy ? "Building MLA report…" : `MLA report (.xlsm)${mlaRows ? ` — ${mlaRows} room${mlaRows === 1 ? "" : "s"}` : ""}`}
+                <FileText size={19} /> {mlaBusy ? `Building ${agencyLabel} report…` : `${agencyLabel} report (.xlsm)${mlaRows ? ` — ${mlaRows} room${mlaRows === 1 ? "" : "s"}` : ""}`}
               </Button>
               {inspection.lastMla && <span className="ss-export-when">Last made {when(inspection.lastMla.at)}</span>}
             </div>
