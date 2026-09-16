@@ -70,10 +70,12 @@ self.addEventListener("fetch", (event) => {
   }
 
   // Hashed build assets never change content for a given URL: cache-first.
-  // The on-device OCR model (public/tesseract/) is the same story — large,
-  // versioned by filename, fetched once on first use and then wanted for
-  // every offline use after that.
-  if (url.pathname.startsWith("/assets/") || url.pathname.startsWith("/icon-") || url.pathname.startsWith("/tesseract/")) {
+  // The on-device OCR model (public/tesseract/) and the report templates
+  // (public/templates/) are the same story — large, versioned by filename,
+  // fetched once on first use and then wanted for every offline use after
+  // that (an agency export needs to work from a property with no signal,
+  // same as everything else in this app).
+  if (url.pathname.startsWith("/assets/") || url.pathname.startsWith("/icon-") || url.pathname.startsWith("/tesseract/") || url.pathname.startsWith("/templates/")) {
     event.respondWith(
       caches.match(event.request).then(
         (hit) =>

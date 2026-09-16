@@ -927,8 +927,9 @@ export default function SiteSnap() {
                 ...(r.kind === "report" ? { lastReport: r } : {}),
                 ...(r.kind === "zip" ? { lastZip: r } : {}),
                 ...(r.kind === "photos" ? { lastPhotos: r } : {}),
+                ...(r.kind === "mla" ? { lastMla: r } : {}),
               });
-              track(r.kind === "report" ? "report_generated" : "export_zip", { case: inspection.id, sinceStartMs: Date.now() - (inspection.startedAt || Date.now()) });
+              track(r.kind === "report" ? "report_generated" : r.kind === "mla" ? "export_mla" : "export_zip", { case: inspection.id, sinceStartMs: Date.now() - (inspection.startedAt || Date.now()) });
             }}
             onFindings={(f) => setInspectionMeta({ findings: f })}
             onTranscripts={setTranscripts}

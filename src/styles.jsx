@@ -553,6 +553,7 @@ export function StyleBlock() {
       .ss-caption-ai-badge { position: absolute; right: 9px; top: 50%; transform: translateY(-50%); color: var(--pine); pointer-events: none; }
       .ss-modal-left { text-align: left; }
       .ss-modal-left .ss-modal-title { text-align: center; }
+      .ss-modal-form { max-height: calc(100dvh - 48px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
 
       /* ---- in-page live camera ---- */
       .ss-livecam {

@@ -67,6 +67,43 @@ amenities · 29 Structural collapse and falling elements.
   contain asbestos until sampled. Any works to such a coating are written
   "subject to asbestos sampling/results" and HHSRS Hazard 4 may apply.
 
+## Controlled vocabulary
+
+The firm is strict about specific word choices. Use the left-hand term; never
+the right-hand one, even where the alternative would be idiomatic elsewhere.
+
+| Use | Not |
+|---|---|
+| protimeter readings | moisture meter readings |
+| renew | replace |
+| damp | dampness |
+| external | outside |
+| water ingress (or rainwater ingress) | moisture ingress |
+| "has resulted in" | "results in" |
+| "on the balance of probabilities" | may / might / appears / possibly / potentially / could |
+
+- Do not use the word "distortion".
+- Never leave a remedy as "repaired or renewed" — the works paragraph
+  commits to one route.
+- Remedial wording avoids "review", "monitor", "consider" and "where
+  necessary": the scope is decided, not deferred. Do not say the source of
+  an issue should be investigated unless the evidence itself is
+  inconclusive about which element is at fault (see `scope: investigation_first`
+  in the playbook) — do not add speculative investigation as a hedge.
+
+## Category 1 hazard placement
+
+Where an HHSRS assessment reaches Cat 1, the Site Findings for that issue
+must include a short concluding paragraph explaining *why* — the tenant's
+particular vulnerability and the nature/duration of exposure, not just the
+hazard number. The Breach column alone is not sufficient: a Cat 1 cited only
+in Breach, with no reasoning in Site Findings, reads as asserted rather than
+supported. Example: "This has been assessed as a Category 1 Hazard under
+HHSRS due to the tenant's vulnerability and prolonged exposure to damp and
+mould growth, which presents a significant risk to their health and
+wellbeing." Cat 1 is rare — reserve it for evidence of an immediate danger to
+health and safety, not simply a severe Cat 2.
+
 ## Pre-action
 
 The Pre-Action Protocol for Housing Conditions Claims (England) governs

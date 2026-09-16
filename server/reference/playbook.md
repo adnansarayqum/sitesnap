@@ -57,9 +57,14 @@ defined stain edge suggests a leak as well.
 - A paper test that fails or an anemometer reading below the fan's rated
   extraction is evidence of inadequate ventilation (S10 "ventilation";
   Hazard 1 where mould follows). Remedy: EXTRACT-FAN-REPLACE with a
-  humidistat/timer unit.
+  humidistat/timer unit, using the standard extractor phrasing below.
 - Absence of any mechanical extract to a bathroom/kitchen is noted as a
   contributing factor to condensation, not as disrepair on its own.
+
+**Standard extractor fan phrasing**: "The extractor fan should be renewed to
+ensure effective mechanical ventilation. Installation, testing and
+certification should be carried out by a suitably qualified electrician in
+accordance with NICEIC requirements and BS 7671."
 
 ## Leaks and sanitary installations
 
@@ -67,6 +72,28 @@ defined stain edge suggests a leak as well.
   for sanitation); SEALANT-BATH, and MOULD-WALL/REDEC where finishes are
   affected. If the source is not established, `investigation_first` with
   LEAK-TRACE and the review flag `scope_uncertain`.
+
+**Standard trade-referral phrasing**: where the works require a trade
+inspection rather than a specified repair (an unestablished leak, faulty
+wiring, a non-functioning heating installation), use the fixed pattern "A
+competent [plumber / electrician / heating engineer] should inspect [for
+leaks / the wiring / the heating installation] and undertake the necessary
+repairs." Pick the trade the defect actually belongs to; do not default to
+plumber for anything damp-adjacent.
+
+## Decorative finishes after damp remediation
+
+Once the cause of damp is addressed (drying is not itself the remedy — it
+follows fixing the source), affected decorative finishes are written with
+this sequence, not a generic "make good": "Debonded and saturated plaster
+should be removed back to a sound substrate, and affected areas
+replastered. Following curing, the affected areas should be sanded where
+required, sealed with an appropriate stain-blocking treatment, and fully
+redecorated using a moisture-resistant paint system." Only apply this where
+plaster failure was actually observed (saturation, loss of adhesion,
+debonding, localised detachment) — do not assume it from a damp finding
+alone, and do not include a drying allowance where protimeter readings are
+within normal parameters.
 
 ## External fabric
 

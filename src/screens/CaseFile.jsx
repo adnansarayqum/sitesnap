@@ -11,7 +11,14 @@ import { FindingsTab } from "./Findings.jsx";
 import { coverage, migrateFindings } from "../findings.js";
 import { ClipboardCheck, Sparkles } from "lucide-react";
 import { relativeDay } from "./Home.jsx";
-import { AppHeader, Button, EmptyState, InlineAlert, Modal, ProgressBar, RoomCard, StickyActionBar, SyncIndicator } from "../ui/index.js";
+import { AppHeader, Button, EmptyState, InlineAlert, Modal, ProgressBar, RoomCard, SegmentedControl, StickyActionBar, SyncIndicator } from "../ui/index.js";
+
+// Report type is the MLA/TLB legal-report taxonomy — distinct from the
+// general `type` field (Standard/Inventory/Other) Setup already collects.
+const REPORT_TYPES = ["Single Inspection", "Staggered Joint Inspection", "Joint Inspection", "Single Joint Inspection"];
+const AGENCIES = ["MLA", "TLB", "Other"];
+const YES_NO = ["No", "Yes"];
+const CONDITIONS = ["Good", "Fair", "Poor"];
 
 /* ---------------- board (overview) ---------------- */
 
@@ -89,7 +96,7 @@ export function CaseFileScreen({
       {caseTab === "overview" && (
         <div className="ss-screen-in" style={TAB_STYLE}>
           <OverviewTab inspection={inspection} sync={sync} filing={filing} saveStatus={saveStatus} rooms={rooms} totalPhotos={totalPhotos} doneRooms={doneRooms} onWalk={onWalk}
-            idPhoto={idPhoto} onIdPhoto={onIdPhoto} onRemoveIdPhoto={onRemoveIdPhoto} onShareIdPhoto={onShareIdPhoto} onEmailIdPhoto={onEmailIdPhoto} idPhotoNote={idPhotoNote} onCaseTab={onCaseTab} />
+            idPhoto={idPhoto} onIdPhoto={onIdPhoto} onRemoveIdPhoto={onRemoveIdPhoto} onShareIdPhoto={onShareIdPhoto} onEmailIdPhoto={onEmailIdPhoto} idPhotoNote={idPhotoNote} onCaseTab={onCaseTab} onUpdateDetails={onRename} />
         </div>
       )}
       {caseTab === "rooms" && (
@@ -159,16 +166,30 @@ export function InspectionSummary({ inspection, rooms, totalPhotos, onReview }) 
   );
 }
 
-export function OverviewTab({ inspection, sync, filing, saveStatus, rooms, totalPhotos, doneRooms, onWalk, idPhoto, onIdPhoto, onRemoveIdPhoto, onShareIdPhoto, onEmailIdPhoto, idPhotoNote, onCaseTab }) {
+export function OverviewTab({ inspection, sync, filing, saveStatus, rooms, totalPhotos, doneRooms, onWalk, idPhoto, onIdPhoto, onRemoveIdPhoto, onShareIdPhoto, onEmailIdPhoto, idPhotoNote, onCaseTab, onUpdateDetails }) {
   const idInput = useRef(null);
+  const [editingDetails, setEditingDetails] = useState(false);
   const firstEmpty = Math.max(0, rooms.findIndex((r) => r.photoIds.length === 0));
   const rank = { Poor: 3, Fair: 2, Good: 1 };
   const worst = rooms.reduce((w, r) => ((rank[r.condition] || 0) > (rank[w] || 0) ? r.condition : w), null);
   const details = [
     ["Reference", inspection.ref],
+    ["Claimant", inspection.claimant],
+    ["Defendant", inspection.defendant],
     ["Client", inspection.client],
     ["Occupier", inspection.occupier],
     ["Solicitor", inspection.solicitor],
+    ["Instructed by", inspection.instructedBy],
+    ["Agency", inspection.agency],
+    ["Report type", inspection.reportType],
+    ["Landlord surveyor", inspection.landlordSurveyorName],
+    ["Date of instruction", inspection.dateOfInstruction],
+    ["Weather", inspection.weather],
+    ["Temperature", inspection.temperature ? `${inspection.temperature}°C` : ""],
+    ["Time to complete works", inspection.timeToCompleteWorks],
+    ["Decanting", inspection.decanting],
+    ["Condition internally", inspection.conditionInternally],
+    ["Condition externally", inspection.conditionExternally],
   ].filter(([, v]) => v);
 
   return (
@@ -202,7 +223,18 @@ export function OverviewTab({ inspection, sync, filing, saveStatus, rooms, total
               <div className="ss-kv-value">{doneRooms} of {rooms.length} covered</div>
             </div>
           </div>
+          {inspection.propertyDescription && (
+            <p className="ss-fineprint" style={{ margin: "10px 2px 0", lineHeight: 1.5 }}>{inspection.propertyDescription}</p>
+          )}
+          <button className="ss-link" style={{ marginTop: 10 }} onClick={() => setEditingDetails(true)}>
+            <Pencil size={13} /> {details.length ? "Edit case details" : "Add case details"}
+          </button>
         </div>
+
+        {editingDetails && (
+          <CaseDetailsModal inspection={inspection} onClose={() => setEditingDetails(false)}
+            onSave={(patch) => { onUpdateDetails && onUpdateDetails(patch); setEditingDetails(false); }} />
+        )}
 
         <SyncIndicator variant="line" saveStatus={saveStatus} sync={sync} filing={filing} />
 
@@ -252,6 +284,68 @@ export function OverviewTab({ inspection, sync, filing, saveStatus, rooms, total
         </Button>
       </StickyActionBar>
     </>
+  );
+}
+
+// The metadata an expert witness report actually needs beyond address and
+// rooms — claimant/defendant, who instructed, report type, site conditions
+// on the day. Filled progressively from whichever source has it first (the
+// letter of instruction, the letter of claim, or the surveyor on site), not
+// all at once at Setup — Setup stays fast.
+function CaseDetailsModal({ inspection, onClose, onSave }) {
+  const [d, setD] = useState({
+    claimant: inspection.claimant || "", defendant: inspection.defendant || "",
+    instructedBy: inspection.instructedBy || "", agency: inspection.agency || "",
+    reportType: inspection.reportType || "", landlordSurveyorName: inspection.landlordSurveyorName || "",
+    dateOfInstruction: inspection.dateOfInstruction || "", weather: inspection.weather || "",
+    temperature: inspection.temperature || "", propertyDescription: inspection.propertyDescription || "",
+    timeToCompleteWorks: inspection.timeToCompleteWorks || "", decanting: inspection.decanting || "",
+    conditionInternally: inspection.conditionInternally || "", conditionExternally: inspection.conditionExternally || "",
+  });
+  const set = (k) => (v) => setD((prev) => ({ ...prev, [k]: v }));
+  return (
+    <Modal onClose={onClose} left title="Case details" className="ss-modal-form">
+      <div className="ss-field-label">Claimant</div>
+      <input className="ss-input" value={d.claimant} onChange={(e) => set("claimant")(e.target.value)} placeholder="e.g. Miss J Smith (Claimant)" />
+      <div className="ss-field-label" style={{ marginTop: 10 }}>Defendant</div>
+      <input className="ss-input" value={d.defendant} onChange={(e) => set("defendant")(e.target.value)} placeholder="e.g. London Borough of Southwark" />
+      <div className="ss-field-label" style={{ marginTop: 10 }}>Instructed by</div>
+      <input className="ss-input" value={d.instructedBy} onChange={(e) => set("instructedBy")(e.target.value)} placeholder="e.g. SJS Legal Limited" />
+
+      <div className="ss-field-label" style={{ marginTop: 14 }}>Agency</div>
+      <SegmentedControl className="ss-seg-row" itemClass="ss-seg-item" options={AGENCIES} value={d.agency} onChange={set("agency")} />
+      <div className="ss-field-label" style={{ marginTop: 10 }}>Report type</div>
+      <select className="ss-input" value={d.reportType} onChange={(e) => set("reportType")(e.target.value)}>
+        <option value="">Not set</option>
+        {REPORT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+      </select>
+      <input className="ss-input" style={{ marginTop: 8 }} value={d.landlordSurveyorName} onChange={(e) => set("landlordSurveyorName")(e.target.value)} placeholder="Landlord surveyor name (if any)" />
+      <input className="ss-input" style={{ marginTop: 8 }} type="date" value={d.dateOfInstruction} onChange={(e) => set("dateOfInstruction")(e.target.value)} />
+      <p className="ss-fineprint" style={{ margin: "4px 2px 0" }}>Date of instruction</p>
+
+      <div className="ss-field-label" style={{ marginTop: 14 }}>Site conditions</div>
+      <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+        <input className="ss-input" value={d.weather} onChange={(e) => set("weather")(e.target.value)} placeholder="Weather" style={{ flex: 1 }} />
+        <input className="ss-input" type="number" value={d.temperature} onChange={(e) => set("temperature")(e.target.value)} placeholder="°C" style={{ width: 90 }} />
+      </div>
+      <textarea className="ss-input" style={{ marginTop: 8, minHeight: 90 }} value={d.propertyDescription}
+        onChange={(e) => set("propertyDescription")(e.target.value)}
+        placeholder="Property description — construction, roof, approximate age, layout" />
+      <input className="ss-input" style={{ marginTop: 8 }} value={d.timeToCompleteWorks} onChange={(e) => set("timeToCompleteWorks")(e.target.value)} placeholder="Time to complete works, e.g. Circa 2 weeks" />
+
+      <div className="ss-field-label" style={{ marginTop: 10 }}>Decanting required?</div>
+      <SegmentedControl className="ss-seg-row" itemClass="ss-seg-item" options={YES_NO} value={d.decanting} onChange={set("decanting")} />
+
+      <div className="ss-field-label" style={{ marginTop: 10 }}>Condition internally</div>
+      <SegmentedControl className="ss-seg-row" itemClass="ss-seg-item" options={CONDITIONS} value={d.conditionInternally} onChange={set("conditionInternally")} />
+      <div className="ss-field-label" style={{ marginTop: 10 }}>Condition externally</div>
+      <SegmentedControl className="ss-seg-row" itemClass="ss-seg-item" options={CONDITIONS} value={d.conditionExternally} onChange={set("conditionExternally")} />
+
+      <Button variant="primary" style={{ marginTop: 16 }} onClick={() => onSave({
+        ...d, temperature: d.temperature === "" ? "" : Number(d.temperature),
+      })}>Save</Button>
+      <Button variant="ghost" style={{ marginTop: 8 }} onClick={onClose}>Cancel</Button>
+    </Modal>
   );
 }
 

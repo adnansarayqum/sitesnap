@@ -313,6 +313,13 @@ export function RoomScreen({ room, caseId, photos, onBack, onCapture, onDelete, 
         onChange={(e) => onMeta({ note: e.target.value })}
       />
       {aiNoteCard}
+      <span className="ss-field-label" style={{ marginTop: 10 }}>Issue of concern<span className="ss-field-label-hint"> — the tenant's complaint, kept word for word</span></span>
+      <textarea
+        className="ss-note-input" rows={2}
+        placeholder="What the tenant/letter of claim says is wrong — pasted or typed verbatim, not the surveyor's own wording"
+        value={room.issueOfConcern || ""}
+        onChange={(e) => onMeta({ issueOfConcern: e.target.value })}
+      />
       <button className={`ss-room-done ${room.complete ? "on" : ""}`}
         onClick={() => { tapFeedback("light"); onMeta({ complete: !room.complete }); }}>
         <Check size={15} /> {room.complete ? "Room complete" : "Mark room complete"}

@@ -10,6 +10,20 @@ Append new entries under the current version; bump the version and date when
 the list changes. Never edit an entry's meaning silently — add a new one and
 mark the old one superseded.
 
+## Version 3 — 2026-09-16
+
+Source: Shahriar's reply on the disrepair-automation build, cross-checked
+against his custom GPT instructions and real MLA/TLB report examples. Adds
+his controlled vocabulary and standard phrasings (`legal-register.md`,
+`playbook.md`) rather than a rule here, since they are wording preferences
+the model should apply everywhere, not a single mistake to prevent.
+
+16. **Cat 1 needs its own paragraph.** Do not cite Cat 1 only in the Breach
+    section — Site Findings must carry a short concluding paragraph saying
+    why (vulnerability, exposure), or the Cat 1 assessment reads as asserted
+    rather than supported. See "Category 1 hazard placement" in
+    `legal-register.md`.
+
 ## Version 2 — 2026-09-09
 
 Source: the move to the staged, evidence-grounded pipeline (docs/ai-findings.md).

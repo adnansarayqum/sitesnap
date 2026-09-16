@@ -16,6 +16,8 @@ import { ReportView } from "./Report.jsx";
 import { approvedByRoom, findingsFiles, fromLegacyDraft } from "../findings.js";
 import { Coach } from "../components/Hints.jsx";
 import { Button, Modal, StickyActionBar } from "../ui/index.js";
+import { fillMlaTemplate } from "../export/mlaXlsm.js";
+import { reportRows } from "../export/reportRows.js";
 
 // the ID photo files beside the inspection metadata, never in a room folder
 export const idPhotoName = (inspection) => `ID ${safeFileName(inspection.postcode || inspection.address || "photo")}.jpg`;
@@ -89,6 +91,7 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
     setReportCache(null);
   }
   const [zipBusy, setZipBusy] = useState(false);
+  const [mlaBusy, setMlaBusy] = useState(false);
   const [hookUrl, setHookUrl] = useState("");
   const [hookKey, setHookKey] = useState("");
   const [upload, setUpload] = useState(null); // { statuses, running, doneAll, sent, total }
@@ -197,6 +200,61 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
       flash("ZIP export failed — try again");
     }
     setZipBusy(false);
+  }
+
+  // Fills MLA's own report template directly from the approved findings —
+  // one row per room, matching how Shah's own workflow already pastes
+  // into this same tab. See src/export/mlaXlsm.js for what's touched and
+  // what isn't.
+  async function exportMla() {
+    if (mlaBusy) return;
+    const { rows, warnings } = reportRows(inspection, rooms);
+    if (!rows.length) { flash("No approved findings yet — review and approve findings first"); return; }
+    setMlaBusy(true);
+    try {
+      const res = await fetch("/templates/mla-template.xlsm");
+      if (!res.ok) throw new Error(`template fetch ${res.status}`);
+      const templateBytes = await res.arrayBuffer();
+      const today = new Date().toISOString().slice(0, 10);
+      const inspected = new Date(inspection.startedAt).toISOString().slice(0, 10);
+      const meta = {
+        claimant: inspection.claimant, defendant: inspection.defendant, instructedBy: inspection.instructedBy,
+        reportType: inspection.reportType, landlordSurveyorName: inspection.landlordSurveyorName,
+        caseReference: inspection.ref, dateOfInstruction: inspection.dateOfInstruction,
+        propertyAddress: [inspection.address, inspection.postcode].filter(Boolean).join(", "),
+        inspectionDate: inspected, reportDated: today, weather: inspection.weather,
+        temperature: inspection.temperature, propertyDescription: inspection.propertyDescription,
+        timeToCompleteWorks: inspection.timeToCompleteWorks, decanting: inspection.decanting,
+      };
+      const blob = await fillMlaTemplate(templateBytes, { meta, items: rows });
+      const fileName = `${safeName(inspection.address) || "Inspection"} - MLA report.xlsm`;
+      const mlaFile = new File([blob], fileName, { type: "application/vnd.ms-excel.sheet.macroEnabled.12" });
+      if (canShareFiles() && navigator.canShare({ files: [mlaFile] })) {
+        try {
+          await navigator.share({ files: [mlaFile], title: fileName });
+          onExportResult && onExportResult({ at: Date.now(), kind: "mla" });
+          flash(warnings.length ? `MLA report shared — check ${warnings.length} flagged item${warnings.length === 1 ? "" : "s"} before sending` : "MLA report shared");
+          setMlaBusy(false);
+          return;
+        } catch (e) {
+          if (e && e.name === "AbortError") { setMlaBusy(false); return; }
+        }
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      onExportResult && onExportResult({ at: Date.now(), kind: "mla" });
+      flash(warnings.length ? `MLA report downloaded — check ${warnings.length} flagged item${warnings.length === 1 ? "" : "s"} before sending` : "MLA report downloaded");
+    } catch (e) {
+      console.error(e);
+      flash("MLA export failed — try again");
+    }
+    setMlaBusy(false);
   }
 
   // One POST per item, each tagged with `kind` so the cloud workflow can route
@@ -633,6 +691,18 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
             {inspection.lastZip && <span className="ss-export-when">Last made {when(inspection.lastZip.at)}</span>}
           </div>
         </div>
+        {(() => {
+          const mlaRows = reportRows(inspection, rooms).rows.length;
+          return (
+            <div className="ss-export-opt full">
+              <Button variant="ghost" size="big" style={{ marginTop: 8 }} onClick={exportMla} disabled={mlaBusy || mlaRows === 0}
+                title={mlaRows === 0 ? "Approve at least one finding first (Findings tab)" : undefined}>
+                <FileText size={19} /> {mlaBusy ? "Building MLA report…" : `MLA report (.xlsm)${mlaRows ? ` — ${mlaRows} room${mlaRows === 1 ? "" : "s"}` : ""}`}
+              </Button>
+              {inspection.lastMla && <span className="ss-export-when">Last made {when(inspection.lastMla.at)}</span>}
+            </div>
+          );
+        })()}
         <div className="ss-export-opt full">
           <Button variant="ghost" size="big" style={{ marginTop: 8 }} onClick={handleSaveAll} disabled={totalPhotos === 0}
             title={totalPhotos === 0 ? "Take at least one photo first" : undefined}>
