@@ -108,6 +108,15 @@ export async function captionRoom({ caseId, roomId, room, photos, signal }) {
   return r.json();
 }
 
+// One or more photographed pages (or a native PDF) of a letter of claim /
+// instruction -> a best-effort read of the case-detail fields it states.
+// Always a draft the surveyor reviews before it's saved — see CaseFile.jsx.
+export async function extractIntake(caseId, documents, signal) {
+  const r = await fetch(`/api/ai/cases/${encodeURIComponent(caseId)}/intake`, json({ documents }, signal));
+  if (!r.ok) throw await readError(r, "Couldn't read that letter.");
+  return r.json(); // { recognised, claimant, defendant, instructedBy, agency, reportType, landlordSurveyorName, dateOfInstruction, caseReference, address, postcode, model, at }
+}
+
 // deterministic: the server multiplies the price book by the quantities the
 // surveyor confirmed; no model involved
 export async function priceWithQuantities(items, overrides, firmRows) {

@@ -129,6 +129,20 @@ export const CAPTION_SCHEMA = obj({
   room_note: str("A short descriptive room note the surveyor can adopt, or empty."),
 });
 
+export const INTAKE_SCHEMA = obj({
+  recognised: bool("True if at least one document is a UK housing-disrepair letter of claim, letter of instruction, or expert instruction letter; false if none of them are (e.g. an unrelated document, or unreadable)."),
+  claimant: str("The tenant/claimant's full name, or empty if not stated."),
+  defendant: str("The landlord/defendant's name — a person or organisation — or empty if not stated."),
+  instructed_by: str("The instructing solicitor firm's name — never a medico-legal agency such as MLA or TLB itself, even if the letter is from one of them — or empty."),
+  agency: en(["MLA", "TLB", ""], "MLA only if the letter is from, or explicitly names, Medical-Legal Appointments Limited / MLA. TLB only if it explicitly names TLB. Empty otherwise — never guessed."),
+  report_type: en(["Single Inspection", "Staggered Joint Inspection", "Joint Inspection", "Single Joint Inspection", ""], "The closest match to how the inspection is described (sole/single joint expert vs joint inspection), or empty if not stated."),
+  landlord_surveyor_name: str("The landlord's own surveyor's name, only if one is named — rare. Empty otherwise."),
+  date_of_instruction: str("The date printed on the letter of instruction, as YYYY-MM-DD. Empty if not stated or not a clear date."),
+  case_reference: str("The instructing party's OWN reference or matter number for this letter — look for 'Our Ref' / 'Our Reference', not 'Your Ref' (that belongs to the recipient). Empty if none."),
+  address: str("The property address (the disrepair address, not the sender's own office address), one line, without the postcode. Empty if not stated."),
+  postcode: str("The property's UK postcode. Empty if not stated."),
+});
+
 export const CLUSTER_SCHEMA = obj({
   issues: arr(obj({
     title: str("Two to five words, e.g. 'Ceiling mould'."),

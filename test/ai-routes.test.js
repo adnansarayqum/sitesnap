@@ -73,4 +73,26 @@ describe("/api/ai", () => {
     const placed = j.issues.flatMap((i) => i.photoIds);
     expect([...placed, ...j.uncertain.map((u) => u.id)].sort()).toEqual(["p1", "p2", "p3"]);
   });
+
+  it("intake: reads a photographed/PDF letter into case-detail fields", async () => {
+    const r = await post("/api/ai/cases/insp_abc123/intake", { documents: [{ dataUrl: PNG }] });
+    expect(r.status).toBe(200);
+    const j = await r.json();
+    expect(j.recognised).toBe(true);
+    expect(j.claimant).toBeTruthy();
+    expect(j.address).toBeTruthy();
+    // every field Case Details can be pre-filled from is present, even when empty
+    for (const k of ["defendant", "instructedBy", "agency", "reportType", "landlordSurveyorName", "dateOfInstruction", "caseReference", "postcode"]) {
+      expect(j).toHaveProperty(k);
+    }
+  });
+
+  it("intake: rejects a bad case id and an empty/unreadable document list", async () => {
+    expect((await post("/api/ai/cases/bad/intake", { documents: [{ dataUrl: PNG }] })).status).toBe(400);
+    const r = await post("/api/ai/cases/insp_abc123/intake", { documents: [] });
+    expect(r.status).toBe(400);
+    expect((await r.json()).error).toBe("no_documents");
+    const r2 = await post("/api/ai/cases/insp_abc123/intake", { documents: [{ dataUrl: "not a data url" }] });
+    expect(r2.status).toBe(400);
+  });
 });

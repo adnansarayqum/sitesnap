@@ -4,6 +4,7 @@
 export { aiEnabled, transcriptionEnabled, withConnectionRetry, AI_MODEL, AI_VERIFY_MODEL, AI_EFFORT, AI_CAPTION_EFFORT, EFFORTS, MOCK } from "./ai/provider.js";
 export { runIssuePipeline, PIPELINE_VERSION } from "./ai/pipeline.js";
 export { captionRoomPhotos } from "./ai/captions.js";
+export { extractIntake, parseIntakeDocuments } from "./ai/intake.js";
 export { transcribeAudio, TRANSCRIBE_MODEL } from "./ai/transcription.js";
 export { suggestClusters } from "./ai/cluster.js";
 export { loadReference, priceItems, resolveLegal, resolveHazard, referenceFingerprints } from "./reference.js";

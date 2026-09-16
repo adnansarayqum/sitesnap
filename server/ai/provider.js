@@ -130,3 +130,12 @@ export function parseDataUrl(dataUrl) {
   return m ? { media_type: m[1], data: m[2] } : null;
 }
 export const imageBlock = (img) => ({ type: "image", source: { type: "base64", media_type: img.media_type, data: img.data } });
+
+// a scanned letter sent as a native PDF rather than a photograph — Claude
+// reads it directly (text and any embedded images), no server-side
+// conversion needed
+export function parsePdfDataUrl(dataUrl) {
+  const m = /^data:(application\/pdf);base64,([A-Za-z0-9+/=]+)$/.exec(String(dataUrl || ""));
+  return m ? { media_type: m[1], data: m[2] } : null;
+}
+export const documentBlock = (doc) => ({ type: "document", source: { type: "base64", media_type: doc.media_type, data: doc.data } });

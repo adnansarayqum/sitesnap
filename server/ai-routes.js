@@ -8,6 +8,7 @@
 //   POST /api/ai/cases/:id/rooms/:roomId/issues/:issueId/draft    one issue -> finding + run record
 //   POST /api/ai/cases/:id/rooms/:roomId/cluster                  suggest how unorganised evidence groups
 //   POST /api/ai/cases/:id/rooms/:roomId/caption                  photos -> captions + suggested note
+//   POST /api/ai/cases/:id/intake                                 a letter (photo/PDF) -> case-detail fields
 //   POST /api/ai/price                                            deterministic re-pricing with surveyor quantities
 //   GET  /api/ai/cases/:id/findings                               the register's copy, latest run per issue
 //   GET  /api/ai/cases/:id/runs/:runId                            one run's audit record
@@ -23,6 +24,7 @@ import { requireOrg, rateLimit, clientIp, audit } from "./auth.js";
 import {
   aiEnabled, transcriptionEnabled, runIssuePipeline, captionRoomPhotos, transcribeAudio, suggestClusters, loadReference,
   referenceFingerprints, priceItems, AI_MODEL, AI_VERIFY_MODEL, EFFORTS, PIPELINE_VERSION, TRANSCRIBE_MODEL,
+  extractIntake, parseIntakeDocuments,
 } from "./ai.js";
 import { abortOnClose } from "./abortOnClose.js";
 import { canTransition, approvalBlockers, FINDING_STATUSES } from "../shared/findingRules.js";
@@ -43,6 +45,10 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_PHOTOS = 60;
 const MAX_PHOTO_B64 = 1.5 * 1024 * 1024;
 const MAX_MEMOS = 40;
+// a letter of claim/instruction is rarely more than a handful of pages; a
+// native PDF can run larger than a single photo, so it gets its own cap
+const MAX_INTAKE_DOCS = 8;
+const MAX_INTAKE_DOC_B64 = 12 * 1024 * 1024;
 
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 // local mode has no sessions: the app is single-user and these routes are
@@ -163,6 +169,24 @@ export function mountAi(app) {
       finish();
       event("caption_completed", { case: req.params.id, room: req.params.roomId, captions: (result.output.photos || []).filter((p) => p.caption).length, note: !!result.output.room_note });
       res.json({ model: result.model, photos: result.output.photos || [], room_note: result.output.room_note || "", at: new Date().toISOString() });
+    }));
+
+  // --- intake: a photographed/PDF letter -> pre-filled case details --------------
+  app.post("/api/ai/cases/:id/intake", guard,
+    express.json({ limit: `${Math.ceil((MAX_INTAKE_DOC_B64 * MAX_INTAKE_DOCS) / (1024 * 1024)) + 2}mb` }),
+    wrap(async (req, res) => {
+      if (!aiEnabled()) return res.status(501).json({ error: "ai_off", message: "Reading letters isn't switched on for this server — set ANTHROPIC_API_KEY." });
+      if (!CASE_ID.test(req.params.id)) return res.status(400).json({ error: "bad_id" });
+      if (!rateLimit(`ai:intake:${who(req)}`, 30, 60 * 60 * 1000)) return res.status(429).json({ error: "slow_down" });
+      const documents = parseIntakeDocuments((req.body || {}).documents, MAX_INTAKE_DOCS, MAX_INTAKE_DOC_B64);
+      if (!documents.length) return res.status(400).json({ error: "no_documents", message: "None of those files could be read — try a clearer photo, or a PDF under 12MB." });
+      const { signal, finish } = abortOnClose(req, res);
+      event("intake_requested", { case: req.params.id, documents: documents.length });
+      let result;
+      try { result = await extractIntake(documents, { signal }); } catch (e) { event("intake_failed", { case: req.params.id, code: e.code }); throw e; }
+      finish();
+      event("intake_completed", { case: req.params.id, recognised: result.output.recognised, fields: Object.values(result.output).filter((v) => v && v !== false).length });
+      res.json({ model: result.model, ...result.output, at: new Date().toISOString() });
     }));
 
   // --- clustering: suggest how a room's unorganised evidence groups into issues --

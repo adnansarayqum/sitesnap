@@ -46,6 +46,15 @@ export async function processCapture(file) {
   }
 }
 
+export function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = () => reject(new Error("The file couldn't be read"));
+    r.readAsDataURL(file);
+  });
+}
+
 export function dataUrlToFile(dataUrl, name) {
   const [head, body] = dataUrl.split(",");
   const mime = head.match(/:(.*?);/)[1];

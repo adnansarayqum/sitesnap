@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRef } from "react";
 import {
-  Camera, Check, Image as ImageIcon, Mail, Pencil, Plus, Share2, Trash2, User,
+  Camera, Check, Image as ImageIcon, Loader2, Mail, Pencil, Plus, ScanLine, Share2, Trash2, User,
 } from "lucide-react";
 import { ReorderableList } from "../components/shared.jsx";
 import { Coach } from "../components/Hints.jsx";
@@ -12,6 +12,8 @@ import { coverage, migrateFindings } from "../findings.js";
 import { ClipboardCheck, Sparkles } from "lucide-react";
 import { relativeDay } from "./Home.jsx";
 import { AppHeader, Button, EmptyState, InlineAlert, Modal, ProgressBar, RoomCard, SegmentedControl, StickyActionBar, SyncIndicator } from "../ui/index.js";
+import { aiConfig, aiPhotoCopy, extractIntake } from "../ai.js";
+import { readFileAsDataUrl } from "../lib/image.js";
 
 // Report type is the MLA/TLB legal-report taxonomy — distinct from the
 // general `type` field (Standard/Inventory/Other) Setup already collects.
@@ -166,9 +168,20 @@ export function InspectionSummary({ inspection, rooms, totalPhotos, onReview }) 
   );
 }
 
+// Housing-disrepair letters this recognises: a letter of claim, a letter of
+// instruction, or a medico-legal agency's instruction letter to the expert.
+const MAX_IMPORT_FILES = 8;
+const MAX_IMPORT_PDF_BYTES = 12 * 1024 * 1024;
+
 export function OverviewTab({ inspection, sync, filing, saveStatus, rooms, totalPhotos, doneRooms, onWalk, idPhoto, onIdPhoto, onRemoveIdPhoto, onShareIdPhoto, onEmailIdPhoto, idPhotoNote, onCaseTab, onUpdateDetails }) {
   const idInput = useRef(null);
+  const importInput = useRef(null);
   const [editingDetails, setEditingDetails] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState(null);
+  const [importError, setImportError] = useState(null);
+  const [aiCfg, setAiCfg] = useState({ enabled: false });
+  useEffect(() => { aiConfig().then(setAiCfg); }, []);
   const firstEmpty = Math.max(0, rooms.findIndex((r) => r.photoIds.length === 0));
   const rank = { Poor: 3, Fair: 2, Good: 1 };
   const worst = rooms.reduce((w, r) => ((rank[r.condition] || 0) > (rank[w] || 0) ? r.condition : w), null);
@@ -191,6 +204,41 @@ export function OverviewTab({ inspection, sync, filing, saveStatus, rooms, total
     ["Condition internally", inspection.conditionInternally],
     ["Condition externally", inspection.conditionExternally],
   ].filter(([, v]) => v);
+
+  // One or more photographed pages, or a native PDF, of a letter of claim
+  // or instruction -> a best-effort read of the case-detail fields it
+  // states. Never written straight into the case — it opens the same form
+  // as manual editing, pre-filled, for the surveyor to check and save.
+  async function handleImportFiles(e) {
+    const files = Array.from(e.target.files || []).slice(0, MAX_IMPORT_FILES);
+    e.target.value = "";
+    if (!files.length) return;
+    setImportError(null);
+    setImporting(true);
+    let skipReason = null; // a per-file problem, kept locally — state set moments ago in this same call isn't visible yet
+    try {
+      const documents = [];
+      for (const f of files) {
+        if (f.type === "application/pdf") {
+          if (f.size > MAX_IMPORT_PDF_BYTES) { skipReason = skipReason || `${f.name} is too big — PDFs must be under 12MB.`; continue; }
+          documents.push({ dataUrl: await readFileAsDataUrl(f) });
+        } else if (f.type.startsWith("image/")) {
+          documents.push({ dataUrl: await aiPhotoCopy(await readFileAsDataUrl(f)) });
+        }
+      }
+      if (!documents.length) {
+        setImportError(skipReason || "Choose a photo or a PDF of the letter.");
+        setImporting(false);
+        return;
+      }
+      const r = await extractIntake(inspection.id, documents);
+      if (!r.recognised) { setImportError("Couldn't find case details in that — try a clearer photo of the letter, or the original PDF."); setImporting(false); return; }
+      setImportResult(r);
+    } catch (err) {
+      setImportError((err && err.message) || "Couldn't read that letter — try again.");
+    }
+    setImporting(false);
+  }
 
   return (
     <>
@@ -226,14 +274,31 @@ export function OverviewTab({ inspection, sync, filing, saveStatus, rooms, total
           {inspection.propertyDescription && (
             <p className="ss-fineprint" style={{ margin: "10px 2px 0", lineHeight: 1.5 }}>{inspection.propertyDescription}</p>
           )}
-          <button className="ss-link" style={{ marginTop: 10 }} onClick={() => setEditingDetails(true)}>
-            <Pencil size={13} /> {details.length ? "Edit case details" : "Add case details"}
-          </button>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 10 }}>
+            <button className="ss-link" onClick={() => setEditingDetails(true)}>
+              <Pencil size={13} /> {details.length ? "Edit case details" : "Add case details"}
+            </button>
+            {aiCfg.enabled && (
+              <button className="ss-link" disabled={importing} onClick={() => importInput.current && importInput.current.click()}>
+                {importing ? <Loader2 size={13} className="ss-spin" /> : <ScanLine size={13} />} {importing ? "Reading letter…" : "Import from letter"}
+              </button>
+            )}
+          </div>
+          {importError && <p className="ss-fineprint" style={{ color: "var(--red)", margin: "6px 2px 0" }}>{importError}</p>}
         </div>
+
+        <input ref={importInput} type="file" accept="image/*,application/pdf" multiple className="ss-hidden" onChange={handleImportFiles} />
 
         {editingDetails && (
           <CaseDetailsModal inspection={inspection} onClose={() => setEditingDetails(false)}
             onSave={(patch) => { onUpdateDetails && onUpdateDetails(patch); setEditingDetails(false); }} />
+        )}
+
+        {importResult && (
+          <CaseDetailsModal inspection={inspection} overrides={importResult}
+            importNote="Imported from your letter — check every field before saving."
+            onClose={() => setImportResult(null)}
+            onSave={(patch) => { onUpdateDetails && onUpdateDetails(patch); setImportResult(null); }} />
         )}
 
         <SyncIndicator variant="line" saveStatus={saveStatus} sync={sync} filing={filing} />
@@ -292,12 +357,18 @@ export function OverviewTab({ inspection, sync, filing, saveStatus, rooms, total
 // on the day. Filled progressively from whichever source has it first (the
 // letter of instruction, the letter of claim, or the surveyor on site), not
 // all at once at Setup — Setup stays fast.
-function CaseDetailsModal({ inspection, onClose, onSave }) {
+// `overrides` (optional): a just-extracted read of a letter (see
+// extractIntake) whose non-empty fields seed the form instead of the
+// case's own saved values — used only for the "Import from letter" review
+// step, never applied without the surveyor seeing and saving it here.
+function CaseDetailsModal({ inspection, onClose, onSave, overrides, importNote }) {
+  const pick = (k) => (overrides && overrides[k]) || inspection[k] || "";
   const [d, setD] = useState({
-    claimant: inspection.claimant || "", defendant: inspection.defendant || "",
-    instructedBy: inspection.instructedBy || "", agency: inspection.agency || "",
-    reportType: inspection.reportType || "", landlordSurveyorName: inspection.landlordSurveyorName || "",
-    dateOfInstruction: inspection.dateOfInstruction || "", weather: inspection.weather || "",
+    ref: (overrides && overrides.caseReference) || inspection.ref || "", address: pick("address"), postcode: pick("postcode"),
+    claimant: pick("claimant"), defendant: pick("defendant"),
+    instructedBy: pick("instructedBy"), agency: pick("agency"),
+    reportType: pick("reportType"), landlordSurveyorName: pick("landlordSurveyorName"),
+    dateOfInstruction: pick("dateOfInstruction"), weather: inspection.weather || "",
     temperature: inspection.temperature || "", propertyDescription: inspection.propertyDescription || "",
     timeToCompleteWorks: inspection.timeToCompleteWorks || "", decanting: inspection.decanting || "",
     conditionInternally: inspection.conditionInternally || "", conditionExternally: inspection.conditionExternally || "",
@@ -305,7 +376,15 @@ function CaseDetailsModal({ inspection, onClose, onSave }) {
   const set = (k) => (v) => setD((prev) => ({ ...prev, [k]: v }));
   return (
     <Modal onClose={onClose} left title="Case details" className="ss-modal-form">
-      <div className="ss-field-label">Claimant</div>
+      {importNote && <InlineAlert tone="info" icon={<ScanLine size={14} />}>{importNote}</InlineAlert>}
+      <div className="ss-field-label">Case reference</div>
+      <input className="ss-input" value={d.ref} onChange={(e) => set("ref")(e.target.value)} placeholder="e.g. SJS 207938.001" />
+      <div className="ss-field-label" style={{ marginTop: 10 }}>Property address</div>
+      <input className="ss-input" value={d.address} onChange={(e) => set("address")(e.target.value)} placeholder="e.g. 23 High Street" />
+      <input className="ss-input" style={{ marginTop: 8 }} value={d.postcode} onChange={(e) => set("postcode")(e.target.value.toUpperCase())} placeholder="Postcode" />
+      <p className="ss-fineprint" style={{ margin: "4px 2px 0" }}>Photos already uploaded keep the old folder name if you change this.</p>
+
+      <div className="ss-field-label" style={{ marginTop: 14 }}>Claimant</div>
       <input className="ss-input" value={d.claimant} onChange={(e) => set("claimant")(e.target.value)} placeholder="e.g. Miss J Smith (Claimant)" />
       <div className="ss-field-label" style={{ marginTop: 10 }}>Defendant</div>
       <input className="ss-input" value={d.defendant} onChange={(e) => set("defendant")(e.target.value)} placeholder="e.g. London Borough of Southwark" />
@@ -342,7 +421,8 @@ function CaseDetailsModal({ inspection, onClose, onSave }) {
       <SegmentedControl className="ss-seg-row" itemClass="ss-seg-item" options={CONDITIONS} value={d.conditionExternally} onChange={set("conditionExternally")} />
 
       <Button variant="primary" style={{ marginTop: 16 }} onClick={() => onSave({
-        ...d, temperature: d.temperature === "" ? "" : Number(d.temperature),
+        ...d, ref: d.ref.trim(), address: d.address.trim() || inspection.address, postcode: d.postcode.trim(),
+        temperature: d.temperature === "" ? "" : Number(d.temperature),
       })}>Save</Button>
       <Button variant="ghost" style={{ marginTop: 8 }} onClick={onClose}>Cancel</Button>
     </Modal>
