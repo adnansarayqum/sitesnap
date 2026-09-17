@@ -1,9 +1,12 @@
-// The firm's own rates, stored per organisation and merged into the
-// reference pack at request time. The merged pack is hashed like the file
-// pack, so a run records exactly which firm rows it could pick from, and an
-// approved finding that cited a rate goes back to review if that rate
-// changes. In local mode the phone keeps the rows and sends them with the
-// request; they are cleaned here exactly as a DB row would be.
+// The surveyor's own rates, merged into the reference pack at request time.
+// The merged pack is hashed like the file pack, so a run records exactly
+// which rows it could pick from, and an approved finding that cited a rate
+// goes back to review if that rate changes. The phone keeps the rows and
+// sends them with the request; they are cleaned here exactly as a stored
+// row would be. `insertFirmRow`/`updateFirmRow`/`loadFirmRows` below back
+// the org-scoped price-book routes in server/ai-routes.js, which have no
+// sign-in to reach them — dead in practice, kept only for a database
+// deployment's sake.
 import { q, one } from "./db.js";
 import { shortHash } from "./reference.js";
 import { normaliseRow, toPriceBookRow } from "../shared/pricebook.js";

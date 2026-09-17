@@ -410,7 +410,7 @@ export const BAD_IMAGE_MSG = "That image couldn't be read, so it wasn't added â€
 // "Other" clears the field rather than writing the word "Other" as the title.
 const ISSUE_CATEGORIES = ["Damp", "Cracking", "Damage", "Leak", "Electrical", "Wear", "Other"];
 
-export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCapture, onDeleteLast, onMeta, onRoom, onAddMemo, onDeleteMemo, onActivity, onOpenRoom, onFinish, onExit, onError, filing, sync, saveStatus, fieldMode, onToggleFieldMode }) {
+export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCapture, onDeleteLast, onMeta, onRoom, onAddMemo, onDeleteMemo, onActivity, onOpenRoom, onFinish, onExit, onError, filing, saveStatus, fieldMode, onToggleFieldMode }) {
   const inputRef = useRef(null);
   // no `capture` attribute: the phone offers its photo library, not the camera
   const libraryRef = useRef(null);
@@ -504,7 +504,7 @@ export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCa
         </button>
         <div className="ss-cap-head-right">
           {onToggleFieldMode && <button className="ss-live-fieldmode" onClick={onToggleFieldMode} title="Field mode â€” high-contrast for bright daylight">{fieldMode ? <Moon size={16} /> : <Sun size={16} />}</button>}
-          <SyncIndicator saveStatus={saveStatus} sync={sync} filing={filing} />
+          <SyncIndicator saveStatus={saveStatus} filing={filing} />
         </div>
       </div>
 

@@ -22,19 +22,19 @@ function RatesCard({ flash }) {
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState({ work: "", trade: "", low: "", high: "" });
   const [busy, setBusy] = useState(false);
-  useEffect(() => { listRates(false).then(setRows); }, []);
+  useEffect(() => { listRates().then(setRows); }, []);
   const pounds = (r) => `£${r.low.toLocaleString("en-GB")}${r.high !== r.low ? `–£${r.high.toLocaleString("en-GB")}` : ""}`;
   async function add() {
     setBusy(true);
     try {
-      const row = await addRate(false, { work: draft.work, trade: draft.trade, low: draft.low, high: draft.high });
+      const row = await addRate({ work: draft.work, trade: draft.trade, low: draft.low, high: draft.high });
       setRows((r) => [row, ...(r || [])]);
       setDraft({ work: "", trade: "", low: "", high: "" }); setAdding(false);
       flash("Rate saved");
     } catch (e) { flash(e.message); } finally { setBusy(false); }
   }
   async function remove(row) {
-    try { await removeRate(false, row.id); setRows((r) => r.filter((x) => x.id !== row.id)); flash("Rate removed"); }
+    try { await removeRate(row.id); setRows((r) => r.filter((x) => x.id !== row.id)); flash("Rate removed"); }
     catch (e) { flash(e.message); }
   }
   return (

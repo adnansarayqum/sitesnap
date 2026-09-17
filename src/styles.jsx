@@ -117,15 +117,6 @@ export function StyleBlock() {
       @media (prefers-reduced-motion: reduce) { .ss-screen-in { animation: none; } }
 
       /* ---- home ---- */
-      /* .ss-mark and .ss-eyebrow (the small logo-mark + label pairing) and
-         .ss-h1 / .ss-lede (the page heading and its lede) are shared with
-         the sign-in and firm-setup screens — defined once here. */
-      .ss-mark {
-        width: 44px; height: 44px; border-radius: 9px; background: linear-gradient(155deg, var(--pine), var(--pine-press));
-        color: var(--hivis); display: flex; align-items: center; justify-content: center; margin-bottom: 22px;
-        box-shadow: 0 4px 10px -4px rgba(16,53,42,.35);
-      }
-      .ss-eyebrow { font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--pine); margin-bottom: 10px; }
       .ss-h1 { font-family: var(--ss-font-display); font-size: 36px; line-height: 1.06; font-weight: 800; letter-spacing: -0.015em; margin: 0 0 14px; }
       .ss-lede { color: var(--muted); font-size: 15px; margin: 0 0 18px; max-width: 34ch; }
 
@@ -980,53 +971,12 @@ export function StyleBlock() {
         border-radius: 4px; color: var(--hivis); font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
       }
 
-      /* ---- accounts: sign-in, firm, team ---- */
-      .ss-signin { padding-top: 40px; }
-      .ss-signin form { display: flex; flex-direction: column; }
-      .ss-code-boxes { position: relative; display: flex; gap: 8px; }
-      .ss-code-box { flex: 1; height: 56px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; display: flex; align-items: center; justify-content: center; font: 800 26px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink); }
-      .ss-code-box.active { border-color: var(--pine); border-width: 1.5px; }
-      .ss-code-input { position: absolute; inset: 0; opacity: 0; border: 0; width: 100%; height: 100%; padding: 0; margin: 0; font-size: 16px; }
-      .ss-signin-oauth { display: flex; align-items: center; gap: 8px; margin: 20px 0 0; padding-top: 18px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
-      .ss-signin-dot { color: var(--muted2); }
-      .ss-signin-links { display: flex; justify-content: space-between; margin-top: 14px; }
-      .ss-signin-links .ss-link { padding: 6px 0; }
-      .ss-error { color: var(--red); margin: 12px 2px 0; }
-      .ss-invite-banner { background: var(--pine-tint); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; font-size: 14px; margin-bottom: 18px; line-height: 1.45; }
-      .ss-org-card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 12px; }
-      .ss-org-card-title { display: flex; align-items: center; gap: 7px; font-weight: 800; font-size: 14px; }
-      .ss-org-row { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 12px 4px; border-top: 1px solid var(--line-soft); font-weight: 700; font-size: 14px; text-align: left; }
-      .ss-org-row:first-of-type { border-top: 0; }
-      .ss-role-pill { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); background: var(--paper-deep); border-radius: 999px; padding: 4px 9px; flex-shrink: 0; }
-      .ss-member-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line-soft); }
-      .ss-member-row:first-child { border-top: 0; padding-top: 2px; }
-      .ss-member-name { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .ss-member-sub { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .ss-role-select { appearance: none; -webkit-appearance: none; background: var(--paper-deep); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font: inherit; font-size: 13px; font-weight: 700; color: var(--ink); }
+      /* a small round icon button (Setup's rename/remove, Settings' remove
+         rate) and the safety net that keeps a wide value in a flex row from
+         pushing the page sideways */
       .ss-icon-btn { width: var(--ss-touch-min); height: var(--ss-touch-min); border-radius: 999px; display: flex; align-items: center; justify-content: center; color: var(--muted); background: var(--paper-deep); flex-shrink: 0; }
-      .ss-invite-result { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line-soft); }
-      .ss-account-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; font-size: 13.5px; }
-      .ss-account-row .ss-muted { color: var(--muted); }
-      /* a wide <select> or a long value in a flex row must shrink, never push
-         the page sideways */
-      .ss-scroll { overflow-x: hidden; }
-      .ss-key-row > * { min-width: 0; }
-      .ss-role-select { max-width: 100%; width: 100%; text-overflow: ellipsis; }
-
-      /* ---- team table ---- */
-      .ss-team-head {
-        display: grid; grid-template-columns: minmax(0, 1fr) 80px 56px; gap: 8px; align-items: baseline;
-        padding-bottom: 6px; border-bottom: 1px solid var(--ink);
-        font-size: 11px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; color: var(--muted);
-      }
-      .ss-team-head span:last-child { text-align: right; }
-      .ss-team-row {
-        display: grid; grid-template-columns: minmax(0, 1fr) 80px 56px; gap: 8px; align-items: center;
-        min-height: 52px; padding: 8px 0; border-bottom: 1px solid var(--line);
-      }
-      .ss-team-active { font-family: var(--ss-font-mono); font-size: 12.5px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
       .ss-team-cancel { font-size: 12.5px; font-weight: 700; color: var(--muted); text-align: right; }
-      .ss-team-pending { font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--amber); }
+      .ss-scroll { overflow-x: hidden; }
 
       /* ---- first run + background filing ---- */
       .ss-cloud-status {
@@ -1042,22 +992,11 @@ export function StyleBlock() {
       .ss-drive-where b { font-weight: 700; color: var(--ink); }
       .ss-drive-where a { color: var(--pine); font-weight: 700; display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
 
-      /* ---- firm register ---- */
+      /* ---- sync indicator ---- */
       .ss-sync { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--muted); margin: 10px 2px 0; }
       .ss-sync-error, .ss-sync-failed { color: var(--red); }
       .ss-sync-offline { color: var(--amber); }
       .ss-sync-syncing { color: var(--muted); }
-      .ss-remote-room { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-top: 10px; }
-      .ss-remote-room-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-      .ss-remote-note { margin: 6px 0 0; font-size: 13px; color: var(--muted); white-space: pre-wrap; }
-      .ss-remote-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
-      .ss-remote-thumb { margin: 0; }
-      .ss-remote-thumb img, .ss-remote-thumb-empty { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; background: var(--paper-deep); display: block; }
-      .ss-remote-thumb figcaption { font-size: 10.5px; color: var(--muted); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .ss-cond-pill { font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; border-radius: 999px; padding: 3px 8px; background: var(--paper-deep); color: var(--muted); }
-      .ss-cond-pill.poor { background: var(--red-tint); color: var(--red); }
-      .ss-cond-pill.fair { background: var(--amber-tint); color: var(--amber); }
-      .ss-cond-pill.good { background: var(--pine-tint); color: var(--pine); }
 
       /* ---- issues (defect clusters) on the room screen ---- */
       .ss-issues { margin-top: 14px; }

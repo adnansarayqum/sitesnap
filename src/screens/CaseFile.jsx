@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useRef } from "react";
 import {
-  Camera, Check, Image as ImageIcon, Loader2, Mail, Pencil, Plus, ScanLine, Share2, Trash2, User,
+  Camera, Check, Image as ImageIcon, Loader2, Pencil, Plus, ScanLine, Share2, Trash2, User,
 } from "lucide-react";
 import { ReorderableList } from "../components/shared.jsx";
 import { Coach } from "../components/Hints.jsx";
@@ -36,11 +36,11 @@ const TAB_STYLE = { display: "flex", flexDirection: "column", flex: 1, minHeight
 // Evidence (the live camera and a room's photos) still push on top of this,
 // same as before; only the finished-case wizard collapsed into tabs.
 export function CaseFileScreen({
-  inspection, sync, filing, saveStatus, onFiled, rooms, photoCache, totalPhotos, doneRooms,
+  inspection, filing, saveStatus, onFiled, rooms, photoCache, totalPhotos, doneRooms,
   caseTab, onCaseTab, onExit, onReorder, onAddRoom, onRename, onOpenRoom, onWalk,
   filesForRoom, filesForUpload, fullPhoto, audioCache,
-  onUploadResult, onExportResult, onFindings, onTranscripts, onRoom, me, syncNow, onTrack, onActivity, onSaveAll, onDone,
-  idPhoto, onIdPhoto, onRemoveIdPhoto, onShareIdPhoto, onEmailIdPhoto, idPhotoNote,
+  onUploadResult, onExportResult, onFindings, onTranscripts, onRoom, me, onTrack, onActivity, onSaveAll, onDone,
+  idPhoto, onIdPhoto, onRemoveIdPhoto, onShareIdPhoto,
 }) {
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState({ address: "", postcode: "" });
@@ -97,8 +97,8 @@ export function CaseFileScreen({
 
       {caseTab === "overview" && (
         <div className="ss-screen-in" style={TAB_STYLE}>
-          <OverviewTab inspection={inspection} sync={sync} filing={filing} saveStatus={saveStatus} rooms={rooms} totalPhotos={totalPhotos} doneRooms={doneRooms} onWalk={onWalk}
-            idPhoto={idPhoto} onIdPhoto={onIdPhoto} onRemoveIdPhoto={onRemoveIdPhoto} onShareIdPhoto={onShareIdPhoto} onEmailIdPhoto={onEmailIdPhoto} idPhotoNote={idPhotoNote} onCaseTab={onCaseTab} onUpdateDetails={onRename} />
+          <OverviewTab inspection={inspection} filing={filing} saveStatus={saveStatus} rooms={rooms} totalPhotos={totalPhotos} doneRooms={doneRooms} onWalk={onWalk}
+            idPhoto={idPhoto} onIdPhoto={onIdPhoto} onRemoveIdPhoto={onRemoveIdPhoto} onShareIdPhoto={onShareIdPhoto} onCaseTab={onCaseTab} onUpdateDetails={onRename} />
         </div>
       )}
       {caseTab === "rooms" && (
@@ -112,7 +112,7 @@ export function CaseFileScreen({
       {caseTab === "findings" && (
         <div className="ss-screen-in" style={TAB_STYLE}>
           <FindingsTab inspection={inspection} rooms={rooms} photoCache={photoCache} fullPhoto={fullPhoto} audioCache={audioCache}
-            onFindings={onFindings} onTranscripts={onTranscripts} onRoom={onRoom} me={me} syncNow={syncNow} onTrack={onTrack} onActivity={onActivity} onOpenRoom={onOpenRoom} />
+            onFindings={onFindings} onTranscripts={onTranscripts} onRoom={onRoom} me={me} onTrack={onTrack} onActivity={onActivity} onOpenRoom={onOpenRoom} />
         </div>
       )}
       {caseTab === "export" && (
@@ -173,7 +173,7 @@ export function InspectionSummary({ inspection, rooms, totalPhotos, onReview }) 
 const MAX_IMPORT_FILES = 8;
 const MAX_IMPORT_PDF_BYTES = 12 * 1024 * 1024;
 
-export function OverviewTab({ inspection, sync, filing, saveStatus, rooms, totalPhotos, doneRooms, onWalk, idPhoto, onIdPhoto, onRemoveIdPhoto, onShareIdPhoto, onEmailIdPhoto, idPhotoNote, onCaseTab, onUpdateDetails }) {
+export function OverviewTab({ inspection, filing, saveStatus, rooms, totalPhotos, doneRooms, onWalk, idPhoto, onIdPhoto, onRemoveIdPhoto, onShareIdPhoto, onCaseTab, onUpdateDetails }) {
   const idInput = useRef(null);
   const importInput = useRef(null);
   const [editingDetails, setEditingDetails] = useState(false);
@@ -301,22 +301,21 @@ export function OverviewTab({ inspection, sync, filing, saveStatus, rooms, total
             onSave={(patch) => { onUpdateDetails && onUpdateDetails(patch); setImportResult(null); }} />
         )}
 
-        <SyncIndicator variant="line" saveStatus={saveStatus} sync={sync} filing={filing} />
+        <SyncIndicator variant="line" saveStatus={saveStatus} filing={filing} />
 
         {/* The surveyor's ID selfie for the file: its own slot, so it never
             lands in a room folder and never needs pulling out of the batch
-            by hand. Files to Inspection/ on upload and export; one tap emails
-            it to the signed-in surveyor (accounts mode), Share covers the rest. */}
+            by hand. Files to Inspection/ on upload and export; Share covers
+            getting a copy off the phone. */}
         <input ref={idInput} type="file" accept="image/*" capture="user" className="ss-hidden"
           onChange={(e) => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) onIdPhoto(f); }} />
         <div className="ss-idphoto">
           {idPhoto && (idPhoto.thumb || idPhoto.dataUrl) ? <img src={idPhoto.thumb || idPhoto.dataUrl} alt="" /> : <div className="ph"><User size={22} /></div>}
           <div className="ss-idphoto-main">
             <b>ID photo</b>
-            <span>{idPhotoNote || (idPhoto ? (onEmailIdPhoto ? "Filed separately. Tap the envelope to email it to yourself." : "Filed separately from room photos.") : "Kept out of the room folders.")}</span>
+            <span>{idPhoto ? "Filed separately from room photos." : "Kept out of the room folders."}</span>
           </div>
           <div className="ss-idphoto-actions">
-            {idPhoto && onEmailIdPhoto && <button onClick={onEmailIdPhoto} aria-label="Email the ID photo to me" title="Email it to me"><Mail size={16} /></button>}
             {idPhoto && onShareIdPhoto && <button onClick={onShareIdPhoto} aria-label="Share ID photo" title="Share or email the ID photo"><Share2 size={16} /></button>}
             {idPhoto && <button onClick={onRemoveIdPhoto} aria-label="Remove ID photo" title="Remove"><Trash2 size={16} /></button>}
             <button onClick={() => idInput.current && idInput.current.click()} aria-label={idPhoto ? "Retake ID photo" : "Take ID photo"} title={idPhoto ? "Retake" : "Take"}><Camera size={16} /></button>

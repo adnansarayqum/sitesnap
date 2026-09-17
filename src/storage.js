@@ -36,10 +36,10 @@ export async function storageEstimate() {
 }
 
 const LEGACY_KEY = "sitesnap:inspection";   // pre-1.3: a single inspection
-// In accounts mode every list that defines "what this person can see" is
-// kept per user, so two surveyors sharing a phone never see each other's
-// cases. Photos and records are keyed by their own unique ids and need no
-// namespace; the lists are what select them.
+// setStorageNamespace exists for a future where more than one person uses
+// this phone; with no sign-in to call it, NS is always "" today — every
+// list lives under the plain, unnamespaced key. Photos and records are
+// keyed by their own unique ids and need no namespace regardless.
 let NS = "";
 export function setStorageNamespace(userId) { NS = userId ? String(userId) : ""; }
 const indexKey = () => (NS ? `sitesnap:u:${NS}:inspections` : "sitesnap:inspections"); // [{id, address, postcode, startedAt}]
@@ -234,8 +234,7 @@ export async function removeAudio(id) {
   try { await del(`sitesnap:audio:${id}`); } catch {}
 }
 
-// local mode: the surveyor's own rates live on the phone (accounts mode
-// keeps them in the firm's register instead — src/pricebook.js)
+// the surveyor's own rates, kept on the phone (src/pricebook.js)
 const RATES_KEY = "sitesnap:priceRows";
 export async function loadPriceRows() {
   try { return (await get(RATES_KEY)) || []; } catch { return []; }

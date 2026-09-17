@@ -14,9 +14,11 @@
 //   GET  /api/ai/cases/:id/runs/:runId                            one run's audit record
 //   PUT  /api/ai/findings/:fid                                    the surveyor's review, under the state machine
 //
-// In accounts mode everything is scoped to the signed-in firm and persisted
-// (findings, runs, transcripts) so a case's history is auditable. In local
-// mode nothing is stored server-side — the phone keeps it in the case.
+// This app has no sign-in, so nothing here is stored server-side — the
+// phone keeps everything (findings, runs, transcripts) in the case itself.
+// The org-scoped persistence path below (guarded by requireOrg) predates
+// that decision and is dead code today, kept only because a database is
+// still optionally used by the reference pack / price-book routes.
 import express from "express";
 import crypto from "node:crypto";
 import { hasDb, q, one } from "./db.js";
@@ -57,8 +59,9 @@ const MAX_INTAKE_DOCS = 8;
 const MAX_INTAKE_DOC_B64 = 17 * 1024 * 1024;
 
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
-// local mode has no sessions: the app is single-user and these routes are
-// as open as the rest of it
+// no sign-in exists to create a session, so this never actually gates
+// anything — kept only so these routes fail the same way (401, not 500)
+// if a database happens to be configured
 const guard = hasDb ? requireOrg : (req, res, next) => next();
 const who = (req) => (req.session ? `u:${req.session.user_id}` : `ip:${clientIp(req)}`);
 const s = (v, n) => String(v == null ? "" : v).slice(0, n);
@@ -69,8 +72,7 @@ async function ownedCase(req, id) {
 }
 
 // the reference pack this request prices and cites from: the file pack plus
-// the firm's own rates — from the register in accounts mode, from the phone
-// (cleaned like any other input) in local mode
+// the surveyor's own rates, sent from the phone and cleaned like any other input
 async function refFor(req, clientRows) {
   const base = loadReference();
   if (hasDb && req.session && req.session.org_id) return mergeReference(base, await loadFirmRows(req.session.org_id));

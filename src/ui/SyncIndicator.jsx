@@ -6,7 +6,6 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, Check, CloudOff, Loader2 } from "lucide-react";
 import { deriveSyncStatus } from "../syncStatus.js";
-import { relativeDay } from "../screens/Home.jsx";
 
 export function useOnline() {
   const [online, setOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine !== false);
@@ -28,9 +27,9 @@ const ICON = {
 // the capture header's existing tone classes
 const PILL_TONE = { saved: "ok", syncing: "busy", offline: "offline", failed: "failed" };
 
-export function SyncIndicator({ saveStatus, sync, filing, variant = "pill" }) {
+export function SyncIndicator({ saveStatus, filing, variant = "pill" }) {
   const online = useOnline();
-  const s = deriveSyncStatus({ saveStatus, sync, filing, online, ago: (at) => relativeDay(at) });
+  const s = deriveSyncStatus({ saveStatus, filing, online });
   if (variant === "line") {
     return (
       <div className={`ss-sync ss-sync-${s.state}`} role="status">

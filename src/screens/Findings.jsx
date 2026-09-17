@@ -29,7 +29,7 @@ const money = (n) => `£${Math.round(n).toLocaleString("en-GB")}`;
 const sourceLabelShort = (id) => { const m = /^MEMO-(\d+)$/.exec(id); return m ? `Memo ${m[1]}` : id; };
 const when = (iso) => new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
-export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCache, onFindings, onTranscripts, onRoom, onActivity, me, onOpenRoom, syncNow, onTrack }) {
+export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCache, onFindings, onTranscripts, onRoom, onActivity, me, onOpenRoom, onTrack }) {
   const track = onTrack || (() => {});
   const state = migrateFindings(inspection.findings);
   const transcripts = inspection.transcripts || {};
@@ -42,10 +42,9 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
   const [open, setOpen] = useState({});           // { [`${kind}:${id}`]: bool } expanders
   const [notice, setNotice] = useState(null);
   const abortRef = useRef(null);
-  // the surveyor's own rates: from the firm's register, or this phone
-  const accounts = !!(me && me.mode === "accounts" && me.org);
+  // the surveyor's own rates, kept on this phone
   const [rates, setRates] = useState([]);
-  useEffect(() => { listRates(accounts).then(setRates); }, [accounts]);
+  useEffect(() => { listRates().then(setRates); }, []);
   useEffect(() => { aiConfig().then(setCfg); }, []);
   useEffect(() => () => { if (abortRef.current) abortRef.current.abort(); }, []);
 
@@ -81,10 +80,6 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
   async function draftIssues(targets, { force = [] } = {}) {
     if (progress && progress.running) return;
     if (!targets.length) return;
-    // in a firm the register is the authority on what belongs to the case:
-    // push the latest room/issue/photo state first so the server can check
-    // the evidence against it (it refuses anything it doesn't know)
-    if (syncNow) { try { await syncNow(); } catch { /* offline — the server will say so if it matters */ } }
     const controller = new AbortController();
     abortRef.current = controller;
     const statuses = {};
@@ -120,7 +115,7 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
         // the same request and gets the same answer, never a second finding
         const requestId = newRequestId();
         const snapshot = issueFingerprint(issue, room, photoCache, words);
-        const body = await issueRequest({ inspection, room, issue, order, photoCache, transcripts: words, fullPhoto, requestId, snapshot, prior: working.runs[issue.id], force, firmRows: accounts ? undefined : rates });
+        const body = await issueRequest({ inspection, room, issue, order, photoCache, transcripts: words, fullPhoto, requestId, snapshot, prior: working.runs[issue.id], force, firmRows: rates });
         const res = await withOfflineRetry(() => draftIssue(inspection.id, room.id, issue.id, body, controller.signal), { isAlive: () => !controller.signal.aborted, onQueued: () => set(issue.id, "waiting") });
         working = mergeRun(working, { issue, room }, res);
         onFindings(working);
@@ -177,7 +172,7 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
       const high = Number.isFinite(hiRaw) && hiRaw >= low ? Math.round(hiRaw) : Math.round(low);
       if (editing.remember) {
         try {
-          saved = await addRate(accounts, { work: editing.rateWork || f.title, trade: editing.trade, low: Math.round(low), high, sourceCaseId: inspection.id, sourceFindingId: f.id, sourceTitle: f.title });
+          saved = await addRate({ work: editing.rateWork || f.title, trade: editing.trade, low: Math.round(low), high, sourceCaseId: inspection.id, sourceFindingId: f.id, sourceTitle: f.title });
           setRates((r) => [saved, ...r]);
           track("rate_saved", { case: inspection.id, finding: f.id });
         } catch (e) { flash(`The rate wasn't saved: ${e.message}`); }
@@ -217,7 +212,7 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
     setQty((q) => ({ ...q, busy: true, error: null }));
     try {
       const items = (f.cost.lines || []).map((l) => ({ price_book_row_id: l.row_id, quantity: l.proposedQty, quantity_basis: l.basis, quantity_evidence: l.evidence, reason: l.reason }));
-      const res = await priceWithQuantities(items, qty.values, accounts ? undefined : rates);
+      const res = await priceWithQuantities(items, qty.values, rates);
       const ok = await decide(f, "edited", { reviewed: { ...(f.reviewed || {}), pricing: res, quantities: qty.values, at: Date.now() }, reason: "surveyor confirmed quantities" });
       if (ok) setQty(null);
     } catch (e) { setQty((q) => ({ ...q, busy: false, error: e.message })); }

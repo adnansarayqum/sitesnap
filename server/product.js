@@ -1,8 +1,9 @@
 // Pilot instrumentation: product events, structured feedback and the
 // founder's pilot view. Deliberately small — what happened, to whom, when —
-// with nothing of the inspection itself. Accounts mode only (it needs a
-// user and a firm to attach to); in local mode events are acknowledged and
-// dropped, feedback is logged.
+// with nothing of the inspection itself. This app has no sign-in, so these
+// routes have no user or org to attach an event to: events are acknowledged
+// and dropped, feedback is logged, unless a database happens to be
+// configured.
 import express from "express";
 import { hasDb, q } from "./db.js";
 import { requireOrg, requireAdmin, rateLimit } from "./auth.js";

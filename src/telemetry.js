@@ -1,8 +1,9 @@
-// Product telemetry for the pilot: what a surveyor did and when, never what
-// they captured. Events carry ids and counts only (no addresses, notes,
-// captions, transcripts or photos) and are batched to POST /api/events in
-// accounts mode. In local mode nothing leaves the phone — the events are
-// counted in memory so the same code path works in both.
+// Product telemetry: what a surveyor did and when, never what they
+// captured. Events carry ids and counts only (no addresses, notes,
+// captions, transcripts or photos). Nothing is ever switched on here — with
+// no sign-in there's no one to attach usage to — so this only ever counts
+// locally (see localTelemetry()); the POST-to-/api/events path below is
+// dormant unless something calls configureTelemetry({ on: true }).
 //
 //   activation: case_created, inspection_started, issue_created, photo_captured,
 //               memo_recorded, reading_added, inspection_completed

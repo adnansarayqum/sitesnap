@@ -82,8 +82,7 @@ export async function issueRequest({ inspection, room, issue, order, photoCache,
     // reused server-side; `force` names the ones to re-run anyway
     prior: prior && prior.stageHashes && prior.stages ? { stageHashes: prior.stageHashes, stages: prior.stages, models: prior.models, evidence: prior.evidence } : null,
     force: force || [],
-    // local mode only: the surveyor's own rates travel with the request (in
-    // accounts mode the server reads them from the firm's register)
+    // the surveyor's own rates, kept on the phone, travel with the request
     firmRows: firmRows && firmRows.length ? firmRows : undefined,
   };
 }
@@ -125,10 +124,10 @@ export async function priceWithQuantities(items, overrides, firmRows) {
   return r.json();
 }
 
-// best effort: in local mode there is nothing server-side to update; in
-// accounts mode the server enforces the same state machine and answers 409
-// when the phone's view is stale
-let remoteReview = true; // false once the server says there is no register copy (local mode)
+// best effort: with no server-side case register there is nothing to
+// update remotely, so this always settles to local-only after the first
+// attempt tells it so
+let remoteReview = true; // false once the server says there is no register copy
 export async function reviewFinding(id, status, { reviewed, snapshot, reason } = {}) {
   if (!remoteReview) return { ok: true, local: true };
   try {
