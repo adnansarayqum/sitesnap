@@ -1,7 +1,7 @@
 {
-  "version": 2,
+  "version": 3,
   "currency": "GBP",
-  "updated": "2026-09-09",
+  "updated": "2026-09-17",
   "note": "Controlled pricing source. The pipeline may only propose a row by id with a quantity and the evidence for that quantity; the server looks the row up, checks it is active, multiplies and stores the book version — the model never writes a final number. `qty.kind` is count (whole units the photos can show: a window, a fan, a ceiling) or measure (an area or length that must be evidenced or entered by the surveyor). `qty.default` is the assumption used when the evidence does not state a count — always flagged as an assumption for the surveyor to confirm. `qty.evidence: required` rows stay unpriced until the quantity is evidenced or entered. `excludes` lists rows that must not be priced in the same finding. Rows marked status: example are placeholders until the firm's own rates replace them; rows marked status: confirmed came from the surveyor. Ranges are supply-and-fit, inc. access and making good, exc. VAT unless a row says otherwise.",
   "items": [
     {
@@ -84,8 +84,8 @@
       "id": "MOULD-WALL",
       "work": "Clean and fungicidally treat mould to wall areas; prepare, stain-block and redecorate with a moisture-resistant paint system",
       "unit": "per wall area up to ~4 m²",
-      "low": 140,
-      "high": 260,
+      "low": 150,
+      "high": 220,
       "status": "example",
       "active": true,
       "qty": {
@@ -95,15 +95,15 @@
         "evidence": "assumable"
       },
       "excludes": [],
-      "source": "placeholder",
-      "notes": "Treats the symptom only — pair with the cause (ventilation, leak, fabric)."
+      "source": "not yet confirmed by the surveyor — but drawn from the firm's own MLA/TLB template worked examples, not invented: mould wash/treat is a consistent flat £55 across every occurrence (MLA Items 5 & 8), and the stain-block + redecorate step that follows it runs £110 (MLA Items 4 & 8). £55 + £110 = £165, which this range brackets.",
+      "notes": "Treats the symptom only — pair with the cause (ventilation, leak, fabric). Still needs a quick surveyor confirm, not a firm quote."
     },
     {
       "id": "EXTRACT-FAN-REPLACE",
       "work": "Replace an under-performing or non-functioning bathroom/kitchen extractor fan with a humidistat/timer unit, including electrical connection and making good",
       "unit": "per fan",
-      "low": 180,
-      "high": 320,
+      "low": 220,
+      "high": 390,
       "status": "example",
       "active": true,
       "qty": {
@@ -113,15 +113,15 @@
         "evidence": "assumable"
       },
       "excludes": [],
-      "source": "placeholder",
-      "notes": "Where the paper test / anemometer shows inadequate extraction."
+      "source": "not yet confirmed by the surveyor — but drawn from the firm's own MLA/TLB template worked examples: unit + NICEIC electrician install/cert runs £220+£170=£390 (MLA Item 3) and £280 all-in (TLB Item 1); the unit alone (cert done elsewhere in the same report) is £110–£121 (MLA Items 4 & 8).",
+      "notes": "Where the paper test / anemometer shows inadequate extraction. Range assumes cert is priced in this row — don't double-count if NICEIC certification is also billed separately elsewhere in the same finding."
     },
     {
       "id": "LEAK-TRACE",
       "work": "Trace and repair a concealed plumbing leak (bath/shower/WC connection), including opening up and making good",
       "unit": "per leak",
-      "low": 220,
-      "high": 480,
+      "low": 150,
+      "high": 350,
       "status": "example",
       "active": true,
       "qty": {
@@ -131,8 +131,8 @@
         "evidence": "assumable"
       },
       "excludes": [],
-      "source": "placeholder",
-      "notes": "Use as investigation_first where the source is not established."
+      "source": "not yet confirmed by the surveyor — but drawn from the firm's own MLA/TLB template worked examples: a plumber's leak inspection-and-repair alone (no fixture replacement) runs £150 (MLA Item 5, WC/basin) to £300 (TLB Item 1, block-wide supply pipework). FLAG FOR SHAH: the old placeholder's £220 floor sat above every real 'trace and repair only' figure found — worth a specific check, since it moves the opposite way from his past £50→£160 correction on ASB-SAMPLE.",
+      "notes": "Use as investigation_first where the source is not established. A bundled job that also replaces a fixture (e.g. a cracked shower tray) ran £485 in one example (MLA Item 4) — that's a different, larger scope than a bare trace-and-repair; don't fold it into this row without checking for a fixture-replacement exclusion."
     },
     {
       "id": "SEALANT-BATH",
@@ -203,8 +203,8 @@
         "evidence": "assumable"
       },
       "excludes": [],
-      "source": "placeholder",
-      "notes": "Use where the remedial works leave more than the immediate area needing decoration."
+      "source": "placeholder — low/high unchanged; see notes",
+      "notes": "Use where the remedial works leave more than the immediate area needing decoration. Not directly evidenced: the firm's MLA/TLB template worked examples only ever redecorate a single wall or ceiling after a repair (£110–£198, MLA Items 1/4/5/6/8; £330 for a full ceiling+wall+floor job, TLB Item 1), never a whole room end to end — extrapolating that to a full-room figure would be a guess dressed up as evidence, so this range is left as-is pending the surveyor's own number."
     }
   ]
 }
