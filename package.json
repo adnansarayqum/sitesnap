@@ -16,6 +16,7 @@
     "evals:payload": "AI_MOCK=1 node --expose-gc server/evals/payload-benchmark.mjs",
     "test": "vitest run",
     "test:e2e": "node test/e2e/local.mjs",
+    "test:e2e:disrepair": "AI_MOCK=1 node test/e2e/disrepair-automation.mjs",
     "cap:sync": "vite build && cap sync"
   },
   "dependencies": {
