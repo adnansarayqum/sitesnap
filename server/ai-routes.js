@@ -46,9 +46,15 @@ const MAX_PHOTOS = 60;
 const MAX_PHOTO_B64 = 1.5 * 1024 * 1024;
 const MAX_MEMOS = 40;
 // a letter of claim/instruction is rarely more than a handful of pages; a
-// native PDF can run larger than a single photo, so it gets its own cap
+// native PDF can run larger than a single photo, so it gets its own cap.
+// The client's own check (src/screens/CaseFile.jsx) is against the raw
+// file's byte size and advertises "under 12MB" to the surveyor — base64
+// inflates that by ~4/3 plus a short data-URL prefix, so this cap (which
+// is measured on the base64 string, not the original file) has to clear
+// what a genuinely-under-12MB file becomes, or a file the surveyor was
+// told was fine gets silently rejected here instead.
 const MAX_INTAKE_DOCS = 8;
-const MAX_INTAKE_DOC_B64 = 12 * 1024 * 1024;
+const MAX_INTAKE_DOC_B64 = 17 * 1024 * 1024;
 
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 // local mode has no sessions: the app is single-user and these routes are

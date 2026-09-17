@@ -181,13 +181,18 @@ function scottScheduleRow({ title, content }, it, itemNumber) {
 }
 
 // Unlike the other three sheets, the Scott Schedule's "Additional Items"
-// subtotal is a fixed row range (block 8 only — E47:E51), not a text
-// match. So after placeAdditionalItemsLast() has put the additional room
-// last in the sequence (for correct, consistent ITEM numbering across
-// every sheet), its content here still has to land specifically in the
-// last physical block, not wherever the sequence happens to reach — a
-// 3-item case with an additional room can't just fill blocks 0-2.
-function scottScheduleWrites(allItems) {
+// subtotal (and VAT/total) is a fixed CELL RANGE, not a text match —
+// whatever physically sits in the last block is summed into that bucket,
+// whatever it's actually called. So this function must never put a plain
+// room into the last block just because there happen to be enough items
+// to fill it: doing that once (an earlier version of this fix) silently
+// re-labelled a real room's cost as an "additional item" in the printed
+// report — wrong in a different way than dropping it, not better. The
+// last block is reserved for a genuine "Additional Claim Items" room, or
+// left blank; callers are responsible for capping how many *regular*
+// rooms they ever hand this function to `blocks.length - 1` (see
+// capForPrint below) so a real room is never silently placed here.
+export function scottScheduleWrites(allItems) {
   const items = allItems.slice(0, SCOTT_SCHEDULE_BLOCKS.length);
   const lastBlock = SCOTT_SCHEDULE_BLOCKS.length - 1;
   const hasAdditional = items.length > 0 && /additional/i.test(items[items.length - 1].room || "");
@@ -200,6 +205,19 @@ function scottScheduleWrites(allItems) {
   const additionalItem = hasAdditional ? items[items.length - 1] : null;
   writes.push(...scottScheduleRow(SCOTT_SCHEDULE_BLOCKS[lastBlock], additionalItem, items.length));
   return writes;
+}
+
+// The true, safe cap on *regular* rooms this template can print without
+// either dropping one (too many items for the blocks available) or
+// mislabelling one as "additional" (filling the last, fixed-range block
+// with a room that isn't). Reaching the full block count is only safe
+// when the last item genuinely is the additional-items room; otherwise
+// the last block must stay unused, so the real cap is one fewer. Matches
+// the firm's own real usage: items 1-7 the actual rooms, item 8 reserved
+// for the catch-all — never 8 distinct named rooms with none additional.
+export function capForPrint(items, blockCount) {
+  const hasAdditional = items.length > 0 && /additional/i.test(items[items.length - 1].room || "");
+  return items.slice(0, hasAdditional ? blockCount : blockCount - 1);
 }
 
 // Puts a room named "Additional Claim Items" (if any) at the very end of
@@ -253,12 +271,18 @@ async function writeSheet(zip, part, writes, opts) {
 // 8-item cap couldn't be written, for the caller to tell the surveyor.
 export async function fillMlaTemplate(templateBytes, { meta = {}, items: rawItems = [] }) {
   const items = placeAdditionalItemsLast(rawItems);
+  // DATA ENTRY 2 keeps the full, uncapped list (a faithful record, and
+  // formula-driven only for the Room/Area label) — the other three
+  // printed sheets share one consistent, correctly-capped list so a room
+  // is never shown in the narrative but missing (or mislabelled) in the
+  // Scott Schedule.
+  const printed = capForPrint(items, MAX_MLA_ITEMS);
   const zip = await JSZip.loadAsync(templateBytes);
 
   await writeSheet(zip, DATA_ENTRY_2_PART, [...metaWrites(meta), ...itemWrites(items)], { styleTemplateRow: ITEM_ROW_STYLE });
-  await writeSheet(zip, DATA_ENTRY_PART, dataEntryWrites(items));
-  await writeSheet(zip, FINDINGS_PART, findingsWrites(items));
-  await writeSheet(zip, SCOTT_SCHEDULE_PART, scottScheduleWrites(items));
+  await writeSheet(zip, DATA_ENTRY_PART, dataEntryWrites(printed));
+  await writeSheet(zip, FINDINGS_PART, findingsWrites(printed));
+  await writeSheet(zip, SCOTT_SCHEDULE_PART, scottScheduleWrites(printed));
   await writeSheet(zip, COVER_PART, []);
   await writeSheet(zip, CONCLUSIONS_PART, []);
 
@@ -266,5 +290,5 @@ export async function fillMlaTemplate(templateBytes, { meta = {}, items: rawItem
   zip.file("xl/workbook.xml", forceRecalc(await workbookFile.async("string")));
 
   const blob = await zip.generateAsync({ type: "blob", mimeType: "application/vnd.ms-excel.sheet.macroEnabled.12" });
-  return { blob, truncated: Math.max(0, items.length - MAX_MLA_ITEMS) };
+  return { blob, truncated: Math.max(0, items.length - printed.length) };
 }
