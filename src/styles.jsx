@@ -565,9 +565,6 @@ export function StyleBlock() {
          must show the whole frame — cropping a 4:3 feed to fill a tall phone
          hides ~40% of its width and reads as "zoomed in" next to the camera app */
       .ss-livecam-video { flex: 1; width: 100%; height: 100%; object-fit: contain; background: #000; touch-action: none; }
-      .ss-livecam-seg { display: flex; gap: 2px; background: rgba(255,255,255,.14); border-radius: 999px; padding: 2px; flex-shrink: 0; }
-      .ss-livecam-seg button { color: #fff; font-weight: 800; font-size: 12.5px; border-radius: 999px; padding: 5px 10px; font-variant-numeric: tabular-nums; }
-      .ss-livecam-seg button.on { background: var(--hivis); color: var(--hivis-deep); }
       .ss-livecam-zoom {
         position: absolute; left: 50%; bottom: calc(112px + env(safe-area-inset-bottom));
         transform: translateX(-50%); z-index: 2;
