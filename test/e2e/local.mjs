@@ -510,6 +510,37 @@ try {
   rec("S15 API abuse: AI-off 501, traversal, oversize body, wrong content-type 415, JSON 404s, no source leak", okAiOff && okTraversal && okBig && okStaticTraversal && okEnc && ok415 && okJson404 ? "PASS" : "FAIL", `caption(aiOff)=${r1.s} traversalId=${r2.s} 5MB=${r3.s} POST /api/cases/abc=${r4.s} ${r4.ct.split(";")[0]} static..=${r5.s}(shell) enc..=${r6.s}(shell) textToTranscribe=${r7.s} PATCH me(local)=${r8.s} ${r8.ct.split(";")[0]}`);
 } catch (e) { rec("S15", "FAIL", e.message); }
 
+// ---------------------------------------------------------------- S16 rooms/areas picker: flat, alphabetical, no category headings
+// Regression guard: the picker was once grouped under headings ("Rooms",
+// "Services", "Outside", "Whole property & other"), changed to a flat
+// alphabetical grid after field feedback that the headings were slower to
+// scan on site, then silently regrouped by a later redesign pass that
+// carried the old rendering path forward without noticing. Only a human
+// re-using the app caught it. This locks the fixed behaviour down so the
+// next redesign fails here instead of waiting for someone to notice again.
+try {
+  const { ctx, page } = await fresh();
+  await page.getByRole("button", { name: /new inspection/i }).click(); await w(page);
+  await page.locator('input[placeholder="23 High Street"]').fill("1 Test St");
+  await page.getByRole("button", { name: /^Next/ }).click(); await w(page);
+  // unfiltered: what a surveyor sees the instant this step opens
+  const headingsUnfiltered = await page.locator(".ss-section-label").count();
+  const chipsUnfiltered = await page.locator(".ss-chip-main").allInnerTexts();
+  const sortedUnfiltered = [...chipsUnfiltered].sort((a, b) => a.localeCompare(b));
+  const alphaUnfiltered = JSON.stringify(chipsUnfiltered) === JSON.stringify(sortedUnfiltered);
+  // filtered: typing narrows the same flat list, never reintroduces headings
+  await page.locator('input[placeholder="Filter areas…"]').fill("b"); await w(page, 200);
+  const headingsFiltered = await page.locator(".ss-section-label").count();
+  const chipsFiltered = await page.locator(".ss-chip-main").allInnerTexts();
+  const sortedFiltered = [...chipsFiltered].sort((a, b) => a.localeCompare(b));
+  const alphaFiltered = chipsFiltered.length > 0 && JSON.stringify(chipsFiltered) === JSON.stringify(sortedFiltered);
+  const ok = headingsUnfiltered === 0 && alphaUnfiltered && headingsFiltered === 0 && alphaFiltered;
+  rec("S16 rooms/areas picker stays a flat alphabetical grid, filtered or not", ok ? "PASS" : "FAIL",
+    `headingsUnfiltered=${headingsUnfiltered} alphaUnfiltered=${alphaUnfiltered} chips=${chipsUnfiltered.length} headingsFiltered=${headingsFiltered} alphaFiltered=${alphaFiltered} filteredChips=${chipsFiltered.length}`);
+  const e = errs(page); if (e.length) rec("S16 console", "FAIL", e.join(" | "));
+  await ctx.close();
+} catch (e) { rec("S16", "FAIL", e.message); }
+
 await browser.close();
 console.log("\n==== SUMMARY ====");
 for (const r of results) console.log(`${r.status.padEnd(4)} ${r.id}`);
