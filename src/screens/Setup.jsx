@@ -3,7 +3,7 @@ import {
   ArrowRight, Briefcase, Check, Minus, Pencil, Plus, ScanLine, X,
 } from "lucide-react";
 import { ReorderableList } from "../components/shared.jsx";
-import { PRESETS, PRESET_GROUPS } from "../lib/presets.js";
+import { PRESETS } from "../lib/presets.js";
 import { pad, uid } from "../lib/util.js";
 import { AppHeader, Button, InlineAlert, SegmentedControl, StickyActionBar } from "../ui/index.js";
 
@@ -160,19 +160,12 @@ export function SetupScreen({ onBack, onStart }) {
         className="ss-input ss-filter" placeholder="Filter areas…"
         value={filter} onChange={(e) => setFilter(e.target.value)}
       />
-      {filter.trim() ? (
-        <div className="ss-chip-grid">
-          {PRESETS.filter((p) => p.base.toLowerCase().includes(filter.trim().toLowerCase()))
-            .sort((a, b) => a.base.localeCompare(b.base)).map(chip)}
-        </div>
-      ) : (
-        PRESET_GROUPS.map((g) => (
-          <div key={g.group} style={{ marginTop: 14 }}>
-            <div className="ss-section-label">{g.group}</div>
-            <div className="ss-chip-grid">{g.items.map(chip)}</div>
-          </div>
-        ))
-      )}
+      {/* A plain alphabetical grid, filter or no filter — category headings
+          were tried once and reported as slower to scan on site. */}
+      <div className="ss-chip-grid">
+        {PRESETS.filter((p) => p.base.toLowerCase().includes(filter.trim().toLowerCase()))
+          .sort((a, b) => a.base.localeCompare(b.base)).map(chip)}
+      </div>
       {addingCustom ? (
         <div className="ss-inline-add">
           <input
