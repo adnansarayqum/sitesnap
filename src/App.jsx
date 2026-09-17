@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { CloudUpload, Loader2, Undo2 } from "lucide-react";
+import { Loader2, Undo2 } from "lucide-react";
 import {
-  loadIndex, loadInspection, migrateLegacy, saveState, clearState, loadPhoto, savePhoto, updatePhoto, removePhoto, loadAudio, saveAudio, removeAudio, loadArchive, archiveInspection, sweepOrphans, setStorageErrorHandler, requestDurableStorage, storageEstimate, loadFieldMode, saveFieldMode, nextCaseNo, setStorageNamespace, loadWebhook,
+  loadIndex, loadInspection, migrateLegacy, saveState, clearState, loadPhoto, savePhoto, updatePhoto, removePhoto, loadAudio, saveAudio, removeAudio, loadArchive, archiveInspection, sweepOrphans, setStorageErrorHandler, requestDurableStorage, storageEstimate, loadFieldMode, saveFieldMode, nextCaseNo, loadWebhook,
 } from "./storage.js";
 import { THUMB_DIM, dataUrlToFile, drawScaled, loadImage, processCapture, shareFiles } from "./lib/image.js";
 import { idPhotoName } from "./screens/Finish.jsx";
@@ -14,18 +14,17 @@ import { SetupScreen } from "./screens/Setup.jsx";
 import { WalkScreen } from "./screens/Walk.jsx";
 import { CompleteScreen } from "./screens/Complete.jsx";
 import { StyleBlock } from "./styles.jsx";
-import { beginLink, claimFromUrl, setAccountLinks } from "./cloud/service.js";
-import { fetchMe, signOut as apiSignOut, captureInviteFromUrl, clearPendingInvite, inviteInfo, acceptInvite, cloudServiceConfig, emailIdPhoto as apiEmailIdPhoto } from "./auth.js";
-import { SignInScreen } from "./screens/SignIn.jsx";
-import { OrgScreen } from "./screens/Org.jsx";
-import { RemoteCaseScreen } from "./screens/RemoteCase.jsx";
-import { setSyncEnabled, queueCaseSync, pushCaseNow, deleteRemoteCase, fetchRegister, reconcile, onSync, syncState, resetSyncState } from "./sync.js";
+import { claimFromUrl, cloudServiceConfig, linkedAccount } from "./cloud/service.js";
 import { migrateRooms, migrateTranscripts, linkEvidence, unlinkEvidence, issueFor, typeNote, ROOM_MODEL_VERSION } from "./evidence.js";
 import { migrateFindings } from "./findings.js";
-import { configureTelemetry, track, flushTelemetry } from "./telemetry.js";
+import { track, flushTelemetry } from "./telemetry.js";
 import { configureFiling, enqueueFiling, clearFilingQueue, onFiling, filingState } from "./filing.js";
-import { linkedAccount } from "./cloud/service.js";
-import { Banner, Button, Modal, Toast } from "./ui/index.js";
+import { Banner, Toast } from "./ui/index.js";
+
+// A single-user, local-only app — there is no sign-in and no firm/org
+// concept — so this is a fixed stand-in for the "who's using the app"
+// shape a couple of screens still read defensively (Room.jsx, Findings.jsx).
+const ME = { mode: "local", user: null, org: null, orgs: [], links: [] };
 
 // Root: owns the open inspection, its rooms and the thumbnail cache, and
 // routes between the top-level tabs and the screens inside a case file.
@@ -71,23 +70,11 @@ export default function SiteSnap() {
   // returns to whichever tab it was opened from.
   const [screen, setScreen] = useState("loading");
   const [returnTab, setReturnTab] = useState("home");
-  // accounts mode: who's signed in and which firm (null = server unreachable
-  // or a deployment without a database, i.e. the single-user app)
-  const [me, setMe] = useState(null);
   const [cfg, setCfg] = useState({ mode: "local", onedrive: false, google: false });
-  const [invite, setInvite] = useState(null);
-  const [inviteToken, setInviteToken] = useState(null);
-  // the firm's case register (accounts mode) and this phone's sync status
-  const [register, setRegister] = useState([]);
-  const [sync, setSync] = useState(syncState());
-  const [remoteCaseId, setRemoteCaseId] = useState(null);
   // background filing: which linked drive photos go to as they're taken,
   // and whether Home should still be asking where photos go
   const [filing, setFiling] = useState(filingState());
-  const [idPhotoNote, setIdPhotoNote] = useState(null); // "Emailed to …" and the like, under the ID photo
   const [needsCloud, setNeedsCloud] = useState(false);
-  const [onedrivePrompt, setOnedrivePrompt] = useState(false);
-  const [onedrivePromptBusy, setOnedrivePromptBusy] = useState(false);
   const filingCtx = useRef(null);
   const [caseTab, setCaseTab] = useState("overview"); // overview|rooms|findings|export, while screen === "casefile"
   const [inspection, setInspection] = useState(null);
@@ -158,37 +145,6 @@ export default function SiteSnap() {
     saveNow.current = false;
   }, [inspection, rooms]);
 
-  // accounts mode: the firm's register follows the phone (see sync.js).
-  // The server hands out the case number on first sync; it lands on the
-  // record here so every screen shows it.
-  useEffect(() => {
-    if (!inspection || inspection.id === suppressSaveId.current) return;
-    const id = inspection.id;
-    queueCaseSync(inspection, rooms, photoCache, {
-      onCaseNo: (n) => setInspection((p) => (p && p.id === id && !p.caseNo ? { ...p, caseNo: n } : p)),
-    });
-  }, [inspection, rooms, photoCache]);
-
-  useEffect(() => onSync(setSync), []);
-
-  // The register is read when the Cases tab opens (and after sign-in), not
-  // kept live; each read also pushes anything local the register is missing.
-  async function syncRegister(m) {
-    if (!(m && m.mode === "accounts" && m.user && m.org)) return;
-    try {
-      let rows = await fetchRegister("all");
-      setRegister(rows);
-      if (await reconcile(await loadIndex(), rows, loadInspection)) {
-        rows = await fetchRegister("all");
-        setRegister(rows);
-      }
-    } catch { /* offline, or signed out — the next read tries again */ }
-  }
-  useEffect(() => {
-    if (screen === "cases") syncRegister(me);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [screen]);
-
   useEffect(() => {
     // The app can be swiped away mid-debounce. pagehide/visibilitychange are
     // the last chance, but a browser may abort a write started that late, so
@@ -231,16 +187,10 @@ export default function SiteSnap() {
     });
     (async () => {
       await migrateLegacy();
-      // back from a same-tab cloud sign-in (see cloud/service.js) — claimed
-      // before /api/me so a sign-in pairing's cookie is already in place
+      // back from a same-tab cloud-link connection (see cloud/service.js)
       const claimed = await claimFromUrl();
-      if (claimed && claimed.purpose === "link") setStorageAlert(`${claimed.label} connected${claimed.account ? " — " + claimed.account : ""}`);
+      if (claimed) setStorageAlert(`${claimed.label} connected${claimed.account ? " — " + claimed.account : ""}`);
       setCfg(await cloudServiceConfig());
-      const token = captureInviteFromUrl();
-      setInviteToken(token);
-      if (token) inviteInfo(token).then(setInvite);
-      const meAtBoot = await fetchMe();
-      await applyMe(meAtBoot);
       // ask the browser not to evict an inspection under disk pressure;
       // browsers usually grant this only once the app is on the home screen
       requestDurableStorage().then((granted) => setDurable(granted));
@@ -248,7 +198,6 @@ export default function SiteSnap() {
       setArchive(await loadArchive());
       loadFieldMode().then(setFieldMode);
       setScreen("home");
-      syncRegister(meAtBoot);
       // media left behind by an interrupted close/discard is unreachable
       // from any inspection and only wastes the phone's storage
       sweepOrphans(Date.now() - 60 * 1000).then((n) => { if (n) console.info(`removed ${n} orphaned media item(s)`); });
@@ -258,86 +207,6 @@ export default function SiteSnap() {
   async function refreshIndex() {
     setIndex(await loadIndex());
   }
-
-  // accounts mode: apply what /api/me says — which person (so this phone's
-  // lists are namespaced to them), their drive links, and their firm
-  async function applyMe(m) {
-    setMe(m);
-    if (m && m.mode === "accounts") {
-      setAccountLinks(m.user ? m.links : []);
-      setStorageNamespace(m.user ? m.user.id : "");
-    } else {
-      setAccountLinks(null);
-      setStorageNamespace("");
-    }
-    setSyncEnabled(!!(m && m.mode === "accounts" && m.user && m.org));
-    configureTelemetry({ on: !!(m && m.mode === "accounts" && m.user && m.org) });
-    setRegister([]);
-  }
-
-  async function reloadMe() {
-    let m = await fetchMe();
-    // an invitation carried in from a link is accepted once signed in
-    if (inviteToken && m && m.user && !m.org) {
-      try {
-        await acceptInvite(inviteToken);
-        clearPendingInvite(); setInviteToken(null); setInvite(null);
-        m = await fetchMe();
-      } catch { /* wrong email or expired — the firm screen explains */ }
-    }
-    await applyMe(m);
-    await refreshIndex();
-    setArchive(await loadArchive());
-    syncRegister(m);
-    maybePromptOneDrive(m);
-  }
-
-  // A one-time nudge right after a surveyor's first sign-in — Microsoft
-  // sign-in already links OneDrive as part of that flow, so this only fires
-  // for the email-code path. Flagged in localStorage so it shows once ever
-  // per person; the slim status row on Home keeps reminding after that if
-  // they skip it here.
-  function maybePromptOneDrive(m) {
-    if (!(m && m.mode === "accounts" && m.user && m.org && cfg.onedrive)) return;
-    if ((m.links || []).some((l) => l.provider === "onedrive")) return;
-    const key = `ss_od_prompt_${m.user.id}`;
-    try {
-      if (localStorage.getItem(key)) return;
-      localStorage.setItem(key, "1");
-    } catch { return; }
-    setOnedrivePrompt(true);
-  }
-
-  async function connectOneDriveFromPrompt() {
-    setOnedrivePromptBusy(true);
-    const win = window.open("about:blank", "_blank");
-    try {
-      const acct = await beginLink("onedrive", win);
-      if (acct === null && !win) return; // this tab is navigating to the sign-in
-      setOnedrivePrompt(false);
-      setStorageAlert(`OneDrive connected${acct ? " — " + acct : ""}`);
-      await reloadMe();
-    } catch {
-      try { win && win.close(); } catch { /* already gone */ }
-      setOnedrivePrompt(false);
-    } finally { setOnedrivePromptBusy(false); }
-  }
-
-  async function doSignOut() {
-    await flushAll();
-    try { await apiSignOut(); } catch { /* the session may already be gone */ }
-    setInspection(null); setRooms([]); setPhotoCache({});
-    setScreen("home");
-    await reloadMe();
-  }
-
-  useEffect(() => {
-    // any API call answered 401 — the session ended elsewhere
-    const h = () => fetchMe().then(applyMe);
-    window.addEventListener("ss:signed-out", h);
-    return () => window.removeEventListener("ss:signed-out", h);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Photos and voice notes stay on disk until an inspection is closed, so
   // opening one only pulls that property's media into memory. `fromTab` is
@@ -352,7 +221,6 @@ export default function SiteSnap() {
     if (wal && wal.inspection && wal.inspection.id === id) { data.inspection = wal.inspection; data.rooms = wal.rooms || data.rooms; }
     suppressSaveId.current = null;
     setReturnTab(fromTab);
-    resetSyncState(id);
     // pre-2.0 cases open as they were: rooms gain an (empty) issue list and
     // honest provenance markers, transcripts become records, findings move
     // to the state machine — nothing is guessed about who wrote what
@@ -441,9 +309,7 @@ export default function SiteSnap() {
   }
 
   async function startInspection(address, postcode, roomList, caseDetails) {
-    // in a firm the register numbers cases, on first sync; alone, this phone does
-    const caseNo = me && me.mode === "accounts" && me.org ? null : await nextCaseNo();
-    resetSyncState(null);
+    const caseNo = await nextCaseNo();
     const insp = {
       id: uid("insp"), address, postcode, startedAt: Date.now(), caseNo,
       activity: [{ ts: Date.now(), text: "Case opened" }],
@@ -649,21 +515,6 @@ export default function SiteSnap() {
     if (!p || !p.dataUrl) return;
     await shareFiles([dataUrlToFile(p.dataUrl, idPhotoName(inspection))], "ID photo");
   }
-  // one tap, straight to the surveyor's own inbox — the server picks the
-  // recipient from the signed-in account, so accounts mode only
-  async function emailIdPhoto() {
-    const id = inspection && inspection.idPhotoId;
-    if (!id) return;
-    setIdPhotoNote("Emailing…");
-    try {
-      const p = await fullPhoto(id);
-      if (!p || !p.dataUrl) throw new Error("The photo couldn't be read from this phone.");
-      const r = await apiEmailIdPhoto(p.dataUrl, idPhotoName(inspection), inspection.address || "");
-      setIdPhotoNote(r.delivered ? `Emailed to ${r.to}` : "Email isn't set up on this server — use Share instead.");
-      if (r.delivered) logActivity("ID photo emailed");
-    } catch (e) { setIdPhotoNote(e.message || "Couldn't email the photo — try Share."); }
-  }
-
   // A caption is typed one character at a time, and each photo record carries
   // its full-size image — so the write is debounced per photo rather than
   // rewriting a megabyte on every keystroke.
@@ -723,9 +574,6 @@ export default function SiteSnap() {
     const ids = rooms.flatMap((r) => r.photoIds);
     ids.forEach((id) => WAL.clearCaption(id));
     const memoIds = rooms.flatMap((r) => (r.memos || []).map((m) => m.id));
-    // the register keeps the closed case (with its thumbnails) after the
-    // phone lets the photos go
-    await pushCaseNow(inspection, rooms, photoCache, { status: "closed" }).catch(() => {});
     await archiveInspection({
       id: inspection.id,
       address: inspection.address,
@@ -759,7 +607,6 @@ export default function SiteSnap() {
     if (data && data.inspection && data.inspection.idPhotoId) removePhoto(data.inspection.idPhotoId);
     await clearState(id);
     await refreshIndex();
-    deleteRemoteCase(id);
   }
 
   // Filenames read like the report: "03 Kitchen - damp and mould to ceiling.jpg",
@@ -836,19 +683,12 @@ export default function SiteSnap() {
     await updatePhoto(photoId, { dataUrl, thumb }).catch(() => {});
   }
 
-  const accounts = !!(me && me.mode === "accounts");
-  const gate = screen !== "loading" && accounts && !me.user
-    ? <SignInScreen config={cfg} invite={invite} inviteToken={inviteToken} onSignedIn={reloadMe} />
-    : screen !== "loading" && accounts && !me.org
-      ? <OrgScreen me={me} invite={invite} inviteToken={inviteToken} onDone={reloadMe} onSignOut={doSignOut} />
-      : null;
-  const view = gate ? "gate" : screen;
+  const view = screen;
 
   return (
     <div className={`ss-root${fieldMode ? " ss-field" : ""}`}>
       <StyleBlock />
       <div className="ss-frame">
-        {gate}
         {view === "loading" && (
           <div className="ss-center"><Loader2 className="ss-spin" size={26} /></div>
         )}
@@ -857,9 +697,8 @@ export default function SiteSnap() {
           <Screen><HomeScreen
             index={index}
             archive={archive}
-            orgName={accounts && me.org ? me.org.name : null}
             needsCloud={needsCloud}
-            me={me}
+            me={ME}
             onNew={() => { setReturnTab("home"); setScreen("setup"); }}
             onOpen={(id) => openInspection(id, "home")}
             onTab={setScreen}
@@ -875,8 +714,6 @@ export default function SiteSnap() {
             onOpen={(id) => openInspection(id, "cases")}
             onDiscard={discardInspection}
             onTab={setScreen}
-            register={register}
-            onOpenRemote={(id) => { setRemoteCaseId(id); setScreen("remotecase"); }}
           /></Screen>
         )}
 
@@ -885,14 +722,7 @@ export default function SiteSnap() {
             fieldMode={fieldMode}
             onToggleFieldMode={toggleFieldMode}
             onTab={setScreen}
-            me={me}
-            onSignOut={doSignOut}
-            onMeChanged={reloadMe}
           /></Screen>
-        )}
-
-        {view === "remotecase" && remoteCaseId && (
-          <Screen><RemoteCaseScreen id={remoteCaseId} onBack={() => setScreen("cases")} /></Screen>
         )}
 
         {view === "setup" && (
@@ -902,7 +732,6 @@ export default function SiteSnap() {
         {view === "casefile" && inspection && (
           <Screen><CaseFileScreen
             inspection={inspection}
-            sync={accounts && me.org ? sync : null}
             saveStatus={saveStatus}
             rooms={rooms}
             photoCache={photoCache}
@@ -935,15 +764,12 @@ export default function SiteSnap() {
             onTranscripts={setTranscripts}
             onRoom={updateRoom}
             onTrack={track}
-            me={me}
-            syncNow={accounts && me.org ? () => pushCaseNow(inspection, rooms, photoCache) : null}
+            me={ME}
             onActivity={logActivity}
             idPhoto={inspection.idPhotoId ? photoCache[inspection.idPhotoId] || null : null}
             onIdPhoto={addIdPhoto}
             onRemoveIdPhoto={removeIdPhoto}
             onShareIdPhoto={shareIdPhoto}
-            onEmailIdPhoto={accounts && me.user ? emailIdPhoto : null}
-            idPhotoNote={idPhotoNote}
             filing={filing}
             onFiled={(ids, provider) => ids.forEach((id) => markFiled(id, { provider, at: Date.now() }))}
             onSaveAll={async () => shareFiles(await filesForAll(), "Inspection photos")}
@@ -957,7 +783,6 @@ export default function SiteSnap() {
             rooms={rooms}
             index={walkIndex}
             photoCache={photoCache}
-            sync={accounts && me.org ? sync : null}
             saveStatus={saveStatus}
             onOpenRoom={(id) => { setActiveRoomId(id); setScreen("evidence"); }}
             onFinish={finishInspection}
@@ -1009,7 +834,7 @@ export default function SiteSnap() {
               transcripts={inspection.transcripts || {}}
               onTranscripts={setTranscripts}
               audioCache={audioCache}
-              me={me}
+              me={ME}
               onActivity={logActivity}
               onTrack={track}
               onCaption={setPhotoCaption}
@@ -1028,16 +853,6 @@ export default function SiteSnap() {
 
         {undoItem && (
           <Toast action={{ label: "Undo", icon: <Undo2 size={15} />, onClick: undoDelete }}>Photo deleted</Toast>
-        )}
-
-        {onedrivePrompt && view !== "gate" && (
-          <Modal onClose={() => (onedrivePromptBusy ? null : setOnedrivePrompt(false))} icon={<CloudUpload size={22} />} title="Connect OneDrive?">
-              <p>Photos file themselves into OneDrive as you shoot — one sign-in now saves you finding somewhere to send them at the end of every job.</p>
-              <Button variant="primary" size="big" disabled={onedrivePromptBusy} onClick={connectOneDriveFromPrompt}>
-                {onedrivePromptBusy ? <Loader2 size={18} className="ss-spin" /> : <CloudUpload size={18} />} Connect OneDrive
-              </Button>
-              <button className="ss-link" style={{ marginTop: 10 }} disabled={onedrivePromptBusy} onClick={() => setOnedrivePrompt(false)}>Skip for now</button>
-          </Modal>
         )}
       </div>
     </div>

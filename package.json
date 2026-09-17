@@ -16,17 +16,11 @@
     "evals:payload": "AI_MOCK=1 node --expose-gc server/evals/payload-benchmark.mjs",
     "test": "vitest run",
     "test:e2e": "node test/e2e/local.mjs",
-    "test:e2e:disrepair": "AI_MOCK=1 node test/e2e/disrepair-automation.mjs",
-    "cap:sync": "vite build && cap sync"
+    "test:e2e:disrepair": "AI_MOCK=1 node test/e2e/disrepair-automation.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",
     "@azure/msal-browser": "^5.21.0",
-    "@capacitor/app": "^8.1.1",
-    "@capacitor/core": "^8.5.1",
-    "@capacitor/haptics": "^8.0.2",
-    "@capacitor/splash-screen": "^8.0.2",
-    "@capacitor/status-bar": "^8.0.3",
     "@sentry/node": "^10.73.0",
     "@sentry/react": "^10.73.0",
     "express": "^5.2.1",
@@ -39,9 +33,6 @@
     "tesseract.js": "^6.0.1"
   },
   "devDependencies": {
-    "@capacitor/android": "^8.5.1",
-    "@capacitor/cli": "^8.5.1",
-    "@capacitor/ios": "^8.5.1",
     "@vitejs/plugin-react": "^6.1.1",
     "fake-indexeddb": "^6.2.5",
     "playwright-core": "^1.63.0",

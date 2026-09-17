@@ -3,7 +3,6 @@ import "./ui/tokens.css";
 import ReactDOM from "react-dom/client";
 import App from "./App.jsx";
 import { Sentry } from "./sentry.js";
-import { initNativeShell } from "./native.js";
 
 function CrashFallback() {
   return (
@@ -21,7 +20,6 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     </Sentry.ErrorBoundary>
   </React.StrictMode>
 );
-initNativeShell();
 
 // Offline shell — photos already persist in IndexedDB; this keeps the app
 // itself loadable with no signal. Dev servers are skipped.

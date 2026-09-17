@@ -8,8 +8,6 @@ import {
 } from "../storage.js";
 import { loadMsGraph } from "../cloud/lazy.js";
 import { cloudServiceConfig, linkedAccount, beginLink, unlink } from "../cloud/service.js";
-import { updateName, switchOrg } from "../auth.js";
-import { TeamSettings } from "./Team.jsx";
 import { resetHints } from "../components/Hints.jsx";
 import { FeedbackButton } from "../components/Feedback.jsx";
 import { listRates, addRate, removeRate } from "../pricebook.js";
@@ -18,32 +16,32 @@ import { BottomNavigation, Button } from "../ui/index.js";
 /* ---------------- the surveyor's own rates ---------------- */
 
 // The cost library that builds from live jobs: rates saved off findings, or
-// typed here. Shared across the firm in accounts mode; this phone otherwise.
-function RatesCard({ accounts, flash }) {
+// typed here. Kept on this phone.
+function RatesCard({ flash }) {
   const [rows, setRows] = useState(null);
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState({ work: "", trade: "", low: "", high: "" });
   const [busy, setBusy] = useState(false);
-  useEffect(() => { listRates(accounts).then(setRows); }, [accounts]);
+  useEffect(() => { listRates(false).then(setRows); }, []);
   const pounds = (r) => `£${r.low.toLocaleString("en-GB")}${r.high !== r.low ? `–£${r.high.toLocaleString("en-GB")}` : ""}`;
   async function add() {
     setBusy(true);
     try {
-      const row = await addRate(accounts, { work: draft.work, trade: draft.trade, low: draft.low, high: draft.high });
+      const row = await addRate(false, { work: draft.work, trade: draft.trade, low: draft.low, high: draft.high });
       setRows((r) => [row, ...(r || [])]);
       setDraft({ work: "", trade: "", low: "", high: "" }); setAdding(false);
       flash("Rate saved");
     } catch (e) { flash(e.message); } finally { setBusy(false); }
   }
   async function remove(row) {
-    try { await removeRate(accounts, row.id); setRows((r) => r.filter((x) => x.id !== row.id)); flash("Rate removed"); }
+    try { await removeRate(false, row.id); setRows((r) => r.filter((x) => x.id !== row.id)); flash("Rate removed"); }
     catch (e) { flash(e.message); }
   }
   return (
     <>
       <div className="ss-section-label" style={{ marginTop: 24 }}>Your rates</div>
       <p className="ss-fineprint" style={{ margin: "0 2px 8px" }}>
-        {accounts ? "Shared across your firm. " : "Kept on this phone. "}Saved from findings as you price them, or added here; offered on similar findings, and given to the AI as price-book rows it may pick — the server still does the sums.
+        Kept on this phone. Saved from findings as you price them, or added here; offered on similar findings, and given to the AI as price-book rows it may pick — the server still does the sums.
       </p>
       {rows === null ? (
         <div className="ss-ledger-row"><div className="ss-ledger-main"><div className="ss-ledger-sub">Loading…</div></div></div>
@@ -77,51 +75,6 @@ function RatesCard({ accounts, flash }) {
           <button className="ss-link" onClick={() => setAdding(true)}><Plus size={14} /> Add a rate</button>
         </div>
       )}
-    </>
-  );
-}
-
-/* ---------------- account (accounts mode) ---------------- */
-
-function AccountCard({ me, onSignOut, onChanged, flash }) {
-  const [name, setName] = useState(me.user.name || "");
-  const [busy, setBusy] = useState(false);
-  const isAdmin = me.org && ["owner", "admin"].includes(me.org.role);
-  return (
-    <>
-      <div className="ss-section-label" style={{ marginTop: 4 }}>Account</div>
-      <div className="ss-key-row">
-        <input className="ss-input" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} aria-label="Your name" />
-        <Button variant="primary" disabled={busy || name.trim() === (me.user.name || "")}
-          onClick={async () => { setBusy(true); try { await updateName(name.trim()); onChanged(); flash("Name saved"); } finally { setBusy(false); } }}>Save</Button>
-      </div>
-      <div className="ss-ledger-row">
-        <div className="ss-ledger-main"><div className="ss-ledger-title">Signed in as</div></div>
-        <span className="ss-ledger-status" style={{ color: "var(--ink)", fontWeight: 700 }}>{me.user.email}</span>
-      </div>
-      {me.org && (
-        <div className="ss-ledger-row">
-          <div className="ss-ledger-main">
-            <div className="ss-ledger-title">{me.org.name}</div>
-            <div className="ss-ledger-sub">Firm</div>
-          </div>
-          {me.orgs && me.orgs.length > 1 ? (
-            <select className="ss-role-select" value={me.org.id} aria-label="Firm"
-              onChange={async (e) => { await switchOrg(e.target.value); onChanged(); }}>
-              {me.orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </select>
-          ) : (
-            <span className="ss-role-pill">{me.org.role}</span>
-          )}
-        </div>
-      )}
-      <div className="ss-ledger-row ss-no-border">
-        <button className="ss-link" style={{ color: "var(--red)" }} onClick={onSignOut}>Sign out</button>
-        <span className="ss-fineprint" style={{ margin: 0, textAlign: "right", flex: 1 }}>
-          Photos on this phone stay put — sign back in to see them.
-        </span>
-      </div>
-      {isAdmin && <TeamSettings me={me} onChanged={onChanged} flash={flash} />}
     </>
   );
 }
@@ -169,12 +122,11 @@ export function CloudProviderCard({ label, icon, connected, connecting, account,
   );
 }
 
-// A firm's own CRM/case-management system, or a Make/Zapier/n8n scenario in
-// front of one, can receive the same structured export the direct OneDrive/
-// Google upload sends — this just lets the address be configured. Admin-
-// gated in accounts mode (it's a firm-wide routing decision, not a personal
-// preference) and off until someone deliberately sets an address, so it
-// never adds a step for a firm that only ever wants OneDrive.
+// Stonebridge's own CRM/case-management system, or a Make/Zapier/n8n
+// scenario in front of one, can receive the same structured export the
+// direct OneDrive/Google upload sends — this just lets the address be
+// configured. Off until an address is deliberately set, so it never adds a
+// step when only OneDrive is wanted.
 function CrmWebhookCard({ flash }) {
   const [url, setUrl] = useState("");
   const [key, setKey] = useState("");
@@ -224,9 +176,8 @@ function CrmWebhookCard({ flash }) {
   );
 }
 
-export function SettingsScreen({ fieldMode, onToggleFieldMode, onTab, me, onSignOut, onMeChanged }) {
+export function SettingsScreen({ fieldMode, onToggleFieldMode, onTab }) {
   const [savedNote, setSavedNote] = useState(null);
-  const isAdmin = !me || me.mode !== "accounts" || (me.org && ["owner", "admin"].includes(me.org.role));
 
   const [msClientId, setMsClientId] = useState("");
   const [msAccountName, setMsAccountName] = useState(null);
@@ -307,10 +258,7 @@ export function SettingsScreen({ fieldMode, onToggleFieldMode, onTab, me, onSign
         </div>
       </div>
       <div className="ss-scroll">
-        {me && me.mode === "accounts" && me.user && (
-          <AccountCard me={me} onSignOut={onSignOut} onChanged={onMeChanged} flash={flash} />
-        )}
-        <div className="ss-section-label" style={{ marginTop: me && me.mode === "accounts" ? 20 : 4 }}>Photos file to</div>
+        <div className="ss-section-label" style={{ marginTop: 4 }}>Photos file to</div>
         <div>
           <CloudProviderCard
             label="OneDrive" icon={<CloudUpload size={16} />}
@@ -348,9 +296,9 @@ export function SettingsScreen({ fieldMode, onToggleFieldMode, onTab, me, onSign
           <button className="ss-link" onClick={() => { resetHints(); flash("Tips will show again"); }}>Show again</button>
         </div>
 
-        <RatesCard accounts={!!(me && me.mode === "accounts" && me.org)} flash={flash} />
+        <RatesCard flash={flash} />
 
-        {isAdmin && <CrmWebhookCard flash={flash} />}
+        <CrmWebhookCard flash={flash} />
 
         <div className="ss-section-label" style={{ marginTop: 20 }}>This phone</div>
         <CameraCheck />

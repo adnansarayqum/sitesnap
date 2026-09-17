@@ -50,12 +50,11 @@ function archiveStatus(a) {
   return { tone: "bad", label: "Never uploaded" };
 }
 
-export function HomeScreen({ index, archive, onNew, onOpen, onTab, orgName, needsCloud, me }) {
+export function HomeScreen({ index, archive, onNew, onOpen, onTab, needsCloud }) {
   const open = [...index].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   const active = open[0] || null;
   const others = open.slice(1, 5);
   const [thumbs, setThumbs] = useState([]);
-  const firstName = me && me.user && me.user.name ? me.user.name.trim().split(/\s+/)[0] : null;
 
   useEffect(() => {
     if (!active) { setThumbs([]); return; }
@@ -87,8 +86,8 @@ export function HomeScreen({ index, archive, onNew, onOpen, onTab, orgName, need
   return (
     <div className="ss-col">
       <div className="ss-scroll">
-        <div className="ss-eyebrow-sm">{orgName || "SiteSnap"}</div>
-        <h1 className="ss-h1">{timeGreeting()}{firstName ? `, ${firstName}` : ""}</h1>
+        <div className="ss-eyebrow-sm">Stonebridge Surveyors</div>
+        <h1 className="ss-h1">{timeGreeting()}, Shah</h1>
         <p className="ss-lede">Ready for your next inspection?</p>
 
         <Button variant="primary" size="big" onClick={onNew}>
@@ -162,7 +161,7 @@ export function HomeScreen({ index, archive, onNew, onOpen, onTab, orgName, need
   );
 }
 
-export function CasesScreen({ index, archive, durable, onNew, onOpen, onDiscard, onTab, register, onOpenRemote }) {
+export function CasesScreen({ index, archive, durable, onNew, onOpen, onDiscard, onTab }) {
   const [confirmId, setConfirmId] = useState(null);
   const [q, setQ] = useState("");
   const open = [...index].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
@@ -173,26 +172,8 @@ export function CasesScreen({ index, archive, durable, onNew, onOpen, onDiscard,
   const matches = (i) => !needle || [i.address, i.ref, i.postcode].filter(Boolean).join(" ").toLowerCase().includes(needle);
   const openShown = open.filter(matches);
   const doneShown = done.filter(matches);
-  // the firm's register (accounts mode): colleagues' cases, and this
-  // person's own from another phone — anything not already on this one
-  const here = new Set([...open.map((i) => i.id), ...done.map((a) => a.id)]);
-  const remote = (register || []).filter((c) => !here.has(c.id));
-  // a closed case's own photos are gone from this phone, but the register
-  // kept its details and thumbnails — so it's still worth opening, as long
-  // as it actually made it to the register (it may have closed offline)
-  const inRegister = new Set((register || []).map((c) => c.id));
-  const matchesRemote = (c) => !needle || [c.address, c.ref, c.postcode, c.created_by_name].filter(Boolean).join(" ").toLowerCase().includes(needle);
-  const remoteOpen = remote.filter((c) => c.status === "open" && matchesRemote(c));
-  const remoteClosed = remote.filter((c) => c.status === "closed" && matchesRemote(c));
-  const remoteCard = (c, closed) => (
-    <InspectionCard key={c.id}
-      address={c.address} caseNo={c.case_no} reference={`by ${c.created_by_name || "a colleague"}`}
-      date={relativeDay(new Date(c.updated_at).getTime())} photos={c.photos}
-      status={closed ? { tone: "done", label: "Complete" } : { tone: "active", label: "In progress" }}
-      onClick={() => onOpenRemote(c.id)} />
-  );
 
-  if (open.length === 0 && done.length === 0 && remote.length === 0) {
+  if (open.length === 0 && done.length === 0) {
     return (
       <div className="ss-col">
         <div className="ss-home-top">
@@ -246,26 +227,15 @@ export function CasesScreen({ index, archive, durable, onNew, onOpen, onDiscard,
           <EmptyState note>Nothing in progress on this phone. Start a new inspection below.</EmptyState>
         )}
 
-        {remoteOpen.length > 0 && (
-          <>
-            <div className="ss-section-label" style={{ marginTop: 22 }}>Elsewhere in the firm</div>
-            <div className="ss-list">{remoteOpen.map((c) => remoteCard(c, false))}</div>
-          </>
-        )}
-
-        {(doneShown.length > 0 || remoteClosed.length > 0) && (
+        {doneShown.length > 0 && (
           <>
             <div className="ss-section-label" style={{ marginTop: 22 }}>Completed</div>
             <div className="ss-list">
-              {remoteClosed.slice(0, 50).map((c) => remoteCard(c, true))}
               {doneShown.slice(0, 25).map((a) => (
                 <InspectionCard key={a.id}
                   address={a.address} caseNo={a.caseNo} reference={a.ref || undefined}
                   date={`closed ${relativeDay(a.closedAt)}`} photos={a.photos}
-                  status={archiveStatus(a)}
-                  disabled={!inRegister.has(a.id)}
-                  title={inRegister.has(a.id) ? undefined : "This case closed before it could sync — its details didn't reach the register"}
-                  onClick={() => onOpenRemote(a.id)} />
+                  status={archiveStatus(a)} />
               ))}
             </div>
           </>
