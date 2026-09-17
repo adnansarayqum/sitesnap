@@ -1,7 +1,7 @@
 {
-  "name": "SiteSnap — Inspection Photos",
+  "name": "SiteSnap — Stonebridge Surveyors",
   "short_name": "SiteSnap",
-  "description": "Room-by-room property inspection photos, filed automatically.",
+  "description": "Stonebridge Surveyors' inspection app — room-by-room property photos, filed automatically.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#F6F8F7",

@@ -1,7 +1,7 @@
 // SiteSnap service worker — keeps the app shell available offline so an
 // inspection can carry on mid-property with no signal. Photos live in
 // IndexedDB, so only the shell (HTML + hashed assets) is cached here.
-const CACHE = "sitesnap-shell-v4";
+const CACHE = "sitesnap-shell-v5";
 
 // Precache the shell and the hashed bundles it references at install, so
 // the app works offline from the very first visit. Without this the shell

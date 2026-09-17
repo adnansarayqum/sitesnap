@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="navy" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1B2E4A"/>
+      <stop offset="1" stop-color="#0F1E33"/>
+    </linearGradient>
+  </defs>
+  <!-- background -->
+  <rect width="512" height="512" rx="88" fill="#F6F8F7"/>
+  <!-- thin bronze/gold ring, echoing the card's border -->
+  <rect x="22" y="22" width="468" height="468" rx="72" fill="none" stroke="#B8923F" stroke-width="7"/>
+
+  <!-- building / pediment mark -->
+  <g fill="url(#navy)">
+    <!-- triangular roof -->
+    <path d="M256 108 L378 224 L134 224 Z"/>
+    <!-- entablature bar under the roof -->
+    <rect x="126" y="224" width="260" height="20"/>
+    <!-- columns -->
+    <rect x="150" y="254" width="24" height="128"/>
+    <rect x="207" y="254" width="24" height="128"/>
+    <rect x="281" y="254" width="24" height="128"/>
+    <rect x="338" y="254" width="24" height="128"/>
+    <!-- base / ground line -->
+    <rect x="118" y="382" width="276" height="22"/>
+    <rect x="100" y="404" width="312" height="14"/>
+  </g>
+
+  <!-- small arched doorway cut into the base, in the paper colour -->
+  <path d="M241 382 L241 344 Q241 318 256 318 Q271 318 271 344 L271 382 Z" fill="#F6F8F7"/>
+</svg>

@@ -37,7 +37,7 @@ export function ReportView({ inspection, rooms, photoCache, onClose }) {
       </div>
       <div className="ss-report-page">
         <header className="ss-rep-head">
-          <div className="ss-rep-brand"><Camera size={15} strokeWidth={2.6} /> SiteSnap</div>
+          <div className="ss-rep-brand"><Camera size={15} strokeWidth={2.6} /> Stonebridge Surveyors</div>
           <h1>{inspection.address}{inspection.postcode ? `, ${inspection.postcode}` : ""}</h1>
           <div className="ss-rep-meta">
             <span>Photo inspection report</span>
@@ -98,7 +98,7 @@ export function ReportView({ inspection, rooms, photoCache, onClose }) {
           );
         })}
         <footer className="ss-rep-foot">
-          Generated with SiteSnap · {new Date().toLocaleDateString("en-GB")}
+          Stonebridge Surveyors · {new Date().toLocaleDateString("en-GB")}
         </footer>
       </div>
     </div>

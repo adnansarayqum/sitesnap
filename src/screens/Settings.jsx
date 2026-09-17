@@ -253,7 +253,7 @@ export function SettingsScreen({ fieldMode, onToggleFieldMode, onTab }) {
     <div className="ss-col">
       <div className="ss-home-top">
         <div>
-          <div className="ss-eyebrow-sm">SiteSnap</div>
+          <div className="ss-eyebrow-sm">Stonebridge Surveyors</div>
           <div className="ss-title-lg">Settings</div>
         </div>
       </div>

@@ -92,8 +92,12 @@ surveyor's drive — not their files, but a key to write into them. That
 means: encrypt at rest, a *Disconnect* that revokes at the provider (not
 just locally), no logging of tokens, and keeping the store to exactly that
 table. It does *not* make you a data processor for the photographs — they
-still go phone → drive directly — which is the line
-`docs/multi-user-architecture.md` says not to cross yet.
+still go phone → drive directly.
+
+For a single surveyor (this app's actual shape today) this whole table is
+unneeded: the credential is sealed with `TOKEN_KEY` and kept as a blob on
+the phone instead, traded for a fresh access token on each use. See the
+"local mode" path below and `server/index.js`'s `/api/cloud/token` route.
 
 ## The interim: zero setup for one surveyor, today
 
