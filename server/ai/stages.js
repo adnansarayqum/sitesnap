@@ -7,6 +7,20 @@ import { EVIDENCE, CAUSATION, ANALYSIS, DRAFT, VERIFY } from "./prompts.js";
 import { EVIDENCE_SCHEMA, CAUSATION_SCHEMA, analysisSchema, DRAFT_SCHEMA, VERIFY_SCHEMA } from "./schemas.js";
 import { evidenceTurn, causationTurn, analysisTurn, draftTurn, verifyTurn } from "./packet.js";
 import { mockEvidence, mockCausation, mockAnalysis, mockDraft, mockVerify } from "./mock.js";
+import { pickSections } from "../reference.js";
+
+// The drafting stage writes the final court-facing paragraphs, so it needs
+// the sections of the legal register that govern wording — not the ones
+// that govern which statute or hazard to pick (the analysis stage already
+// decided that). Named explicitly rather than sliced by position: see
+// pickSections' own comment for why a positional cut silently drops a
+// section appended later, which is exactly what happened here before —
+// "Controlled vocabulary" and "Category 1 hazard placement" both landed
+// after the old cut point and never reached this stage's prompt.
+const DRAFT_PHRASING_SECTIONS = [
+  "Standard of proof and expert's duty", "Time and observation phrasing",
+  "Controlled vocabulary", "Category 1 hazard placement",
+];
 
 // photographs per evidence call: enough to see a room, few enough that the
 // reply stays well inside the output budget
@@ -93,7 +107,8 @@ export async function analysisStage(packet, evidence, causation, ref, { signal }
 
 // ---- 7. drafting ------------------------------------------------------------------------
 export async function draftStage(packet, inputs, ref, { signal } = {}) {
-  const system = [plain(DRAFT), cached("# Style examples — register and construction only\n\n" + ref.style + "\n\n---\n\n# Phrasing rules\n\n" + ref.legal.notes.split("## Statutes")[0])];
+  const phrasing = pickSections(ref.legal.notes, DRAFT_PHRASING_SECTIONS);
+  const system = [plain(DRAFT), cached("# Style examples — register and construction only\n\n" + ref.style + "\n\n---\n\n# Phrasing rules\n\n" + phrasing)];
   return MOCK ? mockResult(mockDraft(packet, inputs)) : structured({
     label: "draft", system, content: draftTurn(packet, inputs), schema: DRAFT_SCHEMA, effort: EFFORTS.draft, maxTokens: 4000, signal,
     validate: (o) => (!o.defect || !o.title ? "missing defect or title" : null),

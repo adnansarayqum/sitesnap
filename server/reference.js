@@ -24,6 +24,25 @@ export const shortHash = (s) => sha(s).slice(0, 12);
 const read = (f) => { try { return fs.readFileSync(path.join(REF_DIR, f), "utf8"); } catch { return ""; } };
 const readJson = (f, fallback) => { try { return JSON.parse(read(f)); } catch { return fallback; } };
 
+// Pulls named "## Heading" sections out of a reference markdown file by
+// title, in the order requested — not by position. A stage that needs only
+// some of a file's sections (e.g. the drafting stage wants phrasing rules
+// but not the citation-selection rules) must name what it wants rather than
+// slice "everything before/after heading X": a later section appended to
+// the file (a new correction, a new rule) silently falls on the wrong side
+// of a positional cut. Missing headings are skipped, not an error, so a
+// renamed section fails loudly in review rather than crashing a request.
+export function pickSections(md, headings) {
+  return headings
+    .map((h) => {
+      const esc = h.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const m = new RegExp(`\\n##\\s+${esc}\\s*\\n([\\s\\S]*?)(?=\\n##\\s|$)`).exec("\n" + md);
+      return m ? `## ${h}\n${m[1].trim()}` : "";
+    })
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 let cache = null;
 export function loadReference(force = false) {
   if (cache && !force) return cache;
