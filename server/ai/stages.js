@@ -17,7 +17,10 @@ import { pickSections } from "../reference.js";
 // section appended later, which is exactly what happened here before —
 // "Controlled vocabulary" and "Category 1 hazard placement" both landed
 // after the old cut point and never reached this stage's prompt.
-const DRAFT_PHRASING_SECTIONS = [
+// exported so a test can check the pipeline's real list still finds its
+// sections in legal-register.md, rather than a copy of the list that could
+// drift from what draftStage() below actually requests
+export const DRAFT_PHRASING_SECTIONS = [
   "Standard of proof and expert's duty", "Time and observation phrasing",
   "Controlled vocabulary", "Category 1 hazard placement",
 ];

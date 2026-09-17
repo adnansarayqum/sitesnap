@@ -6,6 +6,7 @@
 // the stage that writes the report's actual wording.
 import { describe, expect, it } from "vitest";
 import { pickSections, loadReference } from "../server/reference.js";
+import { DRAFT_PHRASING_SECTIONS } from "../server/ai/stages.js";
 
 const MD = `# Title
 
@@ -59,8 +60,10 @@ describe("pickSections", () => {
 describe("draft stage's phrasing sections, against the real legal register", () => {
   it("actually finds Controlled vocabulary and Category 1 hazard placement in legal-register.md", () => {
     const ref = loadReference();
-    const sections = ["Standard of proof and expert's duty", "Time and observation phrasing", "Controlled vocabulary", "Category 1 hazard placement"];
-    const out = pickSections(ref.legal.notes, sections);
+    // the pipeline's own list, not a copy — if draftStage() ever stops
+    // asking for one of these, or legal-register.md ever renames one of
+    // these headings, this catches it either way
+    const out = pickSections(ref.legal.notes, DRAFT_PHRASING_SECTIONS);
     expect(out).toContain("## Controlled vocabulary");
     expect(out).toContain("protimeter readings");
     expect(out).toContain("## Category 1 hazard placement");
