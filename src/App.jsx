@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Loader2, Undo2 } from "lucide-react";
 import {
-  loadIndex, loadInspection, migrateLegacy, saveState, clearState, loadPhoto, savePhoto, updatePhoto, removePhoto, loadAudio, saveAudio, removeAudio, loadArchive, archiveInspection, sweepOrphans, setStorageErrorHandler, requestDurableStorage, storageEstimate, loadFieldMode, saveFieldMode, nextCaseNo, loadWebhook,
+  loadIndex, loadInspection, migrateLegacy, saveState, clearState, loadPhoto, savePhoto, updatePhoto, removePhoto, loadAudio, saveAudio, removeAudio, loadArchive, archiveInspection, removeArchiveEntry, sweepOrphans, setStorageErrorHandler, requestDurableStorage, storageEstimate, loadFieldMode, saveFieldMode, nextCaseNo, loadWebhook,
 } from "./storage.js";
 import { THUMB_DIM, dataUrlToFile, drawScaled, loadImage, processCapture, shareFiles } from "./lib/image.js";
 import { idPhotoName } from "./screens/Finish.jsx";
@@ -609,6 +609,15 @@ export default function SiteSnap() {
     await refreshIndex();
   }
 
+  // Removes a closed case's record from the archive. Its photos are already
+  // gone from this phone by the time a case reaches the archive — this only
+  // drops the record itself; anything already exported or uploaded elsewhere
+  // is unaffected.
+  async function discardArchived(id) {
+    await removeArchiveEntry(id);
+    setArchive(await loadArchive());
+  }
+
   // Filenames read like the report: "03 Kitchen - damp and mould to ceiling.jpg",
   // so a spreadsheet can pick up the defect without anyone renaming anything.
   function photoFilename(photo, room, i, ext) {
@@ -713,6 +722,7 @@ export default function SiteSnap() {
             onNew={() => { setReturnTab("cases"); setScreen("setup"); }}
             onOpen={(id) => openInspection(id, "cases")}
             onDiscard={discardInspection}
+            onDiscardArchived={discardArchived}
             onTab={setScreen}
           /></Screen>
         )}

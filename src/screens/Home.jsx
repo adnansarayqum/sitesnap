@@ -161,13 +161,13 @@ export function HomeScreen({ index, archive, onNew, onOpen, onTab, needsCloud })
   );
 }
 
-export function CasesScreen({ index, archive, durable, onNew, onOpen, onDiscard, onTab }) {
-  const [confirmId, setConfirmId] = useState(null);
+export function CasesScreen({ index, archive, durable, onNew, onOpen, onDiscard, onDiscardArchived, onTab }) {
+  const [confirm, setConfirm] = useState(null); // { id, kind: "open" | "archived" }
   const [q, setQ] = useState("");
   const open = [...index].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-  const target = open.find((i) => i.id === confirmId);
 
   const done = archive || [];
+  const target = confirm && (confirm.kind === "archived" ? done.find((a) => a.id === confirm.id) : open.find((i) => i.id === confirm.id));
   const needle = q.trim().toLowerCase();
   const matches = (i) => !needle || [i.address, i.ref, i.postcode].filter(Boolean).join(" ").toLowerCase().includes(needle);
   const openShown = open.filter(matches);
@@ -214,7 +214,7 @@ export function CasesScreen({ index, archive, durable, onNew, onOpen, onDiscard,
             <InspectionCard key={i.id}
               address={i.address} caseNo={i.caseNo} reference={i.ref || i.postcode || undefined}
               date={relativeDay(i.startedAt)} photos={i.photos} rooms={i.rooms} doneRooms={i.doneRooms}
-              status={caseStatus(i)} onClick={() => onOpen(i.id)} onDelete={() => setConfirmId(i.id)} />
+              status={caseStatus(i)} onClick={() => onOpen(i.id)} onDelete={() => setConfirm({ id: i.id, kind: "open" })} />
           ))}
         </div>
         {durable === false && (
@@ -235,7 +235,7 @@ export function CasesScreen({ index, archive, durable, onNew, onOpen, onDiscard,
                 <InspectionCard key={a.id}
                   address={a.address} caseNo={a.caseNo} reference={a.ref || undefined}
                   date={`closed ${relativeDay(a.closedAt)}`} photos={a.photos}
-                  status={archiveStatus(a)} />
+                  status={archiveStatus(a)} onDelete={() => setConfirm({ id: a.id, kind: "archived" })} />
               ))}
             </div>
           </>
@@ -255,16 +255,18 @@ export function CasesScreen({ index, archive, durable, onNew, onOpen, onDiscard,
       </StickyActionBar>
 
       {target && (
-        <Modal onClose={() => setConfirmId(null)} icon={<AlertTriangle size={22} />} title={<>Discard {target.address}?</>}>
+        <Modal onClose={() => setConfirm(null)} icon={<AlertTriangle size={22} />} title={<>Discard {target.address}?</>}>
             <p>
-              Its {target.photos} photo{target.photos === 1 ? "" : "s"} and notes will be
-              deleted from this device. Anything already exported or uploaded is unaffected.
+              {confirm.kind === "archived"
+                ? "This removes the closed record from this phone. Its photos are already gone, and anything already exported or uploaded elsewhere is unaffected."
+                : <>Its {target.photos} photo{target.photos === 1 ? "" : "s"} and notes will be
+                  deleted from this device. Anything already exported or uploaded is unaffected.</>}
             </p>
             <Button variant="danger"
-              onClick={() => { onDiscard(target.id); setConfirmId(null); }}>
+              onClick={() => { (confirm.kind === "archived" ? onDiscardArchived : onDiscard)(target.id); setConfirm(null); }}>
               <Trash2 size={16} /> Delete inspection
             </Button>
-            <Button variant="ghost" style={{ marginTop: 8 }} onClick={() => setConfirmId(null)}>
+            <Button variant="ghost" style={{ marginTop: 8 }} onClick={() => setConfirm(null)}>
               Keep it
             </Button>
         </Modal>

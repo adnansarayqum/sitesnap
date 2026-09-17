@@ -173,6 +173,13 @@ export async function clearArchive() {
   try { await del(archiveKey()); } catch {}
 }
 
+export async function removeArchiveEntry(id) {
+  try {
+    const list = await loadArchive();
+    await set(archiveKey(), list.filter((a) => a.id !== id));
+  } catch (e) { writeFailed("Removing the archived record", e); }
+}
+
 // One-time move of a pre-1.3 inspection into the multi-inspection store, so
 // an upgrade mid-property doesn't lose the morning's work.
 export async function migrateLegacy() {
