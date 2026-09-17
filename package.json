@@ -37,7 +37,7 @@
     "fake-indexeddb": "^6.2.5",
     "playwright-core": "^1.63.0",
     "typescript": "^7.0.2",
-    "vite": "^8.2.2",
+    "vite": "^8.3.0",
     "vitest": "^5.0.0"
   },
   "engines": {
