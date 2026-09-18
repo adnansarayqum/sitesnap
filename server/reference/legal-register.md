@@ -14,6 +14,12 @@ or the law changes; the corrections list (`corrections.md`) records why.
   undermines a conclusion.
 - Opinion is labelled as opinion: "in my opinion", "is considered to be".
   Observation is labelled as observation: "was observed", "was noted".
+- For the causal link itself ("X is caused by Y"), the firm's own worked
+  examples in its MLA/TLB templates default overwhelmingly to **"is
+  attributable to"** (dominant across both templates' worked example cases)
+  over "is considered to be" (seen once). Prefer "is attributable to" as
+  the connector for a stated cause; "is considered to be" / "in my opinion"
+  remain correct for labelling opinion more generally, not only causation.
 
 ## Time and observation phrasing
 
@@ -74,7 +80,7 @@ the right-hand one, even where the alternative would be idiomatic elsewhere.
 
 | Use | Not |
 |---|---|
-| protimeter readings | moisture meter readings |
+| protimeter readings, reported as a % WME | moisture meter readings, unitless % |
 | renew | replace |
 | damp | dampness |
 | external | outside |

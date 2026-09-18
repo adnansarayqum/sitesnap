@@ -19,6 +19,14 @@ What it does: pins every observation to the visit; records readings; names
 both causes with the evidence for each; uses the standard of proof once per
 causal step.
 
+Note on "is considered to be": genuine — a real transcribed voice note — but
+not the firm's default causal connector. Cross-checked against the firm's own
+MLA/TLB template worked examples, "is attributable to" is what actually
+carries most causal statements there; see legal-register.md's "Standard of
+proof" section, which now teaches that as the preferred connector. Keep this
+example for the rest of its register (readings, dual-cause naming, standard
+of proof placement) — just don't copy this particular verb as the default.
+
 ## Remedial — scope set honestly (ceiling cracking, textured coating)
 
 The surveyor's final wording after rejecting two AI drafts (one under-scoped
