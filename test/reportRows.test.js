@@ -72,6 +72,37 @@ describe("reportRows", () => {
     expect(warnings.some((w) => w.includes("Issue of Concern"))).toBe(true);
   });
 
+  it("flags a trade whose small line items sum below a realistic visit, once across the whole case, and leaves the per-room costs untouched", () => {
+    let kitchen = migrateRoom({ id: "r1", name: "Kitchen", photoIds: ["p1"], memos: [] });
+    kitchen.issueOfConcern = "Cracking in two spots.";
+    const a = addIssue(kitchen, "Ceiling crack"); kitchen = a.room;
+    kitchen = linkEvidence(kitchen, a.issue.id, { id: "p1", kind: "photo", source: "capture_session" });
+    let bedroom = migrateRoom({ id: "r2", name: "Bedroom", photoIds: ["p2"], memos: [] });
+    bedroom.issueOfConcern = "Mould on the wall.";
+    const b = addIssue(bedroom, "Mould"); bedroom = b.room;
+    bedroom = linkEvidence(bedroom, b.issue.id, { id: "p2", kind: "photo", source: "capture_session" });
+    const photos = { p1: {}, p2: {} };
+    const gate = { status: "review_ready", reasons: [], flags: [] };
+    let state = emptyFindings();
+    const snapA = issueFingerprint(a.issue, kitchen, photos, {});
+    state = mergeRun(state, { issue: a.issue, room: kitchen }, { run: { id: "run-a", at: "t", snapshot: snapA, model: "m", stageHashes: {}, stages: {} }, finding: { id: "f-a", title: "x", defect: "d1", remedial: { works: "w1", scope: "localised", conditions: [] }, cost: { low: 24, high: 40, unpriced: false, basis: "x", price_book_refs: ["CEIL-CRACK-LOCAL"], lines: [{ row_id: "CEIL-CRACK-LOCAL", trade: "plasterer_decorator", priced: true, low: 24, high: 40 }] }, legislation: ["S11 LTA"], review_flags: [], gate, confidence: "medium" } });
+    state = transition(state, "f-a", "approved", { currentFingerprint: snapA, by: "u1" }).state;
+    const snapB = issueFingerprint(b.issue, bedroom, photos, {});
+    state = mergeRun(state, { issue: b.issue, room: bedroom }, { run: { id: "run-b", at: "t", snapshot: snapB, model: "m", stageHashes: {}, stages: {} }, finding: { id: "f-b", title: "x", defect: "d2", remedial: { works: "w2", scope: "localised", conditions: [] }, cost: { low: 24, high: 40, unpriced: false, basis: "x", price_book_refs: ["MOULD-WALL"], lines: [{ row_id: "MOULD-WALL", trade: "plasterer_decorator", priced: true, low: 24, high: 40 }] }, legislation: ["S9A LTA"], review_flags: [], gate, confidence: "medium" } });
+    state = transition(state, "f-b", "approved", { currentFingerprint: snapB, by: "u1" }).state;
+
+    const trades = { plasterer_decorator: { label: "Plasterer/decorator", minimum: { low: 250, high: 300 } } };
+    const noTrades = reportRows({ findings: state }, [kitchen, bedroom]);
+    expect(noTrades.warnings.some((w) => w.startsWith("Pricing:"))).toBe(false); // no trades table — no crash, no false warning
+
+    const { rows, warnings } = reportRows({ findings: state }, [kitchen, bedroom], trades);
+    expect(rows.find((r) => r.room === "Kitchen").cost).toBe(24); // per-room audit trail is untouched
+    expect(rows.find((r) => r.room === "Bedroom").cost).toBe(24);
+    const w = warnings.find((x) => x.startsWith("Pricing:"));
+    expect(w).toMatch(/£48/); // the naive sum across both rooms
+    expect(w).toMatch(/£250–£300/);
+  });
+
   it("combines multiple hazard numbers at the same category with 'and'", () => {
     let room = migrateRoom({ id: "r1", name: "Bathroom", photoIds: ["p1", "p2", "p3"], memos: [] });
     room.issueOfConcern = "x";

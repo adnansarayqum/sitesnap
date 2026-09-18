@@ -2,6 +2,7 @@
 // MLA (and, later, TLB) Scott Schedule expects — matching Shah's own rule
 // that a room's issues stay together in one row, never split out.
 import { approvedByRoom } from "../findings.js";
+import { applyTradeMinimums } from "../../shared/pricebook.js";
 
 // The firm always cites in this order (S9A S10 S11 ... LTA, then DPA last)
 // regardless of which finding happened to be approved first.
@@ -33,13 +34,24 @@ function breachFor(findings) {
 // One row per room that has at least one approved, reportable finding —
 // rooms still mid-review don't belong in an agency export yet. Returns
 // both the rows and a list of things worth flagging before sending (a
-// room with no Issue of Concern captured yet, an unpriced finding).
-export function reportRows(inspection, rooms) {
+// room with no Issue of Concern captured yet, an unpriced finding, or —
+// case-wide, not per room — a trade whose small same-trade line items sum
+// to less than a realistic visit would actually cost; see
+// applyTradeMinimums in shared/pricebook.js for why that's checked once
+// across the whole case rather than per finding).
+//
+// `trades` is the priceBook.trades table (from aiConfig()'s
+// priceBookTrades) — optional; omit it (e.g. offline, config not yet
+// fetched) and this simply skips the trade-reasonableness check, exactly
+// as if no trade had a confirmed minimum.
+export function reportRows(inspection, rooms, trades) {
   const byRoom = approvedByRoom(inspection.findings, rooms);
   const warnings = [];
+  const allLines = [];
   const rows = byRoom.map(({ room, roomId, findings }) => {
     const unpriced = findings.filter((f) => f.cost && f.cost.unpriced);
     const cost = findings.reduce((sum, f) => sum + (f.cost && !f.cost.unpriced ? f.cost.low : 0), 0);
+    for (const f of findings) if (f.cost && Array.isArray(f.cost.lines)) allLines.push(...f.cost.lines);
     const r = (rooms || []).find((x) => x.id === roomId);
     if (!r || !r.issueOfConcern) warnings.push(`${room}: no Issue of Concern captured yet — the tenant's own complaint`);
     if (unpriced.length) warnings.push(`${room}: ${unpriced.length} finding${unpriced.length === 1 ? "" : "s"} unpriced — cost total is incomplete`);
@@ -51,5 +63,12 @@ export function reportRows(inspection, rooms) {
       cost, breach: breachFor(findings),
     };
   });
+  if (trades) {
+    const { adjustments } = applyTradeMinimums(trades, allLines);
+    for (const a of adjustments) {
+      const rowList = [...new Set(a.rows)].join(", ");
+      warnings.push(`Pricing: ${a.label} items across the case sum to only £${a.from.low} (${rowList}) — a realistic minimum visit is closer to £${a.to.low}–£${a.to.high}. Worth entering a combined figure rather than the raw sum.`);
+    }
+  }
   return { rows, warnings };
 }

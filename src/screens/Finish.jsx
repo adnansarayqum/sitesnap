@@ -19,6 +19,7 @@ import { Button, Modal, StickyActionBar } from "../ui/index.js";
 import { fillMlaTemplate } from "../export/mlaXlsm.js";
 import { fillTlbTemplate } from "../export/tlbXlsm.js";
 import { reportRows } from "../export/reportRows.js";
+import { aiConfig } from "../ai.js";
 
 // TLB's meta only has a single free-text "Instructed by" fallback field —
 // its template derives "Instructed by" / "Instructing Agent" from the
@@ -221,7 +222,11 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
   // tlbXlsm.js for what's touched and what isn't in each.
   async function exportMla() {
     if (mlaBusy) return;
-    const { rows, warnings } = reportRows(inspection, rooms);
+    // best-effort: offline or a config fetch failure just means the
+    // case-wide trade-reasonableness check (below) is skipped, same as if
+    // no trade had a confirmed minimum yet — never blocks the export itself
+    const cfg = await aiConfig().catch(() => null);
+    const { rows, warnings } = reportRows(inspection, rooms, cfg && cfg.priceBookTrades);
     if (!rows.length) { flash("No approved findings yet — review and approve findings first"); return; }
     const agency = AGENCY_REPORT[inspection.agency] ? inspection.agency : "MLA";
     const { fill, template, label, suffix } = AGENCY_REPORT[agency];

@@ -1,8 +1,21 @@
 {
-  "version": 3,
+  "version": 4,
   "currency": "GBP",
-  "updated": "2026-09-17",
-  "note": "Controlled pricing source. The pipeline may only propose a row by id with a quantity and the evidence for that quantity; the server looks the row up, checks it is active, multiplies and stores the book version — the model never writes a final number. `qty.kind` is count (whole units the photos can show: a window, a fan, a ceiling) or measure (an area or length that must be evidenced or entered by the surveyor). `qty.default` is the assumption used when the evidence does not state a count — always flagged as an assumption for the surveyor to confirm. `qty.evidence: required` rows stay unpriced until the quantity is evidenced or entered. `excludes` lists rows that must not be priced in the same finding. Rows marked status: example are placeholders until the firm's own rates replace them; rows marked status: confirmed came from the surveyor. Ranges are supply-and-fit, inc. access and making good, exc. VAT unless a row says otherwise.",
+  "updated": "2026-09-18",
+  "note": "Controlled pricing source. The pipeline may only propose a row by id with a quantity and the evidence for that quantity; the server looks the row up, checks it is active, multiplies and stores the book version — the model never writes a final number. `qty.kind` is count (whole units the photos can show: a window, a fan, a ceiling) or measure (an area or length that must be evidenced or entered by the surveyor). `qty.default` is the assumption used when the evidence does not state a count — always flagged as an assumption for the surveyor to confirm. `qty.evidence: required` rows stay unpriced until the quantity is evidenced or entered. `excludes` lists rows that must not be priced in the same finding. Rows marked status: example are placeholders until the firm's own rates replace them; rows marked status: confirmed came from the surveyor. Ranges are supply-and-fit, inc. access and making good, exc. VAT unless a row says otherwise. Each row carries a `trade` id, used only for the `trades` reasonableness floor below — it does not change how the row itself prices.",
+  "trades": {
+    "note": "The surveyor's point (voice note, 18 Sep 2026): a scheduled rate like the NHF/BCIS rate books gives an unrealistically small figure for a small domestic patch job — e.g. £12/m2 for plaster patching prices a 2m2 patch at £24, but no plasterer attends for £24; a realistic visit is more like £250-300 once you count the call-out, materials, and the follow-on decorating needed for a uniform finish. Several small same-trade jobs in one case are one visit, not several, so this is applied once per case across every priced line of that trade, not per finding. `minimum` is null (no floor applied — today's plain summed total stands) until the surveyor gives a real figure for that trade; only plasterer_decorator has one so far, and even that is a rough spoken estimate, not a firm number — see its own source note.",
+    "plasterer_decorator": {
+      "label": "Plasterer/decorator (patch repairs, redecoration)",
+      "minimum": { "low": 250, "high": 300 },
+      "status": "example",
+      "source": "surveyor voice note, 18 Sep 2026 — \"let's say 180 quid day rate... about 300 quid\" for a London-area call-out covering patch repair plus the sanding/mist-coat/second-coat that follows it. A rough spoken estimate, not a confirmed minimum — needs a real figure before this is trusted."
+    },
+    "plumber": { "label": "Plumber", "minimum": null, "status": "example", "source": "placeholder — no minimum given yet" },
+    "electrician": { "label": "Electrician", "minimum": null, "status": "example", "source": "placeholder — no minimum given yet" },
+    "roofer_exterior": { "label": "Roofer / exterior fabric", "minimum": null, "status": "example", "source": "placeholder — no minimum given yet" },
+    "asbestos_specialist": { "label": "Asbestos sampling specialist", "minimum": null, "status": "example", "source": "placeholder — ASB-SAMPLE's own £160 floor (see that row's notes) already acts as a practical minimum for this trade, so none is set here to avoid double-applying it." }
+  },
   "items": [
     {
       "id": "ASB-SAMPLE",
@@ -12,6 +25,7 @@
       "high": 220,
       "status": "confirmed",
       "active": true,
+      "trade": "asbestos_specialist",
       "qty": {
         "kind": "count",
         "unit": "sample",
@@ -30,6 +44,7 @@
       "high": 160,
       "status": "example",
       "active": true,
+      "trade": "plasterer_decorator",
       "qty": {
         "kind": "count",
         "unit": "area (up to ~1 m²)",
@@ -50,6 +65,7 @@
       "high": 950,
       "status": "example",
       "active": true,
+      "trade": "plasterer_decorator",
       "qty": {
         "kind": "count",
         "unit": "ceiling",
@@ -70,6 +86,7 @@
       "high": 160,
       "status": "confirmed",
       "active": true,
+      "trade": "plasterer_decorator",
       "qty": {
         "kind": "count",
         "unit": "window",
@@ -88,6 +105,7 @@
       "high": 220,
       "status": "example",
       "active": true,
+      "trade": "plasterer_decorator",
       "qty": {
         "kind": "count",
         "unit": "wall area (up to ~4 m²)",
@@ -106,6 +124,7 @@
       "high": 390,
       "status": "example",
       "active": true,
+      "trade": "electrician",
       "qty": {
         "kind": "count",
         "unit": "fan",
@@ -124,6 +143,7 @@
       "high": 350,
       "status": "example",
       "active": true,
+      "trade": "plumber",
       "qty": {
         "kind": "count",
         "unit": "leak",
@@ -142,6 +162,7 @@
       "high": 110,
       "status": "example",
       "active": true,
+      "trade": "plumber",
       "qty": {
         "kind": "count",
         "unit": "bath or tray",
@@ -160,6 +181,7 @@
       "high": 350,
       "status": "example",
       "active": true,
+      "trade": "roofer_exterior",
       "qty": {
         "kind": "count",
         "unit": "elevation",
@@ -178,6 +200,7 @@
       "high": 85,
       "status": "example",
       "active": true,
+      "trade": "roofer_exterior",
       "qty": {
         "kind": "measure",
         "unit": "m²",
@@ -196,6 +219,7 @@
       "high": 550,
       "status": "example",
       "active": true,
+      "trade": "plasterer_decorator",
       "qty": {
         "kind": "count",
         "unit": "room",

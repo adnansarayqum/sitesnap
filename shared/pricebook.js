@@ -55,6 +55,40 @@ export function toPriceBookRow(r) {
   };
 }
 
+// ---- trade minimums: a per-case reasonableness floor -----------------------------
+// The surveyor's own point: a scheduled rate prices a small domestic patch
+// unrealistically low (a 2m2 plaster patch at an NHF-style £12/m2 rate is
+// £24 — no plasterer attends for £24), and several small same-trade jobs
+// found across one property are one visit, not several. This runs once
+// across every priced line in the whole case (every approved finding, not
+// one), grouping by `trade` and raising a trade's summed total to its known
+// minimum where the sum falls short. A trade with no `minimum` (nothing
+// confirmed yet) is left exactly as summed — no floor, no behaviour change.
+//
+// `lines` is a flat array of already-priced lines (row_id, trade, low, high,
+// priced) — e.g. every finding's `cost.lines` in one case, concatenated.
+// `trades` is `priceBook.trades` (excluding its own `note` key).
+export function applyTradeMinimums(trades, lines) {
+  const byTrade = {};
+  for (const l of lines || []) {
+    if (!l || !l.priced || !l.trade) continue;
+    const t = (byTrade[l.trade] ||= { low: 0, high: 0, rows: [] });
+    t.low += Number(l.low) || 0; t.high += Number(l.high) || 0; t.rows.push(l.row_id);
+  }
+  const adjustments = [];
+  let addedLow = 0, addedHigh = 0;
+  for (const [tradeId, sum] of Object.entries(byTrade)) {
+    const t = trades && trades[tradeId];
+    const min = t && t.minimum;
+    if (!min || !(min.low > 0)) continue; // no confirmed floor for this trade — leave the sum as-is
+    if (sum.low >= min.low) continue; // already realistic
+    const toLow = min.low, toHigh = Math.max(min.high || min.low, sum.high, toLow);
+    adjustments.push({ trade: tradeId, label: (t && t.label) || tradeId, from: { low: sum.low, high: sum.high }, to: { low: toLow, high: toHigh }, rows: sum.rows });
+    addedLow += toLow - sum.low; addedHigh += toHigh - sum.high;
+  }
+  return { addedLow, addedHigh, adjustments };
+}
+
 // ---- matching a finding to the rates it may want ----------------------------------
 const STOP = new Set(["with", "from", "that", "this", "were", "was", "the", "and", "area", "areas", "affected", "should", "been", "have", "has", "into", "onto", "over", "under", "which", "where", "when", "then", "than", "them", "they", "their", "there", "these", "those", "also", "very", "some", "such", "each", "other", "more", "most", "time", "inspection", "observed", "noted", "recorded", "room", "property", "finding", "works", "work", "appropriate", "necessary", "required", "including", "subject", "results", "balance", "probabilities", "considered"]);
 export function tokenise(s) {

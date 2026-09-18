@@ -14,9 +14,14 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { applyTradeMinimums } from "../shared/pricebook.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const REF_DIR = path.join(__dirname, "reference");
+// re-exported so callers only need one import for "server owns the pricing
+// numbers" — the function itself is isomorphic (shared/pricebook.js), same
+// code the client uses at export time
+export { applyTradeMinimums };
 
 export const sha = (s) => crypto.createHash("sha256").update(typeof s === "string" ? s : JSON.stringify(s)).digest("hex");
 export const shortHash = (s) => sha(s).slice(0, 12);
@@ -76,7 +81,7 @@ export function loadReference(force = false) {
     label: `corrections ${m ? `v${m[1]}` : "?"} · price book v${priceRaw.version || "?"} · legal v${legalRaw.version || "?"}`,
     legal: { version: legalRaw.version || 0, entries: legalEntries, byId: Object.fromEntries(legalEntries.map((e) => [e.id, e])), notes: legalNotes },
     hhsrs: { version: hhsrsRaw.version || 0, hazards, byId: Object.fromEntries(hazards.map((h) => [h.id, h])) },
-    priceBook: { version: priceRaw.version || 0, currency: priceRaw.currency || "GBP", rows, byId: Object.fromEntries(rows.map((r) => [r.id, r])) },
+    priceBook: { version: priceRaw.version || 0, currency: priceRaw.currency || "GBP", rows, byId: Object.fromEntries(rows.map((r) => [r.id, r])), trades: priceRaw.trades || {} },
     playbook, corrections, style,
   };
   return cache;
@@ -141,6 +146,10 @@ export function priceItems(ref, items, overrides = {}) {
       proposedQty: Number(raw && raw.quantity), basis: String((raw && raw.quantity_basis) || "unknown"),
       evidence: Array.isArray(raw && raw.quantity_evidence) ? raw.quantity_evidence.map(String).slice(0, 12) : [],
       reason: String((raw && raw.reason) || "").slice(0, 400), rowHash: row.hash, rowStatus: row.status,
+      // carried through so a case-wide pass (applyTradeMinimums) can group
+      // this line with every other finding's lines of the same trade —
+      // priceItems() itself only ever sees one finding at a time
+      trade: row.trade || null,
     };
     seenRows.set(rowId, line);
     lines.push(line);

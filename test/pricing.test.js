@@ -1,7 +1,7 @@
 // Scenarios 6, 7 and the "valid-but-wrong row" case: the server owns every
 // number; the model only proposes rows and quantities it can evidence.
 import { describe, expect, it } from "vitest";
-import { loadReference, priceItems, resolveLegal, resolveHazard } from "../server/reference.js";
+import { loadReference, priceItems, resolveLegal, resolveHazard, applyTradeMinimums } from "../server/reference.js";
 
 const ref = loadReference(true);
 
@@ -77,6 +77,46 @@ describe("deterministic pricing", () => {
     expect(two.low).toBe(a.low * 2 + b.low);
     expect(two.high).toBe(a.high * 2 + b.high);
     expect(two.flags).not.toContain("unpriced");
+  });
+});
+
+describe("trade minimums (a case-wide reasonableness floor)", () => {
+  it("every priced line carries the trade its row belongs to", () => {
+    const r = priceItems(ref, [{ price_book_row_id: "CEIL-CRACK-LOCAL", quantity: 1, quantity_basis: "assumed", quantity_evidence: [] }]);
+    expect(r.lines[0].trade).toBe("plasterer_decorator");
+  });
+
+  it("two small same-trade lines across different findings are floored to one realistic visit, not summed as two tiny jobs", () => {
+    // Shah's own example: two 2m2-ish plaster patches that separately sum
+    // to far less than a plasterer would actually charge to attend once
+    const a = priceItems(ref, [{ price_book_row_id: "CEIL-CRACK-LOCAL", quantity: 1, quantity_basis: "assumed", quantity_evidence: [] }], { "CEIL-CRACK-LOCAL": 1 });
+    const b = priceItems(ref, [{ price_book_row_id: "MOULD-WALL", quantity: 1, quantity_basis: "assumed", quantity_evidence: [] }]);
+    const naiveSum = a.lines[0].low + b.lines[0].low;
+    const adj = applyTradeMinimums(ref.priceBook.trades, [...a.lines, ...b.lines]);
+    const plasterer = adj.adjustments.find((x) => x.trade === "plasterer_decorator");
+    expect(plasterer).toBeTruthy();
+    expect(plasterer.from.low).toBe(naiveSum);
+    expect(plasterer.to.low).toBe(ref.priceBook.trades.plasterer_decorator.minimum.low);
+    expect(plasterer.to.low).toBeGreaterThan(naiveSum);
+    expect(adj.addedLow).toBe(plasterer.to.low - naiveSum);
+  });
+
+  it("a trade already above its minimum, or with no minimum set, is left exactly as summed", () => {
+    const big = priceItems(ref, [{ price_book_row_id: "CEIL-MAKE-GOOD", quantity: 1, quantity_basis: "assumed", quantity_evidence: [] }]);
+    const aboveFloor = applyTradeMinimums(ref.priceBook.trades, big.lines);
+    expect(aboveFloor.adjustments).toEqual([]);
+    expect(aboveFloor.addedLow).toBe(0);
+
+    const plumber = priceItems(ref, [{ price_book_row_id: "SEALANT-BATH", quantity: 1, quantity_basis: "assumed", quantity_evidence: [] }]);
+    expect(ref.priceBook.trades.plumber.minimum).toBeNull(); // nothing confirmed yet
+    const noFloor = applyTradeMinimums(ref.priceBook.trades, plumber.lines);
+    expect(noFloor.adjustments).toEqual([]);
+  });
+
+  it("unpriced or trade-less lines are ignored rather than crashing the grouping", () => {
+    const r = applyTradeMinimums(ref.priceBook.trades, [{ priced: false, trade: "plasterer_decorator", low: 5, high: 5 }, { priced: true, trade: null, low: 5, high: 5, row_id: "X" }]);
+    expect(r.adjustments).toEqual([]);
+    expect(r.addedLow).toBe(0);
   });
 });
 

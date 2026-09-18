@@ -121,7 +121,7 @@ describe("pipeline (mock provider)", () => {
     expect(run.provider).toBe("mock");
     expect(run.pipelineVersion).toMatch(/^2\./);
     expect(Object.keys(run.prompts)).toEqual(expect.arrayContaining(["evidence", "causation", "analysis", "draft", "verify"]));
-    expect(run.reference.versions.priceBook).toBe("v2");
+    expect(run.reference.versions.priceBook).toMatch(/^v\d+$/); // exact version bumps with every price-book.json edit — only the shape matters here
     expect(run.reference.cited.priceRows["MOULD-WALL"]).toMatch(/^[0-9a-f]{12}$/);
     expect(run.evidence.sources["PHOTO-3"].hash).toMatch(/^[0-9a-f]{16}$/);
     expect(run.evidence.sources["MEMO-1"].transcriptStatus).toBe("complete");
@@ -130,7 +130,7 @@ describe("pipeline (mock provider)", () => {
     expect(run.snapshot).toBe("snap-1");
     expect(run.efforts.causation).toBeTruthy();
     expect(finding.mock).toBe(true);
-    expect(finding.cost.priceBookVersion).toBe("v2");
+    expect(finding.cost.priceBookVersion).toMatch(/^v\d+$/);
     expect(finding.legal_refs[0].id).toBe("LEGAL-S9A-LTA");
   });
 

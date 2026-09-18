@@ -120,6 +120,10 @@ export function mountAi(app) {
     res.json({
       enabled: aiEnabled(), transcription: transcriptionEnabled(), model: AI_MODEL, verifyModel: AI_VERIFY_MODEL, efforts: EFFORTS,
       pipelineVersion: PIPELINE_VERSION, reference: referenceFingerprints(ref),
+      // small, static table (trade -> minimum visit charge); lets the client
+      // run the same case-wide reasonableness check (applyTradeMinimums,
+      // shared/pricebook.js) without a round trip per export
+      priceBookTrades: ref.priceBook.trades,
     });
   }));
 
