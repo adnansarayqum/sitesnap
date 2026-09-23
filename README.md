@@ -118,11 +118,12 @@ Each POST is `multipart/form-data` with fields:
 | `file`      | (the JPEG, audio or JSON binary) |
 
 Photos upload one per POST; voice notes upload as `kind=audio`; and a single
-`kind=notes` POST carries the whole inspection as structured JSON, so an AI
-drafting step runs once per property rather than once per photo. An optional
-access key is sent as an `x-make-apikey` header.
+`kind=notes` POST carries the whole inspection as structured JSON, so a
+workflow gets the property as one record rather than once per photo. An
+optional access key is sent as an `x-make-apikey` header. (Findings are
+drafted in the app itself — see `docs/ai-findings.md` — not by the workflow.)
 
-**Full cloud setup — routing, the AI prompt and the JSON schema — is in
+**Full cloud setup — routing, filing and the `notes` JSON — is in
 [`docs/cloud-workflow.md`](docs/cloud-workflow.md).**
 
 ### n8n recipe (3 nodes)

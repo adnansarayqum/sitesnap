@@ -1,14 +1,20 @@
-# Cloud workflow setup (Make.com → OneDrive + AI drafting)
+# Cloud workflow setup (webhook → Make.com / n8n → OneDrive)
 
-> **Note (Sept 2026):** the drafting leg of this workflow — notes → AI → findings — now runs inside SiteSnap itself on Claude, with review in the case's Findings tab. See `docs/ai-findings.md`. The photo and audio filing routes below are unchanged.
+> **Drafting is not part of this workflow any more.** Findings are drafted
+> inside SiteSnap on Claude, from the photographs, notes and voice notes,
+> against the firm's controlled reference pack, and reviewed in the case's
+> Findings tab — see `docs/ai-findings.md`. An earlier design ran an OpenAI
+> drafting step in the Make scenario over the `notes` payload; that recipe
+> has been removed from this document. The app still accepts a reply in that
+> old shape (see "Legacy reply shape" at the end) so an existing scenario
+> keeps working, but nothing new should be built on it.
 
 This is the webhook route: SiteSnap POSTs to one URL you control, and your
-workflow decides what happens — including, uniquely to this route, running
-an AI drafting step over the notes. If you just want photos to land in your
+workflow decides where the files go. If you just want photos to land in your
 own OneDrive/Drive with no automation tool involved, see
 [`direct-cloud-link-setup.md`](direct-cloud-link-setup.md) instead — the two
 can also run side by side. This document is the webhook contract and a
-working Make.com recipe.
+working Make.com recipe for filing.
 
 ## What the app sends
 
@@ -31,8 +37,9 @@ the app's direct upload and ZIP export use — two sub-folders under the
 address: **Site photos/** (one numbered folder per room) and **Inspection/**
 (the notes record, approved findings, voice notes and the ID photo).
 
-The `notes` payload is the one the AI step reads, so drafting runs **once per
-property** rather than once per photo:
+The `notes` payload is sent **once per property**, last, so a workflow that
+wants the whole inspection as one record (to file it, index it or push it into
+a case-management system) gets it in a single POST rather than per photo:
 
 ```json
 {
@@ -80,63 +87,20 @@ needed.
 4. **Webhooks → Webhook response** — status `200`, body = `{{transcript}}`.
 
 That last step matters more than it looks. The app sends the `notes` payload
-(the one the drafting step reads) once, right at the end of upload — and it
-can only include what was *typed*. If the audio route replies with the plain
-transcript text instead of the generic `filed`/`Accepted`, the app treats that
-reply as proof the words exist and folds them straight into that room's note
-before building the final payload. Skip this step and anything the surveyor
-only said aloud never reaches the AI draft — he would have to type it as well,
-which defeats the point of recording it.
+once, right at the end of upload — and it can only include what was *typed*.
+If the audio route replies with the plain transcript text instead of the
+generic `filed`/`Accepted`, the app treats that reply as proof the words exist
+and folds them straight into that room's note before building the final
+payload. (SiteSnap also transcribes voice notes itself, on the server, when it
+drafts findings — this route only matters for what lands in the filed notes
+record.)
 
-### Route 3 — `kind = notes` — the drafting step
+### Route 3 — `kind = notes`
 
-1. **OpenAI (or Anthropic) → Chat Completion** with the system prompt below and
-   the `notes` JSON as the user message. Turn on structured output using the
-   schema below so the response is always parseable.
-2. **OneDrive → Make an API Call** — `PUT`
-   `/v1.0/me/drive/root:/Inspections/{{address}}/draft-findings.json:/content`
-   with the model's JSON as the body.
-
-Your workbook then imports `draft-findings.json` from the property folder in
-one step, instead of the copy-paste chain through a browser.
-
-## System prompt
-
-Replace the bracketed part with your own custom GPT's wording — this is a
-skeleton that produces the right shape, not a substitute for your expertise.
-
-```
-You are assisting a chartered surveyor preparing a housing disrepair report in
-England & Wales. You produce DRAFT text only; the surveyor reviews, edits and
-signs everything before it is used.
-
-You will receive JSON describing one property inspection: rooms in walk order,
-each with a condition rating and the surveyor's own site note.
-
-For each room that has a note or a condition of Fair or Poor, produce one or
-more findings. For each finding:
-- defect: state the observed defect in plain, factual, non-emotive language.
-  Describe only what the note supports. Never invent observations, measurements,
-  dates or causes that are not in the note.
-- legislation_breached: cite the relevant obligation ONLY where the note clearly
-  supports it — typically s.11 Landlord and Tenant Act 1985 (structure and
-  exterior, installations for water/gas/electricity/sanitation/space and water
-  heating) or the Homes (Fitness for Human Habitation) Act 2018. If the note
-  does not clearly support a breach, return an empty string rather than guessing.
-- remedial_action: the works reasonably required to remedy the defect.
-- confidence: "high" where the note is explicit, "low" where you are inferring.
-
-[INSERT YOUR OWN CUSTOM GPT WORDING HERE — house style, standard phrasing,
-Scott Schedule conventions, and anything about how you word recommendations.]
-
-Write in the third person, past tense, for a court-facing document. Do not
-address the reader. Do not add caveats, apologies or commentary outside the
-JSON.
-```
-
-## Structured-output schema
-
-```json
+**OneDrive → Make an API Call** — `PUT`
+`/v1.0/me/drive/root:/Inspections/{{address}}/{{folder}}/{{filename}}:/content`
+with the `file` binary, so the inspection record is filed beside the photos.
+Nothing else is needed on this route.
 {
   "type": "object",
   "properties": {
@@ -201,8 +165,16 @@ To stop anyone who has the URL writing into your OneDrive:
 
 Both must match or uploads are rejected.
 
-## A note on review
+## Legacy reply shape
 
-`confidence` exists so the low-confidence findings can be flagged in the
-workbook for checking first. The AI drafts; the surveyor signs. Nothing in this
-pipeline should send a report without a human reading it.
+An older design had the scenario draft findings itself and reply to the
+`notes` POST with them. SiteSnap still parses a reply in that shape
+(`parseDraftFindings` in `src/screens/Finish.jsx`, `fromLegacyDraft` in
+`src/findings.js`) and lifts each item into the Findings tab marked as a
+cloud-workflow draft: unpriced, no photo evidence, no verification, low
+confidence, never reportable until the surveyor approves it. It exists so a
+scenario built on the old design keeps working — not as something to build
+on. The shape it accepts is the JSON schema above; the drafting itself now
+happens in the app (`docs/ai-findings.md`). The AI drafts; the surveyor
+signs. Nothing in this pipeline should send a report without a human reading
+it.
