@@ -40,20 +40,51 @@ Set these in **Service → Variables**, then redeploy:
 Railway supplies `RAILWAY_GIT_COMMIT_SHA` and `RAILWAY_DEPLOYMENT_ID`; do not
 override them. Other platforms may set `COMMIT_SHA` and `RELEASE_ID`.
 
+`GET /readyz` returns the complete deployment-supplied commit value, not an
+abbreviated SHA. Compare `commit` with the exact 40-character GitHub commit
+selected for release. A null or mismatched value means the deployment has not
+been proven to contain the reviewed revision.
+
 Do not add the access key, provider credentials or `TOKEN_KEY` to any
 `VITE_*` variable: Vite variables are public build output.
 
+## Current activation blockers (verified 23 September 2026)
+
+- Railway production has only been verified successfully at commit
+  `f633838d202822d116336e63d87a88c088c1f41c`. This readiness change is not
+  active until the reviewed PR commit is deliberately deployed and its exact
+  SHA is returned by `/readyz`.
+- `sitesnap.uk` currently has no A, AAAA or CNAME record, and
+  `www.sitesnap.uk` is NXDOMAIN. Keep `PUBLIC_URL` on a generated Railway HTTPS
+  domain until Railway provides the custom-domain target and DNS resolves;
+  then set `PUBLIC_URL=https://sitesnap.uk` and redeploy. Do not activate OAuth
+  providers before their callback URLs use the same working origin.
+- The GitHub production environment URL points to the Railway dashboard, not a
+  public application endpoint. Replace it with the working public HTTPS URL
+  after DNS or a generated Railway domain is available.
+- The release branch `claude/new-session-idpxy6` has no branch protection.
+  Require a manual review of the exact SHA and successful CI before deploying;
+  do not treat a branch-name deployment as immutable.
+- No deployment secrets are available to this automation. An operator must set
+  a new `SITESNAP_ACCESS_KEY` and verify the variables below in Railway. Add
+  provider credentials only after the protected deployment passes activation.
+
 ## First activation
 
-1. Deploy with `NODE_ENV`, `PUBLIC_URL` and `SITESNAP_ACCESS_KEY` first.
-2. Confirm `GET /readyz` returns `200` with `status`, package `version`, and
-   the expected `commit`/`release` identifiers.
-3. Open the HTTPS URL, enter the access key, then install with **Add to Home
+1. Establish a public HTTPS origin: use a generated Railway domain immediately,
+   or configure Railway's custom-domain target in DNS and wait for
+   `sitesnap.uk` to resolve publicly.
+2. Set the GitHub production environment URL and Railway `PUBLIC_URL` to that
+   exact origin (no path), then deploy with `NODE_ENV` and a newly generated
+   `SITESNAP_ACCESS_KEY`.
+3. Confirm `GET /readyz` returns `200` and that `commit` exactly equals the
+   reviewed 40-character GitHub SHA; also record `version` and `release`.
+4. Open the HTTPS URL, enter the access key, then install with **Add to Home
    Screen**. Load the home screen once while online so the service worker can
    precache all lazy chunks.
-4. Put the device in airplane mode, reopen the installed PWA and create a
+5. Put the device in airplane mode, reopen the installed PWA and create a
    disposable inspection. Remove it after confirming local persistence.
-5. Only then add AI or cloud credentials, one provider at a time. Never test
+6. Only then add AI or cloud credentials, one provider at a time. Never test
    production setup with customer data.
 
 ## Rotation and recovery
@@ -103,7 +134,10 @@ unreadable, so each provider must be connected again.
 6. `npm run test:e2e:smoke`
 7. Confirm no `.env`, credentials, `dist/`, test result files or customer data
    are staged.
-8. Deploy the exact reviewed commit and verify `/readyz` identities.
+8. Deploy the exact reviewed commit and verify the `commit` field from
+   `/readyz` equals its full 40-character SHA over the public HTTPS URL.
+9. Confirm DNS, Railway `PUBLIC_URL`, and the GitHub production environment URL
+   all identify the same origin before enabling OAuth or AI provider secrets.
 
 ## Rollback
 

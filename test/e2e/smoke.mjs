@@ -5,6 +5,7 @@ import { chromium } from "playwright-core";
 const port = 32147;
 const base = `http://127.0.0.1:${port}`;
 const accessKey = "e2e-only-access-key-1234";
+const expectedCommit = "0123456789abcdef0123456789abcdef01234567";
 const child = spawn(process.execPath, ["server/index.js"], {
   cwd: process.cwd(),
   env: {
@@ -17,7 +18,7 @@ const child = spawn(process.execPath, ["server/index.js"], {
     ANTHROPIC_API_KEY: "",
     OPENAI_API_KEY: "",
     DATABASE_URL: "",
-    COMMIT_SHA: "e2e-smoke",
+    COMMIT_SHA: expectedCommit,
     RELEASE_ID: "ci",
   },
   stdio: ["ignore", "pipe", "pipe"],
@@ -40,6 +41,8 @@ async function waitForServer() {
 let browser;
 try {
   await waitForServer();
+  const readiness = await (await fetch(`${base}/readyz`)).json();
+  if (readiness.commit !== expectedCommit) throw new Error(`readiness commit mismatch: ${readiness.commit}`);
   const unknown = await fetch(`${base}/api/not-a-route`);
   if (unknown.status !== 404 || !/json/.test(unknown.headers.get("content-type") || "")) throw new Error("unknown API did not return JSON 404");
   for (const route of ["/index.html", "/cases/example"]) {
@@ -60,7 +63,7 @@ try {
   await context.setOffline(true);
   await page.goto(`${base}/offline/deep-link`, { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: /new inspection/i }).waitFor({ timeout: 15_000 });
-  console.log("production smoke passed: auth, SPA fallback, JSON 404, readiness, offline reload");
+  console.log("production smoke passed: auth, SPA fallback, JSON 404, exact readiness identity, offline reload");
 } finally {
   if (browser) await browser.close();
   if (child.exitCode === null) {

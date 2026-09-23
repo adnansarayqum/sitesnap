@@ -41,6 +41,12 @@ rollback, backups and the release checklist are in the
 **[production runbook](docs/production-runbook.md)**. Cloud provider setup is
 in [`docs/direct-cloud-link-setup.md`](docs/direct-cloud-link-setup.md).
 
+Production is not activated merely because Railway reports a successful
+deployment. The public hostname must resolve, `PUBLIC_URL` must match that
+HTTPS origin, an operator must configure `SITESNAP_ACCESS_KEY`, and the
+`commit` field from `/readyz` must equal the exact reviewed 40-character
+GitHub SHA before AI or OAuth credentials are enabled.
+
 **Vercel / Netlify / Cloudflare Pages** can host the offline app itself
 (import the repo, they auto-detect Vite) — but as static hosts they don't
 run protected AI, readiness, or the cloud-link service. Railway is the

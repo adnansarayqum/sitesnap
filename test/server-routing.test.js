@@ -16,7 +16,7 @@ beforeAll(async () => {
     NODE_ENV: "production",
     SITESNAP_ACCESS_KEY: "test-only-access-key-1234",
     SITESNAP_DIST_DIR: temp,
-    COMMIT_SHA: "f633838d-test",
+    COMMIT_SHA: "f633838d202822d116336e63d87a88c088c1f41c",
     RELEASE_ID: "release-42",
   });
   delete process.env.DATABASE_URL;
@@ -49,7 +49,12 @@ describe("production server routing and access", () => {
   it("returns only bounded readiness and release identity", async () => {
     const response = await fetch(base + "/readyz");
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ status: "ok", version: "2.1.0", commit: "f633838d-test", release: "release-42" });
+    expect(await response.json()).toEqual({
+      status: "ok",
+      version: "2.1.0",
+      commit: "f633838d202822d116336e63d87a88c088c1f41c",
+      release: "release-42",
+    });
   });
 
   it("requires same-origin login and sets a hardened session cookie", async () => {
