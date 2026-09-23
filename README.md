@@ -24,21 +24,27 @@ npm install
 npm run dev
 ```
 
-## Deploy (free)
+## Supported deployment
 
 **Railway**: at [railway.com/new](https://railway.com/new) choose
 **Deploy from GitHub repo** and pick this repo. It builds with
 `npm run build` and the `start` script runs `server/index.js`, which
 serves `dist/` and hosts the cloud-link service (see `railway.json`).
 After the first deploy, open the service → **Settings → Networking →
-Generate Domain** to get the public HTTPS URL. To let surveyors connect
-OneDrive / Google Drive with a single sign-in, add `TOKEN_KEY` and the
-provider secrets under **Variables** —
-[`docs/direct-cloud-link-setup.md`](docs/direct-cloud-link-setup.md).
+Generate Domain** to get the public HTTPS URL. Configure
+`SITESNAP_ACCESS_KEY` before enabling any server-side AI or cloud credentials.
+The key is entered once in the installed PWA and exchanged for an expiring,
+HttpOnly session cookie; it is never compiled into browser assets.
 
-**Vercel / Netlify / Cloudflare Pages** also work for the app itself
+Exact Railway variables, key rotation/recovery, readiness monitoring,
+rollback, backups and the release checklist are in the
+**[production runbook](docs/production-runbook.md)**. Cloud provider setup is
+in [`docs/direct-cloud-link-setup.md`](docs/direct-cloud-link-setup.md).
+
+**Vercel / Netlify / Cloudflare Pages** can host the offline app itself
 (import the repo, they auto-detect Vite) — but as static hosts they don't
-run the cloud-link service, so the browser-only sign-in applies there.
+run protected AI, readiness, or the cloud-link service. Railway is the
+supported full deployment.
 
 HTTPS is required (all three provide it) — the camera and the Save-to-Photos
 share sheet only work on secure origins.
@@ -76,9 +82,15 @@ server/
   email.js              Resend (or log-only), used when an export emails out
 ```
 
-There is no sign-in and no firm/org model — this is a single-user app.
-Everything lives on the phone; a database is optional and, if configured,
-is used only by the AI drafting/reference-pack routes.
+There is no account, firm or organisation model — this is a single-client
+app. Server features use one deployment access key, not a reusable secret in
+the client bundle. Everything in an inspection lives on the phone. An
+optional `DATABASE_URL` runs the existing migrations for reference/schema
+compatibility only; it does not enable the retired account-mode routes or
+turn Postgres into a backup of phone data.
+
+The supported client is the installable web PWA. Orphaned Android/iOS native
+builds are intentionally not part of this repository or CI.
 
 ## How photos are stored
 

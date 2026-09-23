@@ -5,12 +5,12 @@
 // Secrets never leave this process; the phone only ever holds a sealed blob
 // it can't read.
 //
-// A database is optional and, if configured, is used only by the AI
-// drafting/reference-pack routes (server/ai-routes.js, server/pricebook.js) —
-// there is no sign-in, no firm/org model, and no server-side case register.
+// A database is optional and, if configured, runs the retained migrations;
+// it never enables the abandoned account/org mode or a server-side register.
 import { captureServerError, captureFatal, sentryEnabled } from "./sentry.js"; // first: see server/sentry.js
 import express from "express";
 import crypto from "node:crypto";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { hasDb, migrate, closeDb, q } from "./db.js";
@@ -19,10 +19,14 @@ import { emailConfigured } from "./email.js";
 import { mountAi } from "./ai-routes.js";
 import { mountProduct } from "./product.js";
 import { aiEnabled, transcriptionEnabled, AI_MODEL } from "./ai.js";
+import { createAccessControl } from "./access.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DIST = path.join(__dirname, "..", "dist");
+const DIST = process.env.SITESNAP_DIST_DIR ? path.resolve(process.env.SITESNAP_DIST_DIR) : path.join(__dirname, "..", "dist");
 const PORT = process.env.PORT || 3000;
+const APP_VERSION = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8")).version;
+const releaseIdentity = (value) => String(value || "").replace(/[^a-zA-Z0-9._-]/g, "").slice(0, 80) || null;
+const access = createAccessControl();
 
 const PROVIDERS = {
   onedrive: {
@@ -98,6 +102,11 @@ setInterval(sweep, 60 * 1000).unref();
 // the OAuth `state` is the pair code plus an HMAC, so a callback can only
 // ever complete the pairing it was started for
 const sign = (pair) => crypto.createHmac("sha256", KEY).update(pair).digest("base64url").slice(0, 22);
+function sameSecret(a, b) {
+  const left = Buffer.from(String(a || ""));
+  const right = Buffer.from(String(b || ""));
+  return left.length === right.length && crypto.timingSafeEqual(left, right);
+}
 
 function baseUrl(req) {
   if (process.env.PUBLIC_URL) return process.env.PUBLIC_URL.replace(/\/+$/, "");
@@ -253,6 +262,7 @@ app.use((req, res, next) => {
 const isAi = (req) => String(req.originalUrl || req.url).split("?")[0].startsWith("/api/ai/");
 const jsonBody = express.json({ limit: "4mb" });
 app.use((req, res, next) => (isAi(req) ? next() : jsonBody(req, res, next)));
+access.mount(app);
 // every mutating API call is JSON from our own page; a cross-site form
 // post can't set that content type, and SameSite=Lax keeps the cookie
 // off cross-site posts anyway. DELETE carries no body and can't be sent
@@ -266,9 +276,18 @@ app.use("/api", (req, res, next) => {
   res.set("Cache-Control", "no-store");
   next();
 });
-// no sign-in exists to populate these — set so the reference-pack /
-// price-book routes' requireOrg/requireAdmin guards (server/auth.js) can
-// read req.session without each route needing its own null check
+// Session cookies authorize server capabilities, not the local/offline app.
+// Protect every expensive or state-changing supported surface while leaving
+// unknown API paths to the JSON 404 below for predictable client behaviour.
+app.use((req, res, next) => {
+  const pathname = String(req.originalUrl || req.url).split("?")[0];
+  const protectedRead = pathname.startsWith("/api/ai/") || pathname === "/api/price-book" || pathname.startsWith("/api/admin/") || pathname === "/api/cloud/claim";
+  const protectedWrite = ["/api/cloud/pair", "/api/cloud/token", "/api/cloud/revoke", "/api/events", "/api/feedback"].includes(pathname)
+    || pathname.startsWith("/api/price-book/");
+  if (!protectedRead && !protectedWrite) return next();
+  access.requireSameOrigin(req, res, (err) => err ? next(err) : access.requireAccess(req, res, next));
+});
+// Legacy org code stays inert even when DATABASE_URL is configured.
 app.use((req, res, next) => { req.session = null; req.membership = null; next(); });
 mountAi(app);
 mountProduct(app);
@@ -279,6 +298,17 @@ app.get("/healthz", wrap(async (req, res) => {
   let dbOk = null;
   if (hasDb) { try { await q("select 1"); dbOk = true; } catch { dbOk = false; } }
   res.status(dbOk === false ? 503 : 200).json({ ok: dbOk !== false, mode: "local", db: dbOk });
+}));
+
+app.get("/readyz", wrap(async (req, res) => {
+  let ready = true;
+  if (hasDb) { try { await q("select 1"); } catch { ready = false; } }
+  res.status(ready ? 200 : 503).json({
+    status: ready ? "ok" : "unavailable",
+    version: APP_VERSION,
+    commit: releaseIdentity(process.env.RAILWAY_GIT_COMMIT_SHA || process.env.COMMIT_SHA),
+    release: releaseIdentity(process.env.RAILWAY_DEPLOYMENT_ID || process.env.RELEASE_ID),
+  });
 }));
 
 app.get("/api/config", wrap(async (req, res) => {
@@ -298,7 +328,7 @@ app.post("/api/cloud/pair", wrap(async (req, res) => {
   res.json({ pair, url: `${baseUrl(req)}/auth/${provider}/start?pair=${pair}` });
 }));
 
-app.get("/auth/:provider/start", (req, res) => {
+app.get("/auth/:provider/start", access.requireAccess, (req, res) => {
   const { provider } = req.params;
   const pair = String(req.query.pair || "");
   const p = pending.get(pair);
@@ -322,7 +352,7 @@ app.get("/auth/:provider/callback", wrap(async (req, res) => {
   const { provider } = req.params;
   const [pair, sig] = String(req.query.state || "").split(".");
   const p = pending.get(pair);
-  if (!enabled(provider) || !p || p.provider !== provider || sig !== sign(pair)) {
+  if (!enabled(provider) || !p || p.provider !== provider || !sameSecret(sig, sign(pair))) {
     return res.status(400).send(page("This sign-in link has expired", "Go back to SiteSnap and tap Connect again.", baseUrl(req)));
   }
   if (req.query.error) {
@@ -357,7 +387,7 @@ app.get("/api/cloud/claim", wrap(async (req, res) => {
   // the pair value alone isn't enough to claim it — only the browser that
   // started this pairing (and so holds the matching cookie) can. Left in
   // `pending` (not deleted) so the real browser can still claim it.
-  if (pairBindFromReq(req) !== p.bind) return res.status(403).json({ status: "forbidden" });
+  if (!sameSecret(pairBindFromReq(req), p.bind)) return res.status(403).json({ status: "forbidden" });
   if (!p.result) return res.json({ status: "pending" });
   pending.delete(pair);
   res.json({ status: "done", purpose: "link", provider: p.provider, ...p.result });
@@ -406,9 +436,14 @@ app.all("/api/{*splat}", (req, res) => res.status(404).json({ error: "not found"
 app.all("/auth/{*splat}", (req, res) => res.status(404).json({ error: "not found" }));
 // Express 5 (path-to-regexp 8) needs the catch-all named; the braces make
 // the segment optional so the bare "/" is caught too
-app.get("/{*splat}", (req, res) => {
+app.get("/{*splat}", (req, res, next) => {
   if (req.path.startsWith("/api/") || req.path.startsWith("/auth/")) return res.status(404).json({ error: "not found" });
-  res.sendFile(path.join(DIST, "index.html"), { headers: { "Cache-Control": "no-cache" } });
+  // Read explicitly rather than relying on sendFile's platform-specific path
+  // resolution; this is the same file for every SPA navigation in a deploy.
+  fs.readFile(path.join(DIST, "index.html"), (err, html) => {
+    if (err) return next(err);
+    res.set("Cache-Control", "no-cache").type("html").send(html);
+  });
 });
 
 // eslint-disable-next-line no-unused-vars
@@ -436,10 +471,10 @@ async function purge() {
   } catch (e) { console.error("purge failed:", e.message); }
 }
 
-(async () => {
+export async function startServer() {
   if (hasDb) {
     try { await migrate(); await purge(); setInterval(purge, 6 * 60 * 60 * 1000).unref(); }
-    catch (e) { console.error("database unavailable:", e.message); process.exit(1); }
+    catch (e) { console.error("database unavailable:", e.message); throw e; }
   }
   const server = app.listen(PORT, "0.0.0.0", () => {
     const on = Object.keys(PROVIDERS).filter(enabled);
@@ -463,4 +498,14 @@ async function purge() {
     console.error("unhandledRejection:", err);
     captureFatal(err).finally(() => process.exit(1));
   });
-})();
+  return server;
+}
+
+export { app };
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  startServer().catch((err) => {
+    console.error("startup failed:", err.message);
+    process.exit(1);
+  });
+}

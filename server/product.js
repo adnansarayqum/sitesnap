@@ -9,6 +9,10 @@ import { hasDb, q } from "./db.js";
 import { requireOrg, requireAdmin, rateLimit } from "./auth.js";
 import { event } from "./ai/events.js";
 
+// DATABASE_URL supports migrations/reference data only. It does not enable
+// the abandoned account/org product telemetry model.
+const ACCOUNT_MODE = false;
+
 const EVENT_NAMES = new Set([
   "case_created", "inspection_started", "issue_created", "photo_captured", "memo_recorded", "reading_added", "inspection_completed",
   "draft_requested", "finding_generated", "finding_approved", "finding_edited", "finding_rejected", "finding_regenerated",
@@ -22,29 +26,29 @@ const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).cat
 const s = (v, n) => String(v == null ? "" : v).slice(0, n);
 
 export function mountProduct(app) {
-  app.post("/api/events", hasDb ? requireOrg : (req, res, next) => next(), express.json({ limit: "256kb" }), wrap(async (req, res) => {
+  app.post("/api/events", ACCOUNT_MODE ? requireOrg : (req, res, next) => next(), express.json({ limit: "256kb" }), wrap(async (req, res) => {
     const list = (Array.isArray(req.body && req.body.events) ? req.body.events : []).slice(0, 100)
       .filter((e) => e && EVENT_NAMES.has(e.name))
       .map((e) => ({ name: e.name, at: Number.isFinite(e.at) ? new Date(e.at) : new Date(), props: e.props && typeof e.props === "object" ? JSON.parse(JSON.stringify(e.props).slice(0, 2000)) : {} }));
-    if (!hasDb || !list.length) return res.json({ ok: true, stored: 0 });
+    if (!ACCOUNT_MODE || !list.length) return res.json({ ok: true, stored: 0 });
     if (!rateLimit(`events:${req.session.user_id}`, 600, 60 * 60 * 1000)) return res.status(429).json({ error: "slow_down" });
     await q(`insert into product_events (org_id, user_id, name, at, props) select $1, $2, * from unnest($3::text[], $4::timestamptz[], $5::jsonb[])`,
       [req.session.org_id, req.session.user_id, list.map((e) => e.name), list.map((e) => e.at), list.map((e) => JSON.stringify(e.props))]);
     res.json({ ok: true, stored: list.length });
   }));
 
-  app.post("/api/feedback", hasDb ? requireOrg : (req, res, next) => next(), express.json({ limit: "64kb" }), wrap(async (req, res) => {
+  app.post("/api/feedback", ACCOUNT_MODE ? requireOrg : (req, res, next) => next(), express.json({ limit: "64kb" }), wrap(async (req, res) => {
     const b = req.body || {};
     const kind = FEEDBACK_KINDS.has(b.kind) ? b.kind : "other";
     const text = s(b.text, 2000);
     event("feedback_received", { kind, screen: s(b.screen, 60), case: s(b.caseId, 80), finding: s(b.findingId, 80), version: s(b.version, 20), chars: text.length });
-    if (!hasDb) return res.json({ ok: true, stored: false });
+    if (!ACCOUNT_MODE) return res.json({ ok: true, stored: false });
     await q("insert into feedback (org_id, user_id, kind, text, screen, case_id, finding_id, app_version) values ($1, $2, $3, $4, $5, $6, $7, $8)",
       [req.session.org_id, req.session.user_id, kind, text, s(b.screen, 60) || null, s(b.caseId, 80) || null, s(b.findingId, 80) || null, s(b.version, 20) || null]);
     res.json({ ok: true, stored: true });
   }));
 
-  if (!hasDb) return;
+  if (!ACCOUNT_MODE) return;
 
   // the founder's pilot view: per member, did they get to each milestone,
   // and when were they last here — counts and dates, no content

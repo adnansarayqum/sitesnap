@@ -26,3 +26,9 @@ jobs:
       - run: npm test
 
       - run: npm run build
+
+      - name: Install smoke-test browser
+        run: npx playwright-core install --with-deps chromium
+
+      - name: Production server and offline PWA smoke
+        run: npm run test:e2e:smoke

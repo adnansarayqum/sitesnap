@@ -1,7 +1,7 @@
 // SiteSnap service worker — keeps the app shell available offline so an
 // inspection can carry on mid-property with no signal. Photos live in
 // IndexedDB, so only the shell (HTML + hashed assets) is cached here.
-const CACHE = "sitesnap-shell-v5";
+const CACHE = "sitesnap-shell-v6";
 
 // Precache the shell and the hashed bundles it references at install, so
 // the app works offline from the very first visit. Without this the shell
@@ -17,7 +17,10 @@ self.addEventListener("install", (event) => {
       if (!res.ok) return;
       const html = await res.clone().text();
       await c.put("/", res);
-      const assets = Array.from(new Set(html.match(/\/assets\/[^"' )]+/g) || []));
+      const manifestResponse = await fetch("/manifest.json", { cache: "no-store" }).catch(() => null);
+      const manifest = manifestResponse && manifestResponse.ok ? await manifestResponse.json().catch(() => ({})) : {};
+      const built = Object.values(manifest).flatMap((entry) => [entry.file, ...(entry.css || []), ...(entry.assets || [])]).filter(Boolean).map((file) => `/${file.replace(/^\//, "")}`);
+      const assets = Array.from(new Set([...(html.match(/\/assets\/[^"' )]+/g) || []), ...built]));
       await Promise.all(assets.map((a) => c.add(a).catch(() => {})));
     } catch { /* offline at install — the next online visit fills the cache */ }
   })());
