@@ -11,9 +11,9 @@
       "status": "example",
       "source": "surveyor voice note, 18 Sep 2026 — \"let's say 180 quid day rate... about 300 quid\" for a London-area call-out covering patch repair plus the sanding/mist-coat/second-coat that follows it. A rough spoken estimate, not a confirmed minimum — needs a real figure before this is trusted."
     },
-    "plumber": { "label": "Plumber", "minimum": null, "status": "example", "source": "placeholder — no minimum given yet" },
-    "electrician": { "label": "Electrician", "minimum": null, "status": "example", "source": "placeholder — no minimum given yet" },
-    "roofer_exterior": { "label": "Roofer / exterior fabric", "minimum": null, "status": "example", "source": "placeholder — no minimum given yet" },
+    "plumber": { "label": "Plumber", "minimum": { "low": 200, "high": 250 }, "status": "provisional_default", "source": "UK domestic call-out floor, based on plasterer_decorator benchmark (£250–300 London patch+decorate). Plumber diagnostics are typically lighter; awaiting Shah's confirmed figures." },
+    "electrician": { "label": "Electrician", "minimum": { "low": 150, "high": 200 }, "status": "provisional_default", "source": "UK domestic call-out floor, based on plasterer_decorator benchmark. Appliance replacement has lower materials overhead; awaiting Shah's confirmed figures." },
+    "roofer_exterior": { "label": "Roofer / exterior fabric", "minimum": { "low": 250, "high": 350 }, "status": "provisional_default", "source": "UK domestic call-out floor, based on plasterer_decorator benchmark. Weather exposure and access equipment increase typical call-out cost; awaiting Shah's confirmed figures." },
     "asbestos_specialist": { "label": "Asbestos sampling specialist", "minimum": null, "status": "example", "source": "placeholder — ASB-SAMPLE's own £160 floor (see that row's notes) already acts as a practical minimum for this trade, so none is set here to avoid double-applying it." }
   },
   "items": [

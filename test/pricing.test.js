@@ -101,16 +101,20 @@ describe("trade minimums (a case-wide reasonableness floor)", () => {
     expect(adj.addedLow).toBe(plasterer.to.low - naiveSum);
   });
 
-  it("a trade already above its minimum, or with no minimum set, is left exactly as summed", () => {
+  it("a trade already above its minimum, or with a provisional minimum, is applied or left as needed", () => {
     const big = priceItems(ref, [{ price_book_row_id: "CEIL-MAKE-GOOD", quantity: 1, quantity_basis: "assumed", quantity_evidence: [] }]);
     const aboveFloor = applyTradeMinimums(ref.priceBook.trades, big.lines);
     expect(aboveFloor.adjustments).toEqual([]);
     expect(aboveFloor.addedLow).toBe(0);
 
+    // plumber now has a provisional default (£200-250); verify it's applied if the sum is below
     const plumber = priceItems(ref, [{ price_book_row_id: "SEALANT-BATH", quantity: 1, quantity_basis: "assumed", quantity_evidence: [] }]);
-    expect(ref.priceBook.trades.plumber.minimum).toBeNull(); // nothing confirmed yet
-    const noFloor = applyTradeMinimums(ref.priceBook.trades, plumber.lines);
-    expect(noFloor.adjustments).toEqual([]);
+    expect(ref.priceBook.trades.plumber.minimum).toBeTruthy();
+    const result = applyTradeMinimums(ref.priceBook.trades, plumber.lines);
+    // SEALANT-BATH is small enough that it should hit the plumber floor
+    const plumberAdj = result.adjustments.find((x) => x.trade === "plumber");
+    expect(plumberAdj).toBeTruthy();
+    expect(plumberAdj.to.low).toBe(ref.priceBook.trades.plumber.minimum.low);
   });
 
   it("unpriced or trade-less lines are ignored rather than crashing the grouping", () => {

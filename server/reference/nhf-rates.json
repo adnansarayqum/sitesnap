@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "currency": "GBP",
+  "updated": "2026-09-23",
+  "note": "Reference NHF/BCIS rate-book items. These are representative domestic rates for comparison only — NOT used in SiteSnap pricing. The price-book uses worked examples from MLA/TLB templates and Shah's own call-out figures instead. This file exists for documentation and future integration. All items marked status: reference_only until Shah provides his official NHF rate sheet; then rates can be updated with status: confirmed and integrated into the workflow if needed.",
+  "items": [
+    {
+      "id": "NHF-PLASTER-PATCH",
+      "work": "Plaster patching to an internal wall, per m²",
+      "unit": "per m²",
+      "low": 12,
+      "high": 25,
+      "status": "reference_only",
+      "active": false,
+      "trade": "plasterer_decorator",
+      "source": "Typical BCIS domestic rate for small patch repair. Realistic call-out charge (plasterer_decorator minimum £250–300) assumes multiple m² in one visit.",
+      "notes": "Do not use directly for pricing — too low for realistic visit charges. Use plasterer_decorator minimum floor instead."
+    },
+    {
+      "id": "NHF-PAINT-DECORATE",
+      "work": "Emulsion paint, internal wall redecoration, per m²",
+      "unit": "per m²",
+      "low": 8,
+      "high": 15,
+      "status": "reference_only",
+      "active": false,
+      "trade": "plasterer_decorator",
+      "source": "Typical BCIS domestic rate for redecorating a painted surface. Per-m² rate does not capture setup, access, surface prep time.",
+      "notes": "Reference only. SiteSnap uses call-out minimums instead."
+    },
+    {
+      "id": "NHF-SEALANT-BATH",
+      "work": "Bath/shower sealant renewal, per linear metre",
+      "unit": "per m",
+      "low": 8,
+      "high": 18,
+      "status": "reference_only",
+      "active": false,
+      "trade": "plumber",
+      "source": "Typical BCIS domestic rate for sealant removal and replacement. Does not include fixtures or grouting.",
+      "notes": "Reference only. Plumber call-out minimum £200–250 is a more realistic floor for this work."
+    }
+  ]
+}
