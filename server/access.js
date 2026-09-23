@@ -18,11 +18,14 @@ function sameOrigin(req, publicUrl) {
 }
 
 export function createAccessControl(env = process.env) {
-  const production = env.NODE_ENV === "production";
+  // `npm start` is a production server even when a platform forgot to set
+  // NODE_ENV. Only an explicit development/test process may run unprotected.
+  const production = !["development", "test"].includes(env.NODE_ENV);
   const passphrase = String(env.SITESNAP_ACCESS_KEY || "");
   const enabled = !!passphrase;
   const liveAi = LIVE_AI_KEYS.some((name) => !!env[name]);
   if (enabled && passphrase.length < 16) throw new Error("SITESNAP_ACCESS_KEY must be at least 16 characters");
+  if (passphrase.length > 1024) throw new Error("SITESNAP_ACCESS_KEY must be at most 1024 characters");
   if (production && liveAi && !enabled) {
     throw new Error("SITESNAP_ACCESS_KEY is required in production when live AI provider credentials are configured");
   }

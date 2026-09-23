@@ -15,9 +15,10 @@ contains no access secret. Login guesses are rate-limited by client address
 and globally, and state-changing protected requests must have the deployment's
 same origin.
 
-The cached shell and IndexedDB continue to work offline. AI, cloud linking and
-other server operations naturally require a network connection and a valid
-session.
+After one successful session check or unlock, the cached shell and IndexedDB
+continue to work offline. A device that has never been activated stays locked
+until it can reach the server. AI, cloud linking and other server operations
+naturally require a network connection and a valid session.
 
 ## Railway variables
 
@@ -31,7 +32,7 @@ Set these in **Service → Variables**, then redeploy:
 | `SITESNAP_SESSION_DAYS` | optional | Cookie lifetime, `1`–`90`; default `30` |
 | `ANTHROPIC_API_KEY` | optional | Enables drafting/caption/intake. Production startup fails if this or `OPENAI_API_KEY` is present without `SITESNAP_ACCESS_KEY`. |
 | `OPENAI_API_KEY` | optional | Enables transcription; same fail-closed rule |
-| `TOKEN_KEY` | optional | 32 random bytes (64 hex characters recommended) used to seal cloud refresh tokens |
+| `TOKEN_KEY` | optional | Exactly 32 random bytes encoded as 64 hexadecimal characters, used to seal cloud refresh tokens. Production rejects passphrases. |
 | `MS_CLIENT_ID`, `MS_CLIENT_SECRET` | optional | OneDrive cloud link; requires `TOKEN_KEY` |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | optional | Google Drive cloud link; requires `TOKEN_KEY` |
 | `DATABASE_URL` | optional | Railway Postgres URL for migrations/reference schema compatibility only |
@@ -95,8 +96,12 @@ invalid because cookie signatures derive from that key. Enter the new key on
 the device. No browser storage, cases or photographs are deleted.
 
 If a device is lost, rotate the key immediately and revoke linked provider
-access in Microsoft/Google. Rotate `TOKEN_KEY` only when cloud links must all
-be invalidated: changing it makes every sealed cloud token on the phone
+access in Microsoft/Google. Rotation blocks online server capabilities but
+cannot remotely erase inspections already stored in an activated device's
+IndexedDB. The client device must use a strong OS passcode, device encryption
+and remote-wipe capability; treat those controls as the boundary for offline
+case confidentiality. Rotate `TOKEN_KEY` only when cloud links must all be
+invalidated: changing it makes every sealed cloud token on the phone
 unreadable, so each provider must be connected again.
 
 ## Monitoring

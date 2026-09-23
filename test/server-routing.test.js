@@ -88,6 +88,35 @@ describe("production server routing and access", () => {
     expect(allowed.status).toBe(200);
   });
 
+  it("cannot bypass capability guards with path variants", async () => {
+    for (const route of [
+      "/API/AI/CONFIG",
+      "/api/ai/config/",
+      "/api/ai/config?variant=1",
+      "/API/PRICE-BOOK/",
+      "/api/admin/pilot/",
+    ]) {
+      expect((await fetch(base + route)).status, route).toBe(401);
+    }
+
+    // The same Express matcher authorizes and dispatches a variant.
+    expect((await fetch(base + "/API/AI/CONFIG/", { headers: { cookie } })).status).toBe(200);
+
+    for (const route of ["/API/EVENTS", "/api/events/", "/API/CLOUD/TOKEN/", "/api/cloud/pair/"]) {
+      const response = await fetch(base + route, {
+        method: "POST",
+        headers: { origin, "content-type": "application/json" },
+        body: "{}",
+      });
+      expect(response.status, route).toBe(401);
+    }
+
+    // Variants Express itself does not dispatch must stay non-capable.
+    for (const route of ["/api//ai/config", "/api/%61i/config", "/api/cloud//token"]) {
+      expect((await fetch(base + route)).status, route).not.toBe(200);
+    }
+  });
+
   it("rate-limits repeated login guesses", async () => {
     const statuses = [];
     for (let i = 0; i < 9; i += 1) {

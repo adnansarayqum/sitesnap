@@ -5,6 +5,8 @@ describe("single-client access control", () => {
   it("fails closed when production AI credentials have no access key", () => {
     expect(() => createAccessControl({ NODE_ENV: "production", ANTHROPIC_API_KEY: "live-placeholder" }))
       .toThrow(/SITESNAP_ACCESS_KEY is required/);
+    expect(() => createAccessControl({ ANTHROPIC_API_KEY: "live-placeholder" }))
+      .toThrow(/SITESNAP_ACCESS_KEY is required/);
   });
 
   it("requires a suitably long key and rejects tampered or expired sessions", () => {

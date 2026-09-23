@@ -60,10 +60,31 @@ try {
   await page.getByRole("button", { name: /new inspection/i }).waitFor({ timeout: 15_000 });
 
   await page.waitForFunction(() => navigator.serviceWorker && navigator.serviceWorker.controller, null, { timeout: 15_000 });
+  // A controlled navigation used to prune every lazy chunk that was not
+  // referenced directly by index.html. Reload once, then prove the complete
+  // Vite manifest remains available before taking the device offline.
+  await page.reload({ waitUntil: "networkidle" });
+  const missingChunks = await page.evaluate(async () => {
+    const manifest = await fetch("/manifest.json", { cache: "no-store" }).then((response) => response.json());
+    const expected = Object.values(manifest)
+      .flatMap((entry) => [entry.file, ...(entry.css || []), ...(entry.assets || [])])
+      .filter(Boolean)
+      .map((file) => new URL(`/${file.replace(/^\//, "")}`, location.origin).href);
+    const names = await caches.keys();
+    const shell = names.find((name) => name.startsWith("sitesnap-shell-"));
+    if (!shell) return ["<missing shell cache>"];
+    const cached = new Set((await (await caches.open(shell)).keys()).map((request) => request.url));
+    return expected.filter((url) => !cached.has(url));
+  });
+  if (missingChunks.length) throw new Error(`manifest chunks missing after controlled navigation: ${missingChunks.join(", ")}`);
+  await page.evaluate(() => localStorage.removeItem("sitesnap:device-activated-v1"));
   await context.setOffline(true);
   await page.goto(`${base}/offline/deep-link`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("heading", { name: /connect to activate sitesnap/i }).waitFor({ timeout: 15_000 });
+  await page.evaluate(() => localStorage.setItem("sitesnap:device-activated-v1", "yes"));
+  await page.reload({ waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: /new inspection/i }).waitFor({ timeout: 15_000 });
-  console.log("production smoke passed: auth, SPA fallback, JSON 404, exact readiness identity, offline reload");
+  console.log("production smoke passed: auth, SPA fallback, JSON 404, exact readiness identity, full lazy cache, offline activation gate and reload");
 } finally {
   if (browser) await browser.close();
   if (child.exitCode === null) {

@@ -22,7 +22,7 @@ Set these in Railway → the service → **Variables**, then redeploy:
 
 | variable | value |
 |---|---|
-| `TOKEN_KEY` | any long random string (e.g. `openssl rand -hex 32`). Changing it later logs every phone out. |
+| `TOKEN_KEY` | exactly 32 random bytes encoded as 64 hexadecimal characters (for example, output from `openssl rand -hex 32`). Production rejects passphrases. Changing it later logs every phone out. |
 | `MS_CLIENT_ID`, `MS_CLIENT_SECRET` | from the Azure app registration below |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | from the Google Cloud OAuth client below |
 | `PUBLIC_URL` | optional — the app's public URL, only if Railway's forwarded host isn't right |

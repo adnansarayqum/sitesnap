@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
 
+const ACTIVATED = "sitesnap:device-activated-v1";
+const wasActivated = () => { try { return localStorage.getItem(ACTIVATED) === "yes"; } catch { return false; } };
+const markActivated = () => { try { localStorage.setItem(ACTIVATED, "yes"); } catch { /* private storage may be unavailable */ } };
+
 export function AccessGate({ children }) {
   const [state, setState] = useState({ checking: true, required: false, authenticated: false });
   const [passphrase, setPassphrase] = useState("");
@@ -8,10 +12,22 @@ export function AccessGate({ children }) {
 
   useEffect(() => {
     fetch("/api/session", { cache: "no-store" })
-      .then(async (response) => response.ok ? response.json() : Promise.reject(new Error("session unavailable")))
-      .then((session) => setState({ checking: false, ...session }))
-      // The local app and IndexedDB remain usable when the network is down.
-      .catch(() => setState({ checking: false, required: false, authenticated: false }));
+      .then(async (response) => {
+        const json = /json/i.test(response.headers.get("content-type") || "");
+        // Static-only hosts deliberately have no API. A real HTTP response
+        // that is absent/non-JSON is distinguishable from being offline.
+        if (response.status === 404 || (response.ok && !json)) return { required: false, authenticated: false, static: true };
+        if (!response.ok) throw new Error("session unavailable");
+        return response.json();
+      })
+      .then((session) => {
+        // A successful server check proves this installation reached the
+        // intended origin. Thereafter its local IndexedDB remains usable in
+        // the field when connectivity disappears.
+        if (!session.required || session.authenticated) markActivated();
+        setState({ checking: false, offline: false, ...session });
+      })
+      .catch(() => setState({ checking: false, required: !wasActivated(), authenticated: false, offline: true }));
   }, []);
 
   async function unlock(event) {
@@ -29,12 +45,19 @@ export function AccessGate({ children }) {
         throw new Error(response.status === 429 ? "Too many attempts. Wait 15 minutes and try again." : body.error === "bad_origin" ? "Open SiteSnap from its deployed URL and try again." : "That access key is not correct.");
       }
       setPassphrase("");
+      markActivated();
       setState({ checking: false, required: true, authenticated: true });
     } catch (err) { setError(err.message || "SiteSnap could not be unlocked."); }
     finally { setBusy(false); }
   }
 
   if (state.checking) return <div style={styles.page}>Opening SiteSnap…</div>;
+  if (state.offline && state.required) return (
+    <main style={styles.page}><section style={styles.card}>
+      <h1 style={styles.title}>Connect to activate SiteSnap</h1>
+      <p style={styles.copy}>This device has not been unlocked before. Connect to the internet, reopen SiteSnap, and enter the private access key once.</p>
+    </section></main>
+  );
   if (!state.required || state.authenticated) return children;
   return (
     <main style={styles.page}>

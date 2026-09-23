@@ -20,6 +20,7 @@ import { mountAi } from "./ai-routes.js";
 import { mountProduct } from "./product.js";
 import { aiEnabled, transcriptionEnabled, AI_MODEL } from "./ai.js";
 import { createAccessControl } from "./access.js";
+import { createTokenKey } from "./token-key.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST = process.env.SITESNAP_DIST_DIR ? path.resolve(process.env.SITESNAP_DIST_DIR) : path.join(__dirname, "..", "dist");
@@ -56,13 +57,11 @@ const PROVIDERS = {
 };
 
 // ---- sealing -------------------------------------------------------------
-// TOKEN_KEY may be 64 hex chars or any passphrase; either way it becomes a
-// 32-byte AES-256-GCM key. Without it no provider is enabled at all.
-const KEY = (() => {
-  const raw = process.env.TOKEN_KEY || "";
-  if (!raw) return null;
-  return /^[0-9a-f]{64}$/i.test(raw) ? Buffer.from(raw, "hex") : crypto.createHash("sha256").update(raw).digest();
-})();
+// Production accepts only 32 bytes of random key material. A human-memorable
+// passphrase makes a stolen sealed refresh-token blob vulnerable to offline
+// dictionary guessing.
+const CLOUD_CONFIGURED = Object.values(PROVIDERS).some((provider) => provider.clientId || provider.clientSecret);
+const KEY = createTokenKey(process.env, CLOUD_CONFIGURED);
 
 function enabled(provider) {
   const c = PROVIDERS[provider];
@@ -259,7 +258,8 @@ app.use((req, res, next) => {
 // (ai-routes.js); everything else is small JSON
 // originalUrl, not path: inside app.use("/api", ...) the mount prefix is
 // stripped from req.path
-const isAi = (req) => String(req.originalUrl || req.url).split("?")[0].startsWith("/api/ai/");
+const requestPath = (req) => String(req.originalUrl || req.url).split("?")[0].toLowerCase();
+const isAi = (req) => requestPath(req).startsWith("/api/ai/");
 const jsonBody = express.json({ limit: "4mb" });
 app.use((req, res, next) => (isAi(req) ? next() : jsonBody(req, res, next)));
 access.mount(app);
@@ -276,17 +276,16 @@ app.use("/api", (req, res, next) => {
   res.set("Cache-Control", "no-store");
   next();
 });
-// Session cookies authorize server capabilities, not the local/offline app.
-// Protect every expensive or state-changing supported surface while leaving
-// unknown API paths to the JSON 404 below for predictable client behaviour.
-app.use((req, res, next) => {
-  const pathname = String(req.originalUrl || req.url).split("?")[0];
-  const protectedRead = pathname.startsWith("/api/ai/") || pathname === "/api/price-book" || pathname.startsWith("/api/admin/") || pathname === "/api/cloud/claim";
-  const protectedWrite = ["/api/cloud/pair", "/api/cloud/token", "/api/cloud/revoke", "/api/events", "/api/feedback"].includes(pathname)
-    || pathname.startsWith("/api/price-book/");
-  if (!protectedRead && !protectedWrite) return next();
-  access.requireSameOrigin(req, res, (err) => err ? next(err) : access.requireAccess(req, res, next));
-});
+// Use Express's own case-insensitive, trailing-slash-tolerant matcher for
+// authorization as well as dispatch. A separately parsed originalUrl can
+// disagree with Express and turn path variants into an auth bypass.
+const protect = [access.requireSameOrigin, access.requireAccess];
+app.use("/api/ai", ...protect);
+app.use("/api/price-book", ...protect);
+app.use("/api/admin", ...protect);
+for (const route of ["/api/cloud/pair", "/api/cloud/claim", "/api/cloud/token", "/api/cloud/revoke", "/api/events", "/api/feedback"]) {
+  app.all(route, ...protect);
+}
 // Legacy org code stays inert even when DATABASE_URL is configured.
 app.use((req, res, next) => { req.session = null; req.membership = null; next(); });
 mountAi(app);

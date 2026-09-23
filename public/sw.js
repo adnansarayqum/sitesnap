@@ -3,6 +3,14 @@
 // IndexedDB, so only the shell (HTML + hashed assets) is cached here.
 const CACHE = "sitesnap-shell-v6";
 
+async function shellAssets(html, requireManifest = false) {
+  const manifestResponse = await fetch("/manifest.json", { cache: "no-store" }).catch(() => null);
+  if (requireManifest && (!manifestResponse || !manifestResponse.ok)) throw new Error("manifest unavailable");
+  const manifest = manifestResponse && manifestResponse.ok ? await manifestResponse.json().catch(() => ({})) : {};
+  const built = Object.values(manifest).flatMap((entry) => [entry.file, ...(entry.css || []), ...(entry.assets || [])]).filter(Boolean).map((file) => `/${file.replace(/^\//, "")}`);
+  return Array.from(new Set([...(html.match(/\/assets\/[^"' )]+/g) || []), ...built]));
+}
+
 // Precache the shell and the hashed bundles it references at install, so
 // the app works offline from the very first visit. Without this the shell
 // was only cached by a *controlled* navigation — i.e. the second visit — and
@@ -17,10 +25,7 @@ self.addEventListener("install", (event) => {
       if (!res.ok) return;
       const html = await res.clone().text();
       await c.put("/", res);
-      const manifestResponse = await fetch("/manifest.json", { cache: "no-store" }).catch(() => null);
-      const manifest = manifestResponse && manifestResponse.ok ? await manifestResponse.json().catch(() => ({})) : {};
-      const built = Object.values(manifest).flatMap((entry) => [entry.file, ...(entry.css || []), ...(entry.assets || [])]).filter(Boolean).map((file) => `/${file.replace(/^\//, "")}`);
-      const assets = Array.from(new Set([...(html.match(/\/assets\/[^"' )]+/g) || []), ...built]));
+      const assets = await shellAssets(html);
       await Promise.all(assets.map((a) => c.add(a).catch(() => {})));
     } catch { /* offline at install — the next online visit fills the cache */ }
   })());
@@ -57,7 +62,10 @@ self.addEventListener("fetch", (event) => {
               // shell no longer references so the cache doesn't grow forever
               try {
                 const html = await forPrune.text();
-                const wanted = new Set((html.match(/\/assets\/[^"' )]+/g) || []).map((p) => new URL(p, location.origin).href));
+                // Never prune from the partial index.html list when the
+                // manifest is transiently unavailable; that would delete
+                // lazy chunks needed for offline work.
+                const wanted = new Set((await shellAssets(html, true)).map((p) => new URL(p, location.origin).href));
                 const cached = await c.keys();
                 await Promise.all(cached
                   .filter((req) => new URL(req.url).pathname.startsWith("/assets/") && !wanted.has(req.url))
