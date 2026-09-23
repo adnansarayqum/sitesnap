@@ -49,34 +49,29 @@ self.addEventListener("fetch", (event) => {
 
   // App shell: network-first so deploys show up, cached copy when offline.
   if (event.request.mode === "navigate") {
-    event.respondWith(
-      fetch(event.request)
-        .then((res) => {
-          // a 502 from a mid-deploy host must not become the offline shell
-          if (res.ok) {
-            const copy = res.clone();
-            const forPrune = res.clone();
-            caches.open(CACHE).then(async (c) => {
-              await c.put("/", copy);
-              // every deploy ships a new hashed bundle; drop the ones this
-              // shell no longer references so the cache doesn't grow forever
-              try {
-                const html = await forPrune.text();
-                // Never prune from the partial index.html list when the
-                // manifest is transiently unavailable; that would delete
-                // lazy chunks needed for offline work.
-                const wanted = new Set((await shellAssets(html, true)).map((p) => new URL(p, location.origin).href));
-                const cached = await c.keys();
-                await Promise.all(cached
-                  .filter((req) => new URL(req.url).pathname.startsWith("/assets/") && !wanted.has(req.url))
-                  .map((req) => c.delete(req)));
-              } catch { /* pruning is best-effort */ }
-            });
-          }
-          return res;
-        })
-        .catch(() => caches.match("/"))
-    );
+    const network = fetch(event.request);
+    const refreshShell = network.then(async (res) => {
+      // a 502 from a mid-deploy host must not become the offline shell
+      if (!res.ok) return;
+      const copy = res.clone();
+      const forPrune = res.clone();
+      const c = await caches.open(CACHE);
+      await c.put("/", copy);
+      // every deploy ships a new hashed bundle; stage the whole new release
+      // before dropping assets from the previous one
+      const html = await forPrune.text();
+      const wanted = new Set((await shellAssets(html, true)).map((p) => new URL(p, location.origin).href));
+      const before = new Set((await c.keys()).map((req) => req.url));
+      await Promise.all([...wanted]
+        .filter((url) => !before.has(url))
+        .map((url) => c.add(url)));
+      const cached = await c.keys();
+      await Promise.all(cached
+        .filter((req) => new URL(req.url).pathname.startsWith("/assets/") && !wanted.has(req.url))
+        .map((req) => c.delete(req)));
+    }).catch(() => { /* retain the previous complete offline release */ });
+    event.waitUntil(refreshShell);
+    event.respondWith(network.catch(() => caches.match("/")));
     return;
   }
 

@@ -30,7 +30,7 @@ Set these in **Service → Variables**, then redeploy:
 | `PUBLIC_URL` | yes | Exact generated HTTPS origin, for example `https://sitesnap-production.up.railway.app` (no path) |
 | `SITESNAP_ACCESS_KEY` | yes for production server features | A unique passphrase of at least 16 characters; use 5+ random words or 32 random bytes. Never prefix it with `VITE_`. |
 | `SITESNAP_SESSION_DAYS` | optional | Cookie lifetime, `1`–`90`; default `30` |
-| `ANTHROPIC_API_KEY` | optional | Enables drafting/caption/intake. Production startup fails if this or `OPENAI_API_KEY` is present without `SITESNAP_ACCESS_KEY`. |
+| `ANTHROPIC_API_KEY` | optional | Enables drafting/caption/intake. Without `SITESNAP_ACCESS_KEY`, protected provider routes stay fail-closed with HTTP 503 while the local app remains available. |
 | `OPENAI_API_KEY` | optional | Enables transcription; same fail-closed rule |
 | `TOKEN_KEY` | optional | Exactly 32 random bytes encoded as 64 hexadecimal characters, used to seal cloud refresh tokens. Production rejects passphrases. |
 | `MS_CLIENT_ID`, `MS_CLIENT_SECRET` | optional | OneDrive cloud link; requires `TOKEN_KEY` |

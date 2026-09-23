@@ -60,9 +60,20 @@ try {
   await page.getByRole("button", { name: /new inspection/i }).waitFor({ timeout: 15_000 });
 
   await page.waitForFunction(() => navigator.serviceWorker && navigator.serviceWorker.controller, null, { timeout: 15_000 });
-  // A controlled navigation used to prune every lazy chunk that was not
-  // referenced directly by index.html. Reload once, then prove the complete
-  // Vite manifest remains available before taking the device offline.
+  // Model an incomplete install/deployment update by deleting an unvisited
+  // lazy chunk. A controlled navigation must restage the complete manifest,
+  // not merely avoid pruning whatever happened to survive installation.
+  const deletedLazyChunk = await page.evaluate(async () => {
+    const manifest = await fetch("/manifest.json", { cache: "no-store" }).then((response) => response.json());
+    const target = Object.values(manifest).map((entry) => entry.file).find((file) => /CaseFile/i.test(file));
+    const names = await caches.keys();
+    const shell = names.find((name) => name.startsWith("sitesnap-shell-"));
+    if (!target || !shell) return null;
+    const url = new URL(`/${target.replace(/^\//, "")}`, location.origin).href;
+    await (await caches.open(shell)).delete(url);
+    return url;
+  });
+  if (!deletedLazyChunk) throw new Error("could not prepare incomplete lazy cache");
   await page.reload({ waitUntil: "networkidle" });
   const missingChunks = await page.evaluate(async () => {
     const manifest = await fetch("/manifest.json", { cache: "no-store" }).then((response) => response.json());
@@ -76,7 +87,8 @@ try {
     const cached = new Set((await (await caches.open(shell)).keys()).map((request) => request.url));
     return expected.filter((url) => !cached.has(url));
   });
-  if (missingChunks.length) throw new Error(`manifest chunks missing after controlled navigation: ${missingChunks.join(", ")}`);
+  if (missingChunks.length) throw new Error(`manifest chunks missing after controlled upgrade navigation: ${missingChunks.join(", ")}`);
+  await page.getByRole("button", { name: /new inspection/i }).waitFor({ timeout: 15_000 });
   await page.evaluate(() => localStorage.removeItem("sitesnap:device-activated-v1"));
   await context.setOffline(true);
   await page.goto(`${base}/offline/deep-link`, { waitUntil: "domcontentloaded" });

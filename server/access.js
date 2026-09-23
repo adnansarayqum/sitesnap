@@ -26,9 +26,7 @@ export function createAccessControl(env = process.env) {
   const liveAi = LIVE_AI_KEYS.some((name) => !!env[name]);
   if (enabled && passphrase.length < 16) throw new Error("SITESNAP_ACCESS_KEY must be at least 16 characters");
   if (passphrase.length > 1024) throw new Error("SITESNAP_ACCESS_KEY must be at most 1024 characters");
-  if (production && liveAi && !enabled) {
-    throw new Error("SITESNAP_ACCESS_KEY is required in production when live AI provider credentials are configured");
-  }
+  const capabilitiesLocked = production && liveAi && !enabled;
 
   const passDigest = enabled ? digest(passphrase) : null;
   const signingKey = enabled ? crypto.hkdfSync("sha256", Buffer.from(passphrase), Buffer.from("sitesnap-access-v1"), Buffer.from("session-cookie"), 32) : null;
@@ -88,7 +86,7 @@ export function createAccessControl(env = process.env) {
 
   function mount(app) {
     app.use(middleware);
-    app.get("/api/session", (req, res) => res.json({ required: enabled, authenticated: !!req.access.authenticated }));
+    app.get("/api/session", (req, res) => res.json({ required: enabled, authenticated: !!req.access.authenticated, capabilitiesLocked }));
     app.post("/api/session", requireSameOrigin, (req, res) => {
       const ip = clientIp(req);
       if (!rateLimit(`access-login:${ip}`, 8, 15 * 60 * 1000) || !rateLimit("access-login:global", 100, 15 * 60 * 1000)) {
@@ -105,5 +103,5 @@ export function createAccessControl(env = process.env) {
     });
   }
 
-  return { enabled, production, mount, requireAccess, requireSameOrigin, verifyPassphrase, verifyToken, makeToken };
+  return { enabled, production, capabilitiesLocked, mount, requireAccess, requireSameOrigin, verifyPassphrase, verifyToken, makeToken };
 }

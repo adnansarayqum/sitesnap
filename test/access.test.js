@@ -3,10 +3,16 @@ import { createAccessControl } from "../server/access.js";
 
 describe("single-client access control", () => {
   it("fails closed when production AI credentials have no access key", () => {
-    expect(() => createAccessControl({ NODE_ENV: "production", ANTHROPIC_API_KEY: "live-placeholder" }))
-      .toThrow(/SITESNAP_ACCESS_KEY is required/);
-    expect(() => createAccessControl({ ANTHROPIC_API_KEY: "live-placeholder" }))
-      .toThrow(/SITESNAP_ACCESS_KEY is required/);
+    for (const env of [{ NODE_ENV: "production", ANTHROPIC_API_KEY: "live-placeholder" }, { ANTHROPIC_API_KEY: "live-placeholder" }]) {
+      const access = createAccessControl(env);
+      let status;
+      let body;
+      let proceeded = false;
+      const res = { status(value) { status = value; return this; }, json(value) { body = value; } };
+      access.requireAccess({}, res, () => { proceeded = true; });
+      expect(access.capabilitiesLocked).toBe(true);
+      expect({ status, body, proceeded }).toEqual({ status: 503, body: { error: "access_not_configured" }, proceeded: false });
+    }
   });
 
   it("requires a suitably long key and rejects tampered or expired sessions", () => {
