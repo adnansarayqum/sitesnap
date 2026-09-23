@@ -35,9 +35,11 @@ Generate Domain** to get the public HTTPS URL. Configure
 `SITESNAP_ACCESS_KEY` before enabling any server-side AI or cloud credentials.
 The key is entered once in the installed PWA and exchanged for an expiring,
 HttpOnly session cookie; it is never compiled into browser assets.
+Only explicit `development` or `test` mode relaxes production-safe defaults.
+Cloud OAuth additionally requires a 64-hex-character (32-byte) `TOKEN_KEY`.
 
-Exact Railway variables, key rotation/recovery, readiness monitoring,
-rollback, backups and the release checklist are in the
+Exact Railway variables, offline activation, key-rotation limits, readiness
+monitoring, rollback, backups and the release checklist are in the
 **[production runbook](docs/production-runbook.md)**. Cloud provider setup is
 in [`docs/direct-cloud-link-setup.md`](docs/direct-cloud-link-setup.md).
 

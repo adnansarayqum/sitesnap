@@ -89,14 +89,30 @@ describe("production server routing and access", () => {
   });
 
   it("cannot bypass capability guards with path variants", async () => {
-    for (const route of [
-      "/API/AI/CONFIG",
-      "/api/ai/config/",
-      "/api/ai/config?variant=1",
-      "/API/PRICE-BOOK/",
-      "/api/admin/pilot/",
+    for (const [method, route] of [
+      ["GET", "/API/AI/CONFIG"],
+      ["GET", "/api/ai/config/"],
+      ["GET", "/api/ai/config?variant=1"],
+      ["DELETE", "/Api/Ai/config"],
+      ["GET", "/API/PRICE-BOOK/"],
+      ["PATCH", "/api/price-book/rows/test?variant=1"],
+      ["GET", "/api/admin/pilot/"],
+      ["POST", "/API/EVENTS"],
+      ["POST", "/api/events/"],
+      ["POST", "/API/FEEDBACK?variant=1"],
+      ["POST", "/api/cloud/pair/"],
+      ["GET", "/API/CLOUD/CLAIM/?pair=test"],
+      ["POST", "/API/CLOUD/TOKEN/"],
+      ["POST", "/api/cloud/revoke?variant=1"],
+      ["GET", "/AUTH/GOOGLE/START/?pair=test"],
+      ["GET", "/auth/%67oogle/start?pair=test"],
     ]) {
-      expect((await fetch(base + route)).status, route).toBe(401);
+      const response = await fetch(base + route, {
+        method,
+        headers: { origin, "content-type": "application/json" },
+        body: ["GET", "HEAD", "DELETE"].includes(method) ? undefined : "{}",
+      });
+      expect(response.status, `${method} ${route}`).toBe(401);
     }
 
     // The same Express matcher authorizes and dispatches a variant.
@@ -112,8 +128,14 @@ describe("production server routing and access", () => {
     }
 
     // Variants Express itself does not dispatch must stay non-capable.
-    for (const route of ["/api//ai/config", "/api/%61i/config", "/api/cloud//token"]) {
-      expect((await fetch(base + route)).status, route).not.toBe(200);
+    for (const [method, route] of [["GET", "/api//ai/config"], ["GET", "/api/%61i/config"], ["POST", "/api/cloud//token"]]) {
+      const response = await fetch(base + route, {
+        method,
+        headers: { origin, "content-type": "application/json" },
+        body: method === "GET" ? undefined : "{}",
+      });
+      expect(response.status, route).toBe(404);
+      expect(response.headers.get("content-type"), route).toMatch(/json/);
     }
   });
 

@@ -15,7 +15,7 @@
     "evals:review-worksheet": "node server/evals/reference-review.mjs",
     "evals:payload": "AI_MOCK=1 node --expose-gc server/evals/payload-benchmark.mjs",
     "test": "vitest run",
-    "test:security": "vitest run test/access.test.js test/server-routing.test.js test/database-mode.test.js",
+    "test:security": "vitest run test/access.test.js test/token-key.test.js test/server-routing.test.js test/server-startup.test.js test/database-mode.test.js",
     "test:e2e:smoke": "node test/e2e/smoke.mjs",
     "test:e2e": "node test/e2e/local.mjs",
     "test:e2e:disrepair": "AI_MOCK=1 node test/e2e/disrepair-automation.mjs"

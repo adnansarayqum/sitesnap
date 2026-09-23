@@ -59,7 +59,7 @@ self.addEventListener("fetch", (event) => {
       const forPrune = res.clone();
       const c = await caches.open(CACHE);
       // every deploy ships a new hashed bundle; stage the whole new release
-      // before dropping assets from the previous one
+      // before publishing its shell or dropping the previous one
       const html = await forPrune.text();
       const wanted = new Set((await shellAssets(html, true)).map((p) => new URL(p, location.origin).href));
       const before = new Set((await c.keys()).map((req) => req.url));

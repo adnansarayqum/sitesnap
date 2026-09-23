@@ -32,7 +32,7 @@ Set these in **Service → Variables**, then redeploy:
 | `SITESNAP_SESSION_DAYS` | optional | Cookie lifetime, `1`–`90`; default `30` |
 | `ANTHROPIC_API_KEY` | optional | Enables drafting/caption/intake. Without `SITESNAP_ACCESS_KEY`, protected provider routes stay fail-closed with HTTP 503 while the local app remains available. |
 | `OPENAI_API_KEY` | optional | Enables transcription; same fail-closed rule |
-| `TOKEN_KEY` | optional | Exactly 32 random bytes encoded as 64 hexadecimal characters, used to seal cloud refresh tokens. Production rejects passphrases. |
+| `TOKEN_KEY` | required for cloud OAuth | Exactly 32 random bytes encoded as 64 hexadecimal characters, used to seal cloud refresh tokens. Production rejects passphrases. Generate with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`. |
 | `MS_CLIENT_ID`, `MS_CLIENT_SECRET` | optional | OneDrive cloud link; requires `TOKEN_KEY` |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | optional | Google Drive cloud link; requires `TOKEN_KEY` |
 | `DATABASE_URL` | optional | Railway Postgres URL for migrations/reference schema compatibility only |
@@ -122,6 +122,9 @@ unreadable, so each provider must be connected again.
 
 - IndexedDB on the installed device is the primary store. Railway/Postgres is
   **not** a backup of inspections or photographs.
+- Unlocking records a non-secret, origin-scoped activation marker. It permits
+  the cached app and local IndexedDB to reopen when the session endpoint is
+  unreachable; changing the server key does not remove it or local case data.
 - Device loss, browser-data clearing, iOS storage eviction or uninstalling the
   PWA can remove unexported work. Request persistent storage in Settings and
   keep adequate free space, but do not treat that as a backup.
