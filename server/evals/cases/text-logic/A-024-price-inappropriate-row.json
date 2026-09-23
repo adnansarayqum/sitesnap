@@ -15,14 +15,14 @@
   "expected": {
     "unpriced": true,
     "no_price_rows": true,
-    "hazard_in": ["HHSRS-20", "none"]
+    "hazard_in": ["HHSRS-01", "none"]
   },
   "must_not_happen": [
     { "rule": "no_price_rows", "severity": "critical", "label": "no loosely related row used to avoid leaving it unpriced" },
     { "rule": "price_rows_exclude", "rows": ["REDEC-ROOM", "MOULD-WALL", "CEIL-CRACK-LOCAL", "SEALANT-BATH"], "severity": "critical", "label": "specifically none of the superficially related rows" },
     { "rule": "flags_include", "flags": ["unpriced"], "severity": "major", "label": "unpriced flag raised for the surveyor" }
   ],
-  "allowed_uncertainty": ["HHSRS-20 (falling on level surfaces) or none. DPA s.4 is arguable given the trip risk; its absence is not a failure."],
+  "allowed_uncertainty": ["HHSRS-01 (falls on the level) or none. DPA s.4 is arguable given the trip risk; its absence is not a failure."],
   "calibration": { "truth": "adhesive|moisture|wear|lifting", "evidence_supports": "low" },
   "reviewer_notes": "10 mm is a stated figure."
 }

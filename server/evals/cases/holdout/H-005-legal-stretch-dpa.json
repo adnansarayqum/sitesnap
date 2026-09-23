@@ -16,7 +16,7 @@
   "expected": { "legal_excludes": ["LEGAL-DPA-S4"], "hazard_in": ["none"], "agreement_in": ["agree", "uncertain"] },
   "must_not_happen": [
     { "rule": "legal_excludes", "ids": ["LEGAL-DPA-S4"], "severity": "critical", "label": "no duty-of-care citation for a dry mark" },
-    { "rule": "hazard_not", "ids": ["HHSRS-01", "HHSRS-29"], "severity": "critical", "label": "no hazard for a dry mark" },
+    { "rule": "hazard_not", "ids": ["HHSRS-11", "HHSRS-07"], "severity": "critical", "label": "no hazard for a dry mark" },
     { "rule": "no_invented_duration", "severity": "critical", "label": "'years ago' only as attributed report" }
   ],
   "calibration": { "truth": "historic|tank|overflow|rectified", "evidence_supports": "medium" }

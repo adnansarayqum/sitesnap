@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "updated": "2026-09-09",
   "jurisdiction": "England & Wales",
   "note": "Controlled lookup source. The drafting pipeline may only cite an entry by its id; the canonical `cite` text is inserted by the server, never written by the model. Edit wording here, bump the version, and record why in corrections.md. Prose guidance on when to cite lives in legal-register.md.",
@@ -41,7 +41,7 @@
       "cite": "HHSRS — Housing Act 2004",
       "title": "Housing Health and Safety Rating System, Housing Act 2004",
       "covers": "Hazard categories (Cat 1 serious, Cat 2) used as the prescribed hazard under s.10.",
-      "applies_when": "Where an HHSRS hazard is identified; the hazard itself is selected from the controlled HHSRS list (hhsrs.json) and written in the firm's form, e.g. 'Cat 2 Risk Hazard 1'.",
+      "applies_when": "Where an HHSRS hazard is identified; the hazard itself is selected from the controlled HHSRS list (hhsrs.json) and written in the firm's form, e.g. 'Cat 2 Risk Hazard 11'.",
       "not_when": "Where no hazard from the controlled list is clearly engaged."
     }
   ]

@@ -26,8 +26,8 @@ defined stain edge suggests a leak as well.
 - Remedial always addresses the **cause** first, then the finish: ventilation
   or leak or fabric, then treat and redecorate (MOULD-WALL / MOULD-REVEAL).
 - Citations: condensation-driven mould → S9A/S10 (freedom from damp,
-  ventilation) + Cat 2 Risk Hazard 1; penetrating or rising from a defective
-  element → S11 LTA (structure/exterior or installation) and Hazard 1.
+  ventilation) + Cat 2 Risk Hazard 11; penetrating or rising from a defective
+  element → S11 LTA (structure/exterior or installation) and Hazard 11.
 - Photo numbers: cite the photo that shows the pattern relied on.
 
 ## Ceiling and wall cracking, textured coatings
@@ -46,17 +46,17 @@ defined stain edge suggests a leak as well.
 - **Textured coatings** (Artex-type) in pre-2000 dwellings are presumed to
   contain asbestos: works are "subject to asbestos sampling/results"
   (ASB-SAMPLE, never under £160), and the finding carries the `asbestos`
-  review flag and Hazard 4 where disturbance is proposed.
+  review flag and Hazard 15 where disturbance is proposed.
 - Cause: historic leak since rectified (staining but readings normal),
   live leak (elevated readings), thermal/shrinkage movement (hairline,
   following board joints), or structural movement (stepped, widening —
-  `investigation_first`, S11, Hazard 29).
+  `investigation_first`, S11, Hazard 7).
 
 ## Extractor fans and ventilation
 
 - A paper test that fails or an anemometer reading below the fan's rated
   extraction is evidence of inadequate ventilation (S10 "ventilation";
-  Hazard 1 where mould follows). Remedy: EXTRACT-FAN-REPLACE with a
+  Hazard 11 where mould follows). Remedy: EXTRACT-FAN-REPLACE with a
   humidistat/timer unit, using the standard extractor phrasing below.
 - Absence of any mechanical extract to a bathroom/kitchen is noted as a
   contributing factor to condensation, not as disrepair on its own.
@@ -77,8 +77,8 @@ accordance with NICEIC requirements and BS 7671."
 inspection rather than a specified repair (an unestablished leak, faulty
 wiring, a non-functioning heating installation), use the fixed pattern "A
 competent [plumber / electrician / heating engineer] should inspect [for
-leaks / the wiring / the heating installation] and undertake the necessary
-repairs." Pick the trade the defect actually belongs to; do not default to
+leaks / the wiring / the heating installation] and undertake repairs as
+required." Pick the trade the defect actually belongs to; do not default to
 plumber for anything damp-adjacent.
 
 ## Decorative finishes after damp remediation
@@ -86,14 +86,17 @@ plumber for anything damp-adjacent.
 Once the cause of damp is addressed (drying is not itself the remedy — it
 follows fixing the source), affected decorative finishes are written with
 this sequence, not a generic "make good": "Debonded and saturated plaster
-should be removed back to a sound substrate, and affected areas
-replastered. Following curing, the affected areas should be sanded where
-required, sealed with an appropriate stain-blocking treatment, and fully
-redecorated using a moisture-resistant paint system." Only apply this where
-plaster failure was actually observed (saturation, loss of adhesion,
-debonding, localised detachment) — do not assume it from a damp finding
-alone, and do not include a drying allowance where protimeter readings are
-within normal parameters.
+should be removed back to a sound substrate. Where protimeter readings to
+the exposed construction remain elevated, it should be subject to controlled
+drying until acceptable protimeter readings are achieved. Affected areas
+should then be replastered. Following curing, the affected areas should be
+sanded where required, sealed with an appropriate stain-blocking treatment,
+and fully redecorated using a moisture-resistant paint system." The drying
+step is priced as CONTROLLED-DRYING. Only apply this where plaster failure
+was actually observed (saturation, loss of adhesion, debonding, localised
+detachment) — do not assume it from a damp finding alone, and do not include
+the drying step or a drying allowance (no CONTROLLED-DRYING row) where
+protimeter readings are within normal parameters.
 
 ## External fabric
 

@@ -55,14 +55,14 @@ describe("reportRows", () => {
     let state = emptyFindings();
     state = mergeRun(state, { issue: a.issue, room }, { run: { id: "run-a", at: "t", snapshot: issueFingerprint(a.issue, room, photos, {}), model: "m", stageHashes: {}, stages: {} }, finding: { id: "f-a", title: "Leak", defect: "d1", remedial: { works: "w1", scope: "localised", conditions: [] }, cost: { low: 120, high: 120, unpriced: false, basis: "x", price_book_refs: [], lines: [] }, legislation: ["S11 LTA"], review_flags: [], gate, confidence: "medium" } });
     state = transition(state, "f-a", "approved", { currentFingerprint: issueFingerprint(a.issue, room, photos, {}), by: "u1" }).state;
-    state = mergeRun(state, { issue: b.issue, room }, { run: { id: "run-b", at: "t", snapshot: issueFingerprint(b.issue, room, photos, {}), model: "m", stageHashes: {}, stages: {} }, finding: { id: "f-b", title: "Mould", defect: "d2", remedial: { works: "w2", scope: "localised", conditions: [] }, cost: { low: 0, high: 0, unpriced: true, basis: "x", price_book_refs: [], lines: [] }, legislation: ["S9A LTA"], hhsrs_hazard: "Cat 2 Risk Hazard 1", review_flags: [], gate, confidence: "medium" } });
+    state = mergeRun(state, { issue: b.issue, room }, { run: { id: "run-b", at: "t", snapshot: issueFingerprint(b.issue, room, photos, {}), model: "m", stageHashes: {}, stages: {} }, finding: { id: "f-b", title: "Mould", defect: "d2", remedial: { works: "w2", scope: "localised", conditions: [] }, cost: { low: 0, high: 0, unpriced: true, basis: "x", price_book_refs: [], lines: [] }, legislation: ["S9A LTA"], hhsrs_hazard: "Cat 2 Risk Hazard 11", review_flags: [], gate, confidence: "medium" } });
     state = transition(state, "f-b", "approved", { currentFingerprint: issueFingerprint(b.issue, room, photos, {}), by: "u1" }).state;
 
     const { rows, warnings } = reportRows({ findings: state }, [room]);
     expect(rows).toHaveLength(1);
     expect(rows[0].cost).toBe(120); // the unpriced finding contributes 0, not NaN or a crash
     expect(rows[0].siteFindings).toBe("d1 d2");
-    expect(rows[0].breach).toBe("S9A S11 LTA - Cat 2, Risk Hazard 1"); // canonical order regardless of which finding was approved first
+    expect(rows[0].breach).toBe("S9A S11 LTA - Cat 2, Risk Hazard 11"); // canonical order regardless of which finding was approved first
     expect(warnings.some((w) => w.includes("unpriced"))).toBe(true);
   });
 
@@ -111,13 +111,13 @@ describe("reportRows", () => {
     const photos = { p1: {}, p2: {}, p3: {} };
     const gate = { status: "review_ready", reasons: [], flags: [] };
     let state = emptyFindings();
-    const hazards = ["Cat 2 Risk Hazard 1", "Cat 2 Risk Hazard 11", "Cat 2 Risk Hazard 23"];
+    const hazards = ["Cat 2 Risk Hazard 1", "Cat 2 Risk Hazard 8", "Cat 2 Risk Hazard 11"];
     issues.forEach((issue, i) => {
       const snap = issueFingerprint(issue, room, photos, {});
       state = mergeRun(state, { issue, room }, { run: { id: `run-${i}`, at: "t", snapshot: snap, model: "m", stageHashes: {}, stages: {} }, finding: { id: `f-${i}`, title: "x", defect: "d", remedial: { works: "w", scope: "localised", conditions: [] }, cost: { low: 10, high: 10, unpriced: false, basis: "x", price_book_refs: [], lines: [] }, legislation: ["S9A LTA"], hhsrs_hazard: hazards[i], review_flags: [], gate, confidence: "medium" } });
       state = transition(state, `f-${i}`, "approved", { currentFingerprint: snap, by: "u1" }).state;
     });
     const { rows } = reportRows({ findings: state }, [room]);
-    expect(rows[0].breach).toBe("S9A LTA - Cat 2, Risk Hazards 1, 11 and 23");
+    expect(rows[0].breach).toBe("S9A LTA - Cat 2, Risk Hazards 1, 8 and 11");
   });
 });

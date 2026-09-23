@@ -21,7 +21,7 @@
     { "rule": "no_statute_text_outside_refs", "severity": "critical", "label": "no statute in prose outside the register" },
     { "rule": "legal_only_registered", "severity": "critical", "label": "citations only from the register" }
   ],
-  "allowed_uncertainty": ["S9A/S10 + Hazard 1 for condensation mould is the correct citation set; empty is acceptable."],
+  "allowed_uncertainty": ["S9A/S10 + Hazard 11 for condensation mould is the correct citation set; empty is acceptable."],
   "calibration": { "truth": "condensation", "evidence_supports": "medium" },
   "reviewer_notes": "The enum in the analysis schema makes an unknown id impossible at the API; the prose path is the one to watch."
 }

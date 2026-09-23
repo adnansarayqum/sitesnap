@@ -155,7 +155,7 @@ this under **History & audit**.
 |---|---|---|
 | `legal-register.json` | Controlled lookup: ids → canonical citation, scope, when (not) to cite | analysis (selection), server (resolution) |
 | `legal-register.md` | Prose guidance on phrasing and citing | analysis, drafting |
-| `hhsrs.json` | The 29 hazards, by id | analysis, server |
+| `hhsrs.json` | The 21 hazards (2026 guidance), by id | analysis, server |
 | `price-book.json` | Controlled pricing: rows with `qty` kind/unit/default/evidence, `excludes`, `active` | analysis (selection), server (arithmetic) |
 | `playbook.md` | Professional reasoning guidance | causation, analysis |
 | `corrections.md` | Versioned binding rules | evidence, causation, analysis |

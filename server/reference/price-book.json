@@ -1,7 +1,7 @@
 {
-  "version": 4,
+  "version": 5,
   "currency": "GBP",
-  "updated": "2026-09-18",
+  "updated": "2026-09-23",
   "note": "Controlled pricing source. The pipeline may only propose a row by id with a quantity and the evidence for that quantity; the server looks the row up, checks it is active, multiplies and stores the book version — the model never writes a final number. `qty.kind` is count (whole units the photos can show: a window, a fan, a ceiling) or measure (an area or length that must be evidenced or entered by the surveyor). `qty.default` is the assumption used when the evidence does not state a count — always flagged as an assumption for the surveyor to confirm. `qty.evidence: required` rows stay unpriced until the quantity is evidenced or entered. `excludes` lists rows that must not be priced in the same finding. Rows marked status: example are placeholders until the firm's own rates replace them; rows marked status: confirmed came from the surveyor. Ranges are supply-and-fit, inc. access and making good, exc. VAT unless a row says otherwise. Each row carries a `trade` id, used only for the `trades` reasonableness floor below — it does not change how the row itself prices.",
   "trades": {
     "note": "The surveyor's point (voice note, 18 Sep 2026): a scheduled rate like the NHF/BCIS rate books gives an unrealistically small figure for a small domestic patch job — e.g. £12/m2 for plaster patching prices a 2m2 patch at £24, but no plasterer attends for £24; a realistic visit is more like £250-300 once you count the call-out, materials, and the follow-on decorating needed for a uniform finish. Several small same-trade jobs in one case are one visit, not several, so this is applied once per case across every priced line of that trade, not per finding. `minimum` is null (no floor applied — today's plain summed total stands) until the surveyor gives a real figure for that trade; only plasterer_decorator has one so far, and even that is a rough spoken estimate, not a firm number — see its own source note.",
@@ -115,6 +115,25 @@
       "excludes": [],
       "source": "not yet confirmed by the surveyor — but drawn from the firm's own MLA/TLB template worked examples, not invented: mould wash/treat is a consistent flat £55 across every occurrence (MLA Items 5 & 8), and the stain-block + redecorate step that follows it runs £110 (MLA Items 4 & 8). £55 + £110 = £165, which this range brackets.",
       "notes": "Treats the symptom only — pair with the cause (ventilation, leak, fabric). Still needs a quick surveyor confirm, not a firm quote."
+    },
+    {
+      "id": "CONTROLLED-DRYING",
+      "work": "Controlled drying of the affected construction until acceptable protimeter readings are achieved, following removal of debonded plaster or cessation of water escape",
+      "unit": "per affected area",
+      "low": 65,
+      "high": 146,
+      "status": "example",
+      "active": true,
+      "trade": "plasterer_decorator",
+      "qty": {
+        "kind": "count",
+        "unit": "affected area",
+        "default": 1,
+        "evidence": "assumable"
+      },
+      "excludes": [],
+      "source": "not yet confirmed by the surveyor — drawn from the firm's own MLA/TLB template worked examples, where 'subject to controlled drying until acceptable protimeter readings are achieved' is priced at a flat £65 on five occurrences (MLA Items 1, 4, 5 and 6; TLB Item 1) and £146 for a larger kitchen-plus-hallway floor (TLB Item 3). Added after the surveyor's 23 Sep 2026 review: 'after stripping should allow for drying where damp'.",
+      "notes": "Only where protimeter readings to the exposed construction are elevated after strip-back or after the source of water is stopped — never where readings are within normal parameters (playbook, Decorative finishes after damp remediation). Sits between removal of debonded plaster and replastering in the standard sequence."
     },
     {
       "id": "EXTRACT-FAN-REPLACE",

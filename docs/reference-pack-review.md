@@ -1,6 +1,6 @@
 # SiteSnap reference pack — break review
 
-*Generated 2026-09-10 from the files below. Regenerate with `node server/evals/reference-review.mjs` after any change to `server/reference/`.*
+*Generated 2026-09-23 from the files below. Regenerate with `node server/evals/reference-review.mjs` after any change to `server/reference/`.*
 
 ## Purpose
 
@@ -26,12 +26,12 @@ The architecture is: *AI proposes, the system validates, the surveyor decides.* 
 
 | File | Version | Content hash |
 |---|---|---|
-| legal-register.json | v1 | `d8224fabc5c6` |
-| legal-register.md (citation guidance) | — | `0d55f1efa1d5` |
-| hhsrs.json | v1 | `4c4088470de6` |
-| price-book.json | v2 (GBP) | `ab4126c7388a` |
-| corrections.md | v2 (2026-09-09) | `b012de4a0a0e` |
-| playbook.md | hash 67262c81f08e | `67262c81f08e` |
+| legal-register.json | v2 | `9d3d6b30a20c` |
+| legal-register.md (citation guidance) | — | `e688fb504edc` |
+| hhsrs.json | v2 | `b93e380e2f10` |
+| price-book.json | v5 (GBP) | `a8f0b470b6bf` |
+| corrections.md | v4 (2026-09-23) | `9430be433047` |
+| playbook.md | hash ee850c35e599 | `ee850c35e599` |
 
 *If any hash differs from `GET /api/ai/config` on the deployment under review, the pack has changed since this worksheet was generated — regenerate it.*
 
@@ -202,9 +202,9 @@ The model selects an entry by id; the server inserts the **cite** text verbatim 
 | Title | Housing Health and Safety Rating System, Housing Act 2004 |
 | Cite as (inserted verbatim) | **HHSRS — Housing Act 2004** |
 | Covers | Hazard categories (Cat 1 serious, Cat 2) used as the prescribed hazard under s.10. |
-| Applies when (shown to the model) | Where an HHSRS hazard is identified; the hazard itself is selected from the controlled HHSRS list (hhsrs.json) and written in the firm's form, e.g. 'Cat 2 Risk Hazard 1'. |
+| Applies when (shown to the model) | Where an HHSRS hazard is identified; the hazard itself is selected from the controlled HHSRS list (hhsrs.json) and written in the firm's form, e.g. 'Cat 2 Risk Hazard 11'. |
 | Not when (shown to the model) | Where no hazard from the controlled list is clearly engaged. |
-| Entry hash | `4071392e2899` |
+| Entry hash | `9ed5d51951cc` |
 
 - [ ] Is the citation / section reference accurate and current?
 - [ ] Is the canonical **cite** wording right for the Breach column? Does it need changing?
@@ -254,14 +254,14 @@ The prose sheet the analysis stage reads. Current rules for citing:
 
 ---
 
-# 2. HHSRS hazards (29)
+# 2. HHSRS hazards (21)
 
-The model may select a hazard only by id, and only where the evidence "clearly engages it"; the server writes the firm's form ("Cat 2 Risk Hazard 1"). Any hazard proposed at less than high confidence is marked *review required* for the surveyor. The playbook currently steers the model towards Hazards 1, 4 and 29; the rest are available but unguided.
+The model may select a hazard only by id, and only where the evidence "clearly engages it"; the server writes the firm's form ("Cat 2 Risk Hazard 1"). Any hazard proposed at less than high confidence is marked *review required* for the surveyor. The playbook currently steers the model towards Hazards 11, 15 and 7 (damp and mould, asbestos, structural collapse — 2026 numbering); the rest are available but unguided.
 
 ### Hazard-list-wide questions
 
 - [ ] Should SiteSnap **ever** propose Category 1? A Cat 1 / Cat 2 call is a scored HHSRS judgement. Options: (a) allow both, marked for review; (b) Cat 2 only, surveyor upgrades; (c) hazard only, no category. Which?
-- [ ] Which hazards should the software **never** propose automatically (e.g. 6 CO, 23 electrical, 24 fire, 27 explosions — outside a visual damp/disrepair inspection)?
+- [ ] Which hazards should the software **never** propose automatically (e.g. 13 indoor air pollutants, 8 electrical, 4 fire and explosions — outside a visual damp/disrepair inspection)?
 - [ ] Which hazards are most often over-classified in disrepair reports, in your experience?
 - [ ] When should SiteSnap return **no hazard** even though a defect is real?
 
@@ -273,39 +273,31 @@ The model may select a hazard only by id, and only where the evidence "clearly e
 
 ### Per-hazard review
 
-For the hazards the pipeline is guided towards (1, 4, 29), please complete every column. For the rest, the key question is the last column: should it be available to the software at all?
+For the hazards the pipeline is guided towards (11, 15, 7), please complete every column. For the rest, the key question is the last column: should it be available to the software at all?
 
 | # | Hazard | Correctly defined? | Evidence needed before proposing | Visual patterns that are NOT enough on their own | Commonly confused with | Over-classification risk | Available to software? (Y / review-only / never) |
 |---|---|---|---|---|---|---|---|
-| 1 ★ | Damp and mould growth | | | | | | |
-| 2 | Excess cold | | | | | | |
-| 3 | Excess heat | | | | | | |
-| 4 ★ | Asbestos and MMF | | | | | | |
-| 5 | Biocides | | | | | | |
-| 6 | Carbon monoxide and fuel combustion products | | | | | | |
-| 7 | Lead | | | | | | |
-| 8 | Radiation | | | | | | |
-| 9 | Uncombusted fuel gas | | | | | | |
-| 10 | Volatile organic compounds | | | | | | |
-| 11 | Crowding and space | | | | | | |
-| 12 | Entry by intruders | | | | | | |
-| 13 | Lighting | | | | | | |
-| 14 | Noise | | | | | | |
-| 15 | Domestic hygiene, pests and refuse | | | | | | |
-| 16 | Food safety | | | | | | |
-| 17 | Personal hygiene, sanitation and drainage | | | | | | |
-| 18 | Water supply | | | | | | |
-| 19 | Falls associated with baths | | | | | | |
-| 20 | Falling on level surfaces | | | | | | |
-| 21 | Falling on stairs and steps | | | | | | |
-| 22 | Falling between levels | | | | | | |
-| 23 | Electrical hazards | | | | | | |
-| 24 | Fire | | | | | | |
-| 25 | Flames and hot surfaces | | | | | | |
-| 26 | Collision and entrapment | | | | | | |
-| 27 | Explosions | | | | | | |
-| 28 | Position and operability of amenities | | | | | | |
-| 29 ★ | Structural collapse and falling elements | | | | | | |
+| 1 | Falls on the level | | | | | | |
+| 2 | Falling on stairs etc. | | | | | | |
+| 3 | Falling between levels | | | | | | |
+| 4 | Fire and explosions | | | | | | |
+| 5 | Flames, hot surfaces, etc. | | | | | | |
+| 6 | Collisions, entrapment and ergonomics | | | | | | |
+| 7 ★ | Structural collapse and falling elements | | | | | | |
+| 8 | Electrical hazards | | | | | | |
+| 9 | Excess cold | | | | | | |
+| 10 | Radiation | | | | | | |
+| 11 ★ | Damp and mould growth | | | | | | |
+| 12 | Lead | | | | | | |
+| 13 | Indoor air pollutants | | | | | | |
+| 14 | Excess heat | | | | | | |
+| 15 ★ | Asbestos and MMF | | | | | | |
+| 16 | Domestic hygiene | | | | | | |
+| 17 | Water supply | | | | | | |
+| 18 | Crowding and space | | | | | | |
+| 19 | Entry by intruders | | | | | | |
+| 20 | Noise | | | | | | |
+| 21 | Lighting and obstructed views | | | | | | |
 
 ★ = currently guided by the playbook.
 
@@ -320,7 +312,7 @@ For the hazards the pipeline is guided towards (1, 4, 29), please complete every
 
 ---
 
-# 3. Price book — 11 rows, GBP, v2
+# 3. Price book — 12 rows, GBP, v5
 
 The model selects a row by id and proposes a quantity with the evidence for it; the **server** multiplies and stores the book version. The model never writes a number. So the failure mode is not arithmetic — it is a **valid row id applied to the wrong professional situation**, a wrong unit, a missing preparatory item, or a stale rate. Rows marked *example* are placeholders awaiting the firm's rates; rows marked *confirmed* came from the surveyor.
 
@@ -351,7 +343,7 @@ Ranges are stated as supply-and-fit, including access and making good, excluding
 | Mutually exclusive with | — |
 | Notes (shown to the model) | Never below £160. Additional locations at a lower marginal rate. |
 | Source | surveyor, 6 Sep 2026 — corrected an AI draft from £50 to £160 |
-| Row hash | `a97f50ef3f1e` |
+| Row hash | `99f98d37dcdd` |
 
 - [ ] **Description** — accurate, complete, unambiguous? Could it be text-matched to a defect it does not fit?
 - [ ] **Unit** — right unit? (count vs m² vs m; "area up to ~X m²" safe?)
@@ -388,7 +380,7 @@ Ranges are stated as supply-and-fit, including access and making good, excluding
 | Mutually exclusive with | CEIL-MAKE-GOOD |
 | Notes (shown to the model) | Only where a patch will leave a consistent finish. If the cracking extends across the element or a patch would be visibly odd, use CEIL-MAKE-GOOD. |
 | Source | placeholder — surveyor said an AI figure of £55 was too light |
-| Row hash | `02f1b769e26a` |
+| Row hash | `c3b26544deea` |
 
 - [ ] **Description** — accurate, complete, unambiguous? Could it be text-matched to a defect it does not fit?
 - [ ] **Unit** — right unit? (count vs m² vs m; "area up to ~X m²" safe?)
@@ -425,7 +417,7 @@ Ranges are stated as supply-and-fit, including access and making good, excluding
 | Mutually exclusive with | CEIL-CRACK-LOCAL |
 | Notes (shown to the model) | Subject to asbestos results where a textured coating is present (add ASB-SAMPLE). Include disposal allowance. |
 | Source | placeholder — replace with firm rates |
-| Row hash | `a5b9337727a0` |
+| Row hash | `b5b9f68fd8d4` |
 
 - [ ] **Description** — accurate, complete, unambiguous? Could it be text-matched to a defect it does not fit?
 - [ ] **Unit** — right unit? (count vs m² vs m; "area up to ~X m²" safe?)
@@ -462,7 +454,7 @@ Ranges are stated as supply-and-fit, including access and making good, excluding
 | Mutually exclusive with | — |
 | Notes (shown to the model) | — |
 | Source | surveyor's schedule, 6 Sep 2026 (£110) |
-| Row hash | `1046cd11082f` |
+| Row hash | `536103c0ac50` |
 
 - [ ] **Description** — accurate, complete, unambiguous? Could it be text-matched to a defect it does not fit?
 - [ ] **Unit** — right unit? (count vs m² vs m; "area up to ~X m²" safe?)
@@ -494,12 +486,49 @@ Ranges are stated as supply-and-fit, including access and making good, excluding
 |---|---|
 | Work (shown to the model) | Clean and fungicidally treat mould to wall areas; prepare, stain-block and redecorate with a moisture-resistant paint system |
 | Unit | per wall area up to ~4 m² |
-| Range | £140 – £260 |
+| Range | £150 – £220 |
 | Quantity model | kind **count**, unit wall area (up to ~4 m²), default 1, evidence **assumable** |
 | Mutually exclusive with | — |
-| Notes (shown to the model) | Treats the symptom only — pair with the cause (ventilation, leak, fabric). |
-| Source | placeholder |
-| Row hash | `7438d931c443` |
+| Notes (shown to the model) | Treats the symptom only — pair with the cause (ventilation, leak, fabric). Still needs a quick surveyor confirm, not a firm quote. |
+| Source | not yet confirmed by the surveyor — but drawn from the firm's own MLA/TLB template worked examples, not invented: mould wash/treat is a consistent flat £55 across every occurrence (MLA Items 5 & 8), and the stain-block + redecorate step that follows it runs £110 (MLA Items 4 & 8). £55 + £110 = £165, which this range brackets. |
+| Row hash | `d4d80a586c46` |
+
+- [ ] **Description** — accurate, complete, unambiguous? Could it be text-matched to a defect it does not fit?
+- [ ] **Unit** — right unit? (count vs m² vs m; "area up to ~X m²" safe?)
+- [ ] **Low / high** — defensible in a contested claim? Stale?
+- [ ] **Scope** — localised vs whole-element applicability clear?
+- [ ] **Inclusions / exclusions** — what does the range include (access, disposal, making good, decoration)? What must be priced separately?
+- [ ] **Preparatory / dependent works** — what must accompany this row (e.g. cause before finish; sampling before disturbance)?
+- [ ] **Minimum charge** — is the low figure a true floor?
+- [ ] **Quantity basis** — is "assumable" right? Should the default (1) exist at all?
+- [ ] **Overlaps** — other rows this should exclude or be excluded by?
+
+**Could this row be technically text-matched but professionally wrong? When?:**
+> 
+> 
+
+**Evidence that must exist before this row may be used:**
+> 
+> 
+
+**Selection control:** ☐ may be selected automatically   ☐ requires quantity confirmation   ☐ requires professional review before use   ☐ never select automatically
+
+**Decision:** ☐ Keep   ☐ Modify   ☐ Remove   ☐ Needs legal / professional review
+
+**Priority if changed:** ☐ P0 (could produce materially unsafe or incorrect professional output)   ☐ P1 (likely to reduce quality or usefulness)   ☐ P2 (wording / completeness)
+
+## CONTROLLED-DRYING — example
+
+| | |
+|---|---|
+| Work (shown to the model) | Controlled drying of the affected construction until acceptable protimeter readings are achieved, following removal of debonded plaster or cessation of water escape |
+| Unit | per affected area |
+| Range | £65 – £146 |
+| Quantity model | kind **count**, unit affected area, default 1, evidence **assumable** |
+| Mutually exclusive with | — |
+| Notes (shown to the model) | Only where protimeter readings to the exposed construction are elevated after strip-back or after the source of water is stopped — never where readings are within normal parameters (playbook, Decorative finishes after damp remediation). Sits between removal of debonded plaster and replastering in the standard sequence. |
+| Source | not yet confirmed by the surveyor — drawn from the firm's own MLA/TLB template worked examples, where 'subject to controlled drying until acceptable protimeter readings are achieved' is priced at a flat £65 on five occurrences (MLA Items 1, 4, 5 and 6; TLB Item 1) and £146 for a larger kitchen-plus-hallway floor (TLB Item 3). Added after the surveyor's 23 Sep 2026 review: 'after stripping should allow for drying where damp'. |
+| Row hash | `440ddacf2ee9` |
 
 - [ ] **Description** — accurate, complete, unambiguous? Could it be text-matched to a defect it does not fit?
 - [ ] **Unit** — right unit? (count vs m² vs m; "area up to ~X m²" safe?)
@@ -531,12 +560,12 @@ Ranges are stated as supply-and-fit, including access and making good, excluding
 |---|---|
 | Work (shown to the model) | Replace an under-performing or non-functioning bathroom/kitchen extractor fan with a humidistat/timer unit, including electrical connection and making good |
 | Unit | per fan |
-| Range | £180 – £320 |
+| Range | £220 – £390 |
 | Quantity model | kind **count**, unit fan, default 1, evidence **assumable** |
 | Mutually exclusive with | — |
-| Notes (shown to the model) | Where the paper test / anemometer shows inadequate extraction. |
-| Source | placeholder |
-| Row hash | `e28d655ea7eb` |
+| Notes (shown to the model) | Where the paper test / anemometer shows inadequate extraction. Range assumes cert is priced in this row — don't double-count if NICEIC certification is also billed separately elsewhere in the same finding. |
+| Source | not yet confirmed by the surveyor — but drawn from the firm's own MLA/TLB template worked examples: unit + NICEIC electrician install/cert runs £220+£170=£390 (MLA Item 3) and £280 all-in (TLB Item 1); the unit alone (cert done elsewhere in the same report) is £110–£121 (MLA Items 4 & 8). |
+| Row hash | `9407afa9c473` |
 
 - [ ] **Description** — accurate, complete, unambiguous? Could it be text-matched to a defect it does not fit?
 - [ ] **Unit** — right unit? (count vs m² vs m; "area up to ~X m²" safe?)
@@ -568,12 +597,12 @@ Ranges are stated as supply-and-fit, including access and making good, excluding
 |---|---|
 | Work (shown to the model) | Trace and repair a concealed plumbing leak (bath/shower/WC connection), including opening up and making good |
 | Unit | per leak |
-| Range | £220 – £480 |
+| Range | £150 – £350 |
 | Quantity model | kind **count**, unit leak, default 1, evidence **assumable** |
 | Mutually exclusive with | — |
-| Notes (shown to the model) | Use as investigation_first where the source is not established. |
-| Source | placeholder |
-| Row hash | `d93fc0abb53e` |
+| Notes (shown to the model) | Use as investigation_first where the source is not established. A bundled job that also replaces a fixture (e.g. a cracked shower tray) ran £485 in one example (MLA Item 4) — that's a different, larger scope than a bare trace-and-repair; don't fold it into this row without checking for a fixture-replacement exclusion. |
+| Source | not yet confirmed by the surveyor — but drawn from the firm's own MLA/TLB template worked examples: a plumber's leak inspection-and-repair alone (no fixture replacement) runs £150 (MLA Item 5, WC/basin) to £300 (TLB Item 1, block-wide supply pipework). FLAG FOR SHAH: the old placeholder's £220 floor sat above every real 'trace and repair only' figure found — worth a specific check, since it moves the opposite way from his past £50→£160 correction on ASB-SAMPLE. |
+| Row hash | `2ad4df5178c8` |
 
 - [ ] **Description** — accurate, complete, unambiguous? Could it be text-matched to a defect it does not fit?
 - [ ] **Unit** — right unit? (count vs m² vs m; "area up to ~X m²" safe?)
@@ -610,7 +639,7 @@ Ranges are stated as supply-and-fit, including access and making good, excluding
 | Mutually exclusive with | — |
 | Notes (shown to the model) | — |
 | Source | placeholder |
-| Row hash | `cb48286fc3d2` |
+| Row hash | `a7710fa0d3dd` |
 
 - [ ] **Description** — accurate, complete, unambiguous? Could it be text-matched to a defect it does not fit?
 - [ ] **Unit** — right unit? (count vs m² vs m; "area up to ~X m²" safe?)
@@ -647,7 +676,7 @@ Ranges are stated as supply-and-fit, including access and making good, excluding
 | Mutually exclusive with | — |
 | Notes (shown to the model) | Penetrating damp to external walls below. |
 | Source | placeholder |
-| Row hash | `b136dfc76187` |
+| Row hash | `8e948966c54c` |
 
 - [ ] **Description** — accurate, complete, unambiguous? Could it be text-matched to a defect it does not fit?
 - [ ] **Unit** — right unit? (count vs m² vs m; "area up to ~X m²" safe?)
@@ -684,7 +713,7 @@ Ranges are stated as supply-and-fit, including access and making good, excluding
 | Mutually exclusive with | — |
 | Notes (shown to the model) | — |
 | Source | placeholder |
-| Row hash | `4b8a46c385dd` |
+| Row hash | `3a6240476344` |
 
 - [ ] **Description** — accurate, complete, unambiguous? Could it be text-matched to a defect it does not fit?
 - [ ] **Unit** — right unit? (count vs m² vs m; "area up to ~X m²" safe?)
@@ -719,9 +748,9 @@ Ranges are stated as supply-and-fit, including access and making good, excluding
 | Range | £280 – £550 |
 | Quantity model | kind **count**, unit room, default 1, evidence **assumable** |
 | Mutually exclusive with | — |
-| Notes (shown to the model) | Use where the remedial works leave more than the immediate area needing decoration. |
-| Source | placeholder |
-| Row hash | `5b46eb7f4595` |
+| Notes (shown to the model) | Use where the remedial works leave more than the immediate area needing decoration. Not directly evidenced: the firm's MLA/TLB template worked examples only ever redecorate a single wall or ceiling after a repair (£110–£198, MLA Items 1/4/5/6/8; £330 for a full ceiling+wall+floor job, TLB Item 1), never a whole room end to end — extrapolating that to a full-room figure would be a guess dressed up as evidence, so this range is left as-is pending the surveyor's own number. |
+| Source | placeholder — low/high unchanged; see notes |
+| Row hash | `4268a6720243` |
 
 - [ ] **Description** — accurate, complete, unambiguous? Could it be text-matched to a defect it does not fit?
 - [ ] **Unit** — right unit? (count vs m² vs m; "area up to ~X m²" safe?)
@@ -749,7 +778,7 @@ Ranges are stated as supply-and-fit, including access and making good, excluding
 
 ---
 
-# 4. Corrections list (17 rules, v2 (2026-09-09))
+# 4. Corrections list (20 rules, v4 (2026-09-23))
 
 Every rule is read by the reasoning stages on every request as a **binding** instruction. Each was written from a mistake a draft made. The danger of such a list is that it becomes an accumulation of absolute rules created from isolated incidents; a rule that is right in one context can create the opposite error in another.
 
@@ -926,7 +955,7 @@ Every rule is read by the reasoning stages on every request as a **binding** ins
 
 ## Rule 10 — Leave legislation empty rather than guess. *(v1 (2026-09-06))*
 
-> Only cite a section the note and photos clearly support. Condensation mould with the fabric in repair is S9A/S10 and Hazard 1, not S11.
+> Only cite a section the note and photos clearly support. Condensation mould with the fabric in repair is S9A/S10 and Hazard 11, not S11.
 
 - [ ] Is this rule always valid?
 - [ ] Are there exceptions? Which defects, materials or contexts?
@@ -1038,6 +1067,25 @@ Every rule is read by the reasoning stages on every request as a **binding** ins
 
 **Priority if changed:** ☐ P0 (could produce materially unsafe or incorrect professional output)   ☐ P1 (likely to reduce quality or usefulness)   ☐ P2 (wording / completeness)
 
+## Rule 16 — Cat 1 needs its own paragraph. *(v3 (2026-09-16))*
+
+> Do not cite Cat 1 only in the Breach section — Site Findings must carry a short concluding paragraph saying why (vulnerability, exposure), or the Cat 1 assessment reads as asserted rather than supported. See "Category 1 hazard placement" in `legal-register.md`.
+
+- [ ] Is this rule always valid?
+- [ ] Are there exceptions? Which defects, materials or contexts?
+- [ ] Could following it blindly create a different error?
+- [ ] Should it apply globally, or only to a specific defect / material / context?
+- [ ] Does it conflict with another rule or with the playbook?
+- [ ] Can it be stated more precisely?
+
+**Exceptions / narrower scope / better wording:**
+> 
+> 
+
+**Decision:** ☐ Keep   ☐ Modify   ☐ Remove   ☐ Needs legal / professional review
+
+**Priority if changed:** ☐ P0 (could produce materially unsafe or incorrect professional output)   ☐ P1 (likely to reduce quality or usefulness)   ☐ P2 (wording / completeness)
+
 ## Rule 16 — Confidence describes the evidence, not the model. *(v2 (2026-09-09))*
 
 > High needs more than one source in agreement and no open alternative; anything resting on a single photograph, lacking a reading where one would decide the point, or with a plausible competing cause is medium at best; contradictory or incomplete evidence is low.
@@ -1076,9 +1124,47 @@ Every rule is read by the reasoning stages on every request as a **binding** ins
 
 **Priority if changed:** ☐ P0 (could produce materially unsafe or incorrect professional output)   ☐ P1 (likely to reduce quality or usefulness)   ☐ P2 (wording / completeness)
 
+## Rule 18 — Drying before replastering. *(v4 (2026-09-23))*
+
+> Where debonded plaster is removed and the exposed construction is still damp, the sequence includes controlled drying until acceptable protimeter readings are achieved (price row CONTROLLED-DRYING) before replastering. Where readings are within normal parameters there is no drying step and no drying allowance.
+
+- [ ] Is this rule always valid?
+- [ ] Are there exceptions? Which defects, materials or contexts?
+- [ ] Could following it blindly create a different error?
+- [ ] Should it apply globally, or only to a specific defect / material / context?
+- [ ] Does it conflict with another rule or with the playbook?
+- [ ] Can it be stated more precisely?
+
+**Exceptions / narrower scope / better wording:**
+> 
+> 
+
+**Decision:** ☐ Keep   ☐ Modify   ☐ Remove   ☐ Needs legal / professional review
+
+**Priority if changed:** ☐ P0 (could produce materially unsafe or incorrect professional output)   ☐ P1 (likely to reduce quality or usefulness)   ☐ P2 (wording / completeness)
+
+## Rule 19 — Causation sentence flow. *(v4 (2026-09-23))*
+
+> Refines rule 5. The causal sentence opens "On the balance of probabilities, …". Where one finding carries several causal statements, the phrase is not repeated at the head of every sentence — later ones open "Furthermore, …" or "In addition, …" so the paragraph reads naturally.
+
+- [ ] Is this rule always valid?
+- [ ] Are there exceptions? Which defects, materials or contexts?
+- [ ] Could following it blindly create a different error?
+- [ ] Should it apply globally, or only to a specific defect / material / context?
+- [ ] Does it conflict with another rule or with the playbook?
+- [ ] Can it be stated more precisely?
+
+**Exceptions / narrower scope / better wording:**
+> 
+> 
+
+**Decision:** ☐ Keep   ☐ Modify   ☐ Remove   ☐ Needs legal / professional review
+
+**Priority if changed:** ☐ P0 (could produce materially unsafe or incorrect professional output)   ☐ P1 (likely to reduce quality or usefulness)   ☐ P2 (wording / completeness)
+
 ---
 
-# 5. Defect playbook (6 sections)
+# 5. Defect playbook (7 sections)
 
 Professional reasoning guidance the causation and analysis stages read. It is "the firm's accumulated judgement", not a script. It is the most influential text in the pack for *which cause* the model prefers.
 
@@ -1102,8 +1188,8 @@ Professional reasoning guidance the causation and analysis stages read. It is "t
 > - Remedial always addresses the **cause** first, then the finish: ventilation
 >   or leak or fabric, then treat and redecorate (MOULD-WALL / MOULD-REVEAL).
 > - Citations: condensation-driven mould → S9A/S10 (freedom from damp,
->   ventilation) + Cat 2 Risk Hazard 1; penetrating or rising from a defective
->   element → S11 LTA (structure/exterior or installation) and Hazard 1.
+>   ventilation) + Cat 2 Risk Hazard 11; penetrating or rising from a defective
+>   element → S11 LTA (structure/exterior or installation) and Hazard 11.
 > - Photo numbers: cite the photo that shows the pattern relied on.
 
 - [ ] Is the guidance correct? What would you change?
@@ -1136,11 +1222,11 @@ Professional reasoning guidance the causation and analysis stages read. It is "t
 > - **Textured coatings** (Artex-type) in pre-2000 dwellings are presumed to
 >   contain asbestos: works are "subject to asbestos sampling/results"
 >   (ASB-SAMPLE, never under £160), and the finding carries the `asbestos`
->   review flag and Hazard 4 where disturbance is proposed.
+>   review flag and Hazard 15 where disturbance is proposed.
 > - Cause: historic leak since rectified (staining but readings normal),
 >   live leak (elevated readings), thermal/shrinkage movement (hairline,
 >   following board joints), or structural movement (stepped, widening —
->   `investigation_first`, S11, Hazard 29).
+>   `investigation_first`, S11, Hazard 7).
 
 - [ ] Is the guidance correct? What would you change?
 - [ ] Which distinctions are missing (causes, patterns, readings, tests)?
@@ -1160,10 +1246,15 @@ Professional reasoning guidance the causation and analysis stages read. It is "t
 
 > - A paper test that fails or an anemometer reading below the fan's rated
 >   extraction is evidence of inadequate ventilation (S10 "ventilation";
->   Hazard 1 where mould follows). Remedy: EXTRACT-FAN-REPLACE with a
->   humidistat/timer unit.
+>   Hazard 11 where mould follows). Remedy: EXTRACT-FAN-REPLACE with a
+>   humidistat/timer unit, using the standard extractor phrasing below.
 > - Absence of any mechanical extract to a bathroom/kitchen is noted as a
 >   contributing factor to condensation, not as disrepair on its own.
+>
+> **Standard extractor fan phrasing**: "The extractor fan should be renewed to
+> ensure effective mechanical ventilation. Installation, testing and
+> certification should be carried out by a suitably qualified electrician in
+> accordance with NICEIC requirements and BS 7671."
 
 - [ ] Is the guidance correct? What would you change?
 - [ ] Which distinctions are missing (causes, patterns, readings, tests)?
@@ -1185,6 +1276,45 @@ Professional reasoning guidance the causation and analysis stages read. It is "t
 >   for sanitation); SEALANT-BATH, and MOULD-WALL/REDEC where finishes are
 >   affected. If the source is not established, `investigation_first` with
 >   LEAK-TRACE and the review flag `scope_uncertain`.
+>
+> **Standard trade-referral phrasing**: where the works require a trade
+> inspection rather than a specified repair (an unestablished leak, faulty
+> wiring, a non-functioning heating installation), use the fixed pattern "A
+> competent [plumber / electrician / heating engineer] should inspect [for
+> leaks / the wiring / the heating installation] and undertake repairs as
+> required." Pick the trade the defect actually belongs to; do not default to
+> plumber for anything damp-adjacent.
+
+- [ ] Is the guidance correct? What would you change?
+- [ ] Which distinctions are missing (causes, patterns, readings, tests)?
+- [ ] Where should the model be **more conservative** than this text allows?
+- [ ] Are the rows and citations this section points to the right ones?
+
+**Changes:**
+> 
+> 
+> 
+
+**Decision:** ☐ Keep   ☐ Modify   ☐ Remove   ☐ Needs legal / professional review
+
+**Priority if changed:** ☐ P0 (could produce materially unsafe or incorrect professional output)   ☐ P1 (likely to reduce quality or usefulness)   ☐ P2 (wording / completeness)
+
+## Decorative finishes after damp remediation
+
+> Once the cause of damp is addressed (drying is not itself the remedy — it
+> follows fixing the source), affected decorative finishes are written with
+> this sequence, not a generic "make good": "Debonded and saturated plaster
+> should be removed back to a sound substrate. Where protimeter readings to
+> the exposed construction remain elevated, it should be subject to controlled
+> drying until acceptable protimeter readings are achieved. Affected areas
+> should then be replastered. Following curing, the affected areas should be
+> sanded where required, sealed with an appropriate stain-blocking treatment,
+> and fully redecorated using a moisture-resistant paint system." The drying
+> step is priced as CONTROLLED-DRYING. Only apply this where plaster failure
+> was actually observed (saturation, loss of adhesion, debonding, localised
+> detachment) — do not assume it from a damp finding alone, and do not include
+> the drying step or a drying allowance (no CONTROLLED-DRYING row) where
+> protimeter readings are within normal parameters.
 
 - [ ] Is the guidance correct? What would you change?
 - [ ] Which distinctions are missing (causes, patterns, readings, tests)?

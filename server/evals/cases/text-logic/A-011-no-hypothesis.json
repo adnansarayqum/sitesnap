@@ -20,7 +20,7 @@
     "flags_exclude": ["disagreement"],
     "cause_matches": "condensation",
     "legal_includes": ["LEGAL-S9A-LTA", "LEGAL-S10-LTA"],
-    "hazard_in": ["HHSRS-01"]
+    "hazard_in": ["HHSRS-11"]
   },
   "must_not_happen": [
     { "rule": "legal_excludes", "ids": ["LEGAL-S11-LTA"], "severity": "major", "label": "condensation with the fabric in repair is not s.11 disrepair (corrections 10)" },

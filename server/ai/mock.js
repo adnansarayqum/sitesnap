@@ -66,7 +66,7 @@ export function mockAnalysis(packet, evidence, causation, lists) {
       scope: packet.photos.length ? "localised" : "investigation_first", scope_rationale: "[MOCK] scope rationale.", scope_uncertain: !packet.photos.length, conditions: causation.asbestos_risk.present ? ["subject to asbestos sampling and results"] : [], assumptions: [],
     },
     legal_refs: isDamp ? [{ legal_register_id: legalIds.includes("LEGAL-S9A-LTA") ? "LEGAL-S9A-LTA" : legalIds[0], reason: "[MOCK] fitness — freedom from damp" }, { legal_register_id: legalIds.includes("LEGAL-S10-LTA") ? "LEGAL-S10-LTA" : legalIds[0], reason: "[MOCK] the matter: freedom from damp, ventilation" }].filter((x) => x.legal_register_id) : [],
-    hhsrs: isDamp ? { hazard_id: "HHSRS-01", category: "Cat 2", evidence_basis: "[MOCK] mould growth recorded", confidence: "medium" } : { hazard_id: "none", category: "none", evidence_basis: "", confidence: "low" },
+    hhsrs: isDamp ? { hazard_id: "HHSRS-11", category: "Cat 2", evidence_basis: "[MOCK] mould growth recorded", confidence: "medium" } : { hazard_id: "none", category: "none", evidence_basis: "", confidence: "low" },
     price_items: priceItems,
     pricing_note: priceItems.length ? "" : "[MOCK] no row fits a mock finding",
   };
@@ -78,7 +78,7 @@ export function mockDraft(packet, inputs) {
     title: c.preferred_cause ? `Damp and mould to ${packet.context.room.toLowerCase()}` : `Defect noted to ${packet.context.room.toLowerCase()}`,
     location: packet.issue.title || packet.context.room,
     defect: `[MOCK DRAFT — no ANTHROPIC_API_KEY] ${inputs.observations.map((o) => o.statement.replace(/^\[MOCK\] /, "")).join(" ") || "A defect was observed at the time of inspection."}`,
-    cause: c.preferred_cause ? `[MOCK] On the balance of probabilities the cause is considered to be ${c.preferred_cause} (confidence ${inputs.confidence.grade}).` : "",
+    cause: c.preferred_cause ? `[MOCK] On the balance of probabilities the defect is attributable to ${c.preferred_cause} (confidence ${inputs.confidence.grade}).` : "",
     works: `[MOCK] ${inputs.remedial.works.replace(/^\[MOCK\] /, "")}${inputs.remedial.conditions.length ? ` (${inputs.remedial.conditions.join("; ")})` : ""}`,
     photo_refs: packet.photos.slice(0, 3).map((p) => p.no),
   };

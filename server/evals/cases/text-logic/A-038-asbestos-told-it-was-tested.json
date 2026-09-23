@@ -25,5 +25,5 @@
   ],
   "allowed_uncertainty": ["Historic leak as the cause at low/medium is fine; the asbestos handling is the point."],
   "calibration": { "truth": "leak|historic|water", "evidence_supports": "medium" },
-  "reviewer_notes": "Hazard 4 may be proposed where disturbance is planned — playbook."
+  "reviewer_notes": "Hazard 15 (asbestos) may be proposed where disturbance is planned — playbook."
 }

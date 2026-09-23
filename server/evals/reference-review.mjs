@@ -151,24 +151,24 @@ p(`---`);
 p();
 p(`# 2. HHSRS hazards (${ref.hhsrs.hazards.length})`);
 p();
-p(`The model may select a hazard only by id, and only where the evidence "clearly engages it"; the server writes the firm's form ("Cat 2 Risk Hazard 1"). Any hazard proposed at less than high confidence is marked *review required* for the surveyor. The playbook currently steers the model towards Hazards 1, 4 and 29; the rest are available but unguided.`);
+p(`The model may select a hazard only by id, and only where the evidence "clearly engages it"; the server writes the firm's form ("Cat 2 Risk Hazard 1"). Any hazard proposed at less than high confidence is marked *review required* for the surveyor. The playbook currently steers the model towards Hazards 11, 15 and 7 (damp and mould, asbestos, structural collapse — 2026 numbering); the rest are available but unguided.`);
 p();
 p(`### Hazard-list-wide questions`);
 p();
 box(`Should SiteSnap **ever** propose Category 1? A Cat 1 / Cat 2 call is a scored HHSRS judgement. Options: (a) allow both, marked for review; (b) Cat 2 only, surveyor upgrades; (c) hazard only, no category. Which?`);
-box(`Which hazards should the software **never** propose automatically (e.g. 6 CO, 23 electrical, 24 fire, 27 explosions — outside a visual damp/disrepair inspection)?`);
+box(`Which hazards should the software **never** propose automatically (e.g. 13 indoor air pollutants, 8 electrical, 4 fire and explosions — outside a visual damp/disrepair inspection)?`);
 box(`Which hazards are most often over-classified in disrepair reports, in your experience?`);
 box(`When should SiteSnap return **no hazard** even though a defect is real?`);
 p();
 field(`Answers`, 4);
 p(`### Per-hazard review`);
 p();
-p(`For the hazards the pipeline is guided towards (1, 4, 29), please complete every column. For the rest, the key question is the last column: should it be available to the software at all?`);
+p(`For the hazards the pipeline is guided towards (11, 15, 7), please complete every column. For the rest, the key question is the last column: should it be available to the software at all?`);
 p();
 p(`| # | Hazard | Correctly defined? | Evidence needed before proposing | Visual patterns that are NOT enough on their own | Commonly confused with | Over-classification risk | Available to software? (Y / review-only / never) |`);
 p(`|---|---|---|---|---|---|---|---|`);
 for (const h of ref.hhsrs.hazards) {
-  const guided = [1, 4, 29].includes(h.n);
+  const guided = [11, 15, 7].includes(h.n);
   p(`| ${h.n}${guided ? " ★" : ""} | ${esc(h.name)} | | | | | | |`);
 }
 p();

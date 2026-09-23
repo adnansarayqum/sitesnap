@@ -130,7 +130,13 @@ describe("controlled legal references", () => {
     expect(resolveLegal(ref, []).refs).toEqual([]);
   });
   it("HHSRS hazards come only from the controlled list, in the firm's form", () => {
-    expect(resolveHazard(ref, { hazard_id: "HHSRS-01", category: "Cat 2", confidence: "medium" }).hazard.label).toBe("Cat 2 Risk Hazard 1");
+    // 2026 numbering (Operating Guidance in force 23 June 2026): damp and mould is 11
+    expect(resolveHazard(ref, { hazard_id: "HHSRS-11", category: "Cat 2", confidence: "medium" }).hazard.label).toBe("Cat 2 Risk Hazard 11");
+    expect(ref.hhsrs.byId["HHSRS-11"].name).toBe("Damp and mould growth");
+    // the list is the 21 of the 2026 guidance, not the 29 of 2006 — an id past the cap is rejected
+    expect(ref.hhsrs.hazards).toHaveLength(21);
+    expect(resolveHazard(ref, { hazard_id: "HHSRS-22" }).rejected.reason).toMatch(/unknown HHSRS/);
+    expect(resolveHazard(ref, { hazard_id: "HHSRS-29" }).rejected.reason).toMatch(/unknown HHSRS/);
     expect(resolveHazard(ref, { hazard_id: "HHSRS-99" }).rejected.reason).toMatch(/unknown HHSRS/);
     expect(resolveHazard(ref, null).hazard).toBeNull();
   });

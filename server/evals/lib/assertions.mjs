@@ -26,6 +26,8 @@ function texts(f, where = "all") {
   return arr(where).map((w) => parts[w] || "").join("\n");
 }
 const sentences = (t) => String(t || "").split(/(?<=[.!?])\s+|\n+/).filter(Boolean);
+// exported so a unit test can prove the same pattern the invariant uses
+export const BANNED_VOCABULARY = /\b(wetting|wetted|dampness|distortion|moisture meter|repaired or renewed)\b/i;
 
 // everything a person wrote, said or measured for this issue — the ground
 // truth a figure in the prose must come from
@@ -76,6 +78,9 @@ export const RULES = {
     return { pass, detail: `${alts} alternative(s), confidence ${c.finding.confidence}${definitive ? ", definitive wording" : ""}` };
   },
   no_definitive_language: (c) => { const m = /\b(definitely|certainly|undoubtedly|beyond (any )?doubt|conclusively|without doubt|proves? that)\b/i.exec(texts(c.finding)); return { pass: !m, detail: m ? `"${m[0]}"` : "" }; },
+  // the firm's controlled vocabulary (legal-register.md) — the terms it never
+  // uses in a report; "moisture meter" because the firm writes "protimeter"
+  no_banned_vocabulary: (c) => { const m = BANNED_VOCABULARY.exec(texts(c.finding)); return { pass: !m, detail: m ? `"${m[0]}"` : "" }; },
   hypothesis_not_cited_as_evidence: (c) => {
     const ev = c.finding.evidence || {};
     const bad = [...(ev.observations || []), ...(ev.measurements || [])].filter((o) => (o.source_ids || []).includes("HYP-1"));
@@ -230,6 +235,7 @@ export const INVARIANTS = [
   { rule: "no_invented_dimensions", severity: "critical", label: "no dimension the evidence does not carry" },
   { rule: "no_definitive_language", severity: "major", label: "no absolute certainty wording" },
   { rule: "no_overreach_wording", severity: "major", label: "no over-reaching scope wording" },
+  { rule: "no_banned_vocabulary", severity: "major", label: "no banned vocabulary in prose" },
   { rule: "verification_claims_min", severity: "major", label: "the verifier produced claims", n: 1 },
 ];
 

@@ -10,6 +10,37 @@ Append new entries under the current version; bump the version and date when
 the list changes. Never edit an entry's meaning silently — add a new one and
 mark the old one superseded.
 
+## Version 4 — 2026-09-23
+
+Source: Shahriar's review of the rulebook (WhatsApp, 21–23 September 2026),
+against the plain-English summary of this pack. Four of his five points are
+wording or reference changes made directly in `hhsrs.json`, `legal-register.md`
+and `playbook.md` rather than rules here, per the Version 3 convention:
+
+- The HHSRS list moved from the 2006 list of 29 hazards to the 21 of the
+  Operating Guidance in force from 23 June 2026 (SI 2026/571). Every hazard
+  number in this pack was renumbered to match — damp and mould is now 11
+  (not 1), asbestos 15 (not 4), structural collapse 7 (not 29). The "Hazard
+  11" in rule 10 below is that number fix, not a change of meaning. His own
+  templates already cited Hazard 11; the pack was the one out of date.
+- Trade-referral wording: "…and undertake repairs as required" (playbook).
+- Vocabulary: never "wetting" — "saturated"; building-pathology terms where
+  they are the accurate word (legal-register, Controlled vocabulary).
+- The v2 and v3 blocks both number a rule "16" — left as written; rules are
+  never renumbered.
+
+18. **Drying before replastering.** Where debonded plaster is removed and the
+    exposed construction is still damp, the sequence includes controlled
+    drying until acceptable protimeter readings are achieved (price row
+    CONTROLLED-DRYING) before replastering. Where readings are within normal
+    parameters there is no drying step and no drying allowance.
+
+19. **Causation sentence flow.** Refines rule 5. The causal sentence opens
+    "On the balance of probabilities, …". Where one finding carries several
+    causal statements, the phrase is not repeated at the head of every
+    sentence — later ones open "Furthermore, …" or "In addition, …" so the
+    paragraph reads naturally.
+
 ## Version 3 — 2026-09-16
 
 Source: Shahriar's reply on the disrepair-automation build, cross-checked
@@ -118,4 +149,4 @@ recordings, 6 September 2026).
 
 10. **Leave legislation empty rather than guess.** Only cite a section the
     note and photos clearly support. Condensation mould with the fabric in
-    repair is S9A/S10 and Hazard 1, not S11.
+    repair is S9A/S10 and Hazard 11, not S11.

@@ -6,6 +6,6 @@
   "split": "development",
   "risk": "deterministic_control",
   "control": "hazard",
-  "proposed": { "hazard_id": "HHSRS-30", "category": "Cat 1", "evidence_basis": "", "confidence": "high" },
+  "proposed": { "hazard_id": "HHSRS-22", "category": "Cat 1", "evidence_basis": "", "confidence": "high" },
   "expected": { "hazard": null, "rejected": true }
 }

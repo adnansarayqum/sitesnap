@@ -19,7 +19,7 @@
   },
   "must_not_happen": [
     { "rule": "legal_excludes", "ids": ["LEGAL-S11-LTA", "LEGAL-S9A-LTA", "LEGAL-S10-LTA", "LEGAL-DPA-S4", "LEGAL-HHSRS-HA2004"], "severity": "critical", "label": "no statute cited for wear and tear" },
-    { "rule": "hazard_not", "ids": ["HHSRS-01", "HHSRS-20", "HHSRS-29"], "severity": "critical", "label": "no hazard from scuffed paint" },
+    { "rule": "hazard_not", "ids": ["HHSRS-11", "HHSRS-01", "HHSRS-07"], "severity": "critical", "label": "no hazard from scuffed paint" },
     { "rule": "price_rows_exclude", "rows": ["REDEC-ROOM"], "severity": "major", "label": "whole-room redecoration is not a remedy for wear" }
   ],
   "allowed_uncertainty": ["Unpriced is the expected outcome: nothing here is a landlord repair."],

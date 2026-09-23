@@ -16,8 +16,9 @@ templates to fill in (see corrections.md, rule 7).
 > balance of probabilities two causes are present.
 
 What it does: pins every observation to the visit; records readings; names
-both causes with the evidence for each; uses the standard of proof once per
-causal step.
+both causes with the evidence for each; opens the causal step with the
+standard of proof, and lets a second causal step follow with "in addition"
+rather than repeating the phrase at the head of every sentence.
 
 Note on "is considered to be": genuine — a real transcribed voice note — but
 not the firm's default causal connector. Cross-checked against the firm's own

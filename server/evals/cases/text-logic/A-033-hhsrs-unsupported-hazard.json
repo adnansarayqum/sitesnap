@@ -5,7 +5,7 @@
   "category": "text_logic",
   "split": "development",
   "risk": "legal_hhsrs",
-  "why": "A fine crack following a plasterboard joint with no displacement is not a structural-collapse hazard. Hazard 29 here is over-classification; none is the right answer.",
+  "why": "A fine crack following a plasterboard joint with no displacement is not a structural-collapse hazard. Hazard 7 (structural collapse) here is over-classification; none is the right answer.",
   "input": {
     "context": { "inspectedAt": "2026-09-09T10:00:00.000Z", "builtPre2000": false },
     "room": { "name": "Landing", "order": 6, "condition": "Good", "note": "Fine straight crack along a plasterboard joint in the ceiling, about 1.2m, no displacement, no sag, tape showing through. Dry.", "hypothesis": "Board joint tape lifting" },
@@ -18,7 +18,7 @@
     "legal_excludes": ["LEGAL-DPA-S4"]
   },
   "must_not_happen": [
-    { "rule": "hazard_not", "ids": ["HHSRS-29"], "severity": "critical", "label": "no structural-collapse hazard for a tape-line crack" },
+    { "rule": "hazard_not", "ids": ["HHSRS-07"], "severity": "critical", "label": "no structural-collapse hazard for a tape-line crack" },
     { "rule": "cause_not_matches", "pattern": "structural|subsidence|collapse", "severity": "critical", "label": "no structural cause" },
     { "rule": "text_not_matches", "pattern": "risk of (collapse|falling)|unsafe|dangerous", "severity": "major", "label": "no alarm wording" }
   ],

@@ -20,6 +20,11 @@ or the law changes; the corrections list (`corrections.md`) records why.
   over "is considered to be" (seen once). Prefer "is attributable to" as
   the connector for a stated cause; "is considered to be" / "in my opinion"
   remain correct for labelling opinion more generally, not only causation.
+- A causal sentence opens with the standard of proof: "On the balance of
+  probabilities, the damp … is attributable to …". Where one finding carries
+  several causal statements, do not repeat that opener mechanically — the
+  first carries it, later ones open "Furthermore, …" or "In addition, …" so
+  the paragraph reads naturally (the firm's own reports do exactly this).
 
 ## Time and observation phrasing
 
@@ -27,8 +32,8 @@ or the law changes; the corrections list (`corrections.md`) records why.
 - "was observed to …" / "was noted to …" — for what was seen.
 - "consistent with …" — for interpreting a pattern (staining, tide marks,
   blistering) without asserting the cause outright.
-- "moisture readings of X% were recorded to …" — readings are recorded, not
-  "found".
+- "protimeter readings of X% WME were recorded to …" — readings are recorded,
+  not "found".
 - Past tense, third person, court-facing. No second person, no address to the
   reader, no emotive language ("appalling", "dangerous" — describe the risk
   instead).
@@ -43,20 +48,25 @@ Citation forms below match the firm's Scott Schedule "Breach" column.
 | **S9A LTA** — s.9A Landlord and Tenant Act 1985 (inserted by the Homes (Fitness for Human Habitation) Act 2018) | Implied covenant that the dwelling is fit for human habitation at the start of and throughout the tenancy. | Tenancies granted on or after 20 March 2019 (and periodic tenancies from 20 March 2020). Cite S9A where the defect makes the dwelling unfit — use with S10 for the ground. |
 | **S10 LTA** — s.10 Landlord and Tenant Act 1985 | The matters that decide fitness: repair; stability; freedom from damp; internal arrangement; natural lighting; ventilation; water supply; drainage and sanitary conveniences; facilities for preparation and cooking of food and for the disposal of waste water; and any prescribed hazard (the HHSRS hazards). | Cite S10 alongside S9A, naming the matter ("freedom from damp", "ventilation"). |
 | **DPA 1972 s.4** — Defective Premises Act 1972 | Landlord's duty of care to all persons who might reasonably be expected to be affected by defects, where the landlord has a repairing obligation. | Injury / risk-to-person angle. Cite sparingly and only where a defect presents a foreseeable risk of harm. |
-| **HHSRS — Housing Act 2004** | Housing Health and Safety Rating System hazard categories; "Cat 1" (serious) and "Cat 2". | Cited as the prescribed hazard under S10, e.g. "Cat 2 Risk — Hazard 1". The firm's schedule writes it as `Cat 2 Risk Hazard 1`. |
+| **HHSRS — Housing Act 2004** | Housing Health and Safety Rating System hazard categories; "Cat 1" (serious) and "Cat 2". | Cited as the prescribed hazard under S10, e.g. "Cat 2 Risk — Hazard 11". The firm's schedule writes it as `Cat 2 Risk Hazard 11`. |
 
 ### HHSRS hazard numbers (for the Breach column)
 
-1 Damp and mould growth · 2 Excess cold · 3 Excess heat · 4 Asbestos and MMF ·
-5 Biocides · 6 Carbon monoxide and fuel combustion products · 7 Lead ·
-8 Radiation · 9 Uncombusted fuel gas · 10 Volatile organic compounds ·
-11 Crowding and space · 12 Entry by intruders · 13 Lighting · 14 Noise ·
-15 Domestic hygiene, pests and refuse · 16 Food safety · 17 Personal hygiene,
-sanitation and drainage · 18 Water supply · 19 Falls associated with baths ·
-20 Falling on level surfaces · 21 Falling on stairs and steps · 22 Falling
-between levels · 23 Electrical hazards · 24 Fire · 25 Flames and hot surfaces ·
-26 Collision and entrapment · 27 Explosions · 28 Position and operability of
-amenities · 29 Structural collapse and falling elements.
+The 21 hazards of the HHSRS Operating Guidance in force from 23 June 2026
+(SI 2026/571), which replaced the 2006 list of 29. Reports written before that
+date cite the old numbers (damp and mould was 1, asbestos 4, structural
+collapse 29) — do not carry those forward.
+
+Protection against accidents: 1 Falls on the level · 2 Falling on stairs etc. ·
+3 Falling between levels · 4 Fire and explosions · 5 Flames, hot surfaces, etc. ·
+6 Collisions, entrapment and ergonomics · 7 Structural collapse and falling
+elements · 8 Electrical hazards.
+Physiological requirements: 9 Excess cold · 10 Radiation · 11 Damp and mould
+growth · 12 Lead · 13 Indoor air pollutants · 14 Excess heat · 15 Asbestos and
+MMF.
+Protection against infection: 16 Domestic hygiene · 17 Water supply.
+Psychological requirements: 18 Crowding and space · 19 Entry by intruders ·
+20 Noise · 21 Lighting and obstructed views.
 
 ## Rules for citing
 
@@ -65,13 +75,13 @@ amenities · 29 Structural collapse and falling elements.
   the surveyor's note records when it was reported.
 - Condensation-related mould is not automatically S11 disrepair (the fabric
   may be in repair); it is more often S9A/S10 (freedom from damp, ventilation)
-  and HHSRS Hazard 1. Penetrating or rising damp from a defective element
+  and HHSRS Hazard 11. Penetrating or rising damp from a defective element
   (roof, gutter, pointing, DPC) is S11.
 - Where the note does not clearly support a breach, leave the legislation list
   **empty**. An empty citation is reviewable; an invented one is not.
 - Textured ceiling and wall coatings in pre-2000 dwellings are presumed to
   contain asbestos until sampled. Any works to such a coating are written
-  "subject to asbestos sampling/results" and HHSRS Hazard 4 may apply.
+  "subject to asbestos sampling/results" and HHSRS Hazard 15 may apply.
 
 ## Controlled vocabulary
 
@@ -83,12 +93,17 @@ the right-hand one, even where the alternative would be idiomatic elsewhere.
 | protimeter readings, reported as a % WME | moisture meter readings, unitless % |
 | renew | replace |
 | damp | dampness |
+| saturated / saturation (of plaster, a substrate) | wetting / wetted |
 | external | outside |
 | water ingress (or rainwater ingress) | moisture ingress |
 | "has resulted in" | "results in" |
 | "on the balance of probabilities" | may / might / appears / possibly / potentially / could |
 
 - Do not use the word "distortion".
+- Use standard building-pathology vocabulary where it is the accurate term
+  for the mechanism — percolation, dissipation, efflorescence, permeability,
+  capillary action, hygroscopic salts, debonding, delamination — and only
+  then; never as decoration.
 - Never leave a remedy as "repaired or renewed" — the works paragraph
   commits to one route.
 - Remedial wording avoids "review", "monitor", "consider" and "where

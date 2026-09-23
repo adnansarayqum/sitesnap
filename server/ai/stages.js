@@ -88,7 +88,7 @@ export async function causationStage(packet, evidence, ref, { signal } = {}) {
 export function controlledLists(ref) {
   return {
     legal: ref.legal.entries.map((e) => ({ id: e.id, cite: e.cite, title: e.title, covers: e.covers, applies_when: e.applies_when, not_when: e.not_when })),
-    hhsrs_hazards: ref.hhsrs.hazards.map((h) => ({ id: h.id, n: h.n, name: h.name })),
+    hhsrs_hazards: ref.hhsrs.hazards.map((h) => ({ id: h.id, n: h.n, name: h.name, group: h.group })),
     price_rows: ref.priceBook.rows.filter((r) => r.active).map((r) => ({ id: r.id, work: r.work, unit: r.unit, quantity_kind: r.qty ? r.qty.kind : "count", quantity_unit: r.qty ? r.qty.unit : r.unit, quantity_evidence: r.qty ? r.qty.evidence : "assumable", excludes: r.excludes || [], notes: r.notes || "" })),
   };
 }
