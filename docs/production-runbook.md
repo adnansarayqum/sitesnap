@@ -113,9 +113,10 @@ unreadable, so each provider must be connected again.
 - Alert on repeated `startup failed`, `database unavailable`, HTTP 429 bursts,
   uncaught errors and provider 5xx responses. Configure Sentry if external
   error alerting is required.
-- `/readyz` reports unavailable when a configured Postgres dependency cannot
-  be reached; remove an accidentally configured `DATABASE_URL` or restore the
-  database.
+- A configured but unavailable Postgres database is logged and shown as
+  `db: false` by `/healthz`, but it does not make the supported local-first app
+  unready. Remove an accidental `DATABASE_URL` or restore the database before
+  relying on its retained migration/reference schema.
 
 ## Data and backup caveats
 

@@ -28,6 +28,7 @@ const PORT = process.env.PORT || 3000;
 const APP_VERSION = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8")).version;
 const releaseIdentity = (value) => String(value || "").replace(/[^a-zA-Z0-9._-]/g, "").slice(0, 80) || null;
 const access = createAccessControl();
+let optionalDbStatus = hasDb ? "starting" : "not_configured";
 
 const PROVIDERS = {
   onedrive: {
@@ -293,22 +294,21 @@ mountProduct(app);
 
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
-app.get("/healthz", wrap(async (req, res) => {
-  let dbOk = null;
-  if (hasDb) { try { await q("select 1"); dbOk = true; } catch { dbOk = false; } }
-  res.status(dbOk === false ? 503 : 200).json({ ok: dbOk !== false, mode: "local", db: dbOk });
-}));
+app.get("/healthz", (req, res) => {
+  const dbOk = optionalDbStatus === "ok" ? true : optionalDbStatus === "unavailable" ? false : null;
+  // Postgres is retained only for optional migrations/reference schema. It
+  // must not take the local-first capture app out of service.
+  res.json({ ok: true, mode: "local", db: dbOk });
+});
 
-app.get("/readyz", wrap(async (req, res) => {
-  let ready = true;
-  if (hasDb) { try { await q("select 1"); } catch { ready = false; } }
-  res.status(ready ? 200 : 503).json({
-    status: ready ? "ok" : "unavailable",
+app.get("/readyz", (req, res) => {
+  res.json({
+    status: "ok",
     version: APP_VERSION,
     commit: releaseIdentity(process.env.RAILWAY_GIT_COMMIT_SHA || process.env.COMMIT_SHA),
     release: releaseIdentity(process.env.RAILWAY_DEPLOYMENT_ID || process.env.RELEASE_ID),
   });
-}));
+});
 
 app.get("/api/config", wrap(async (req, res) => {
   res.json({ mode: "local", providers: { onedrive: enabled("onedrive"), google: enabled("google") }, email: emailConfigured });
@@ -472,8 +472,18 @@ async function purge() {
 
 export async function startServer() {
   if (hasDb) {
-    try { await migrate(); await purge(); setInterval(purge, 6 * 60 * 60 * 1000).unref(); }
-    catch (e) { console.error("database unavailable:", e.message); throw e; }
+    // Migrations run independently of the local-first web server. Even a
+    // reachable database blocked on a lock must not delay camera capture.
+    migrate()
+      .then(async () => {
+        optionalDbStatus = "ok";
+        await purge();
+        setInterval(purge, 6 * 60 * 60 * 1000).unref();
+      })
+      .catch((e) => {
+        optionalDbStatus = "unavailable";
+        console.error("optional database unavailable; continuing without it:", e.message);
+      });
   }
   const server = app.listen(PORT, "0.0.0.0", () => {
     const on = Object.keys(PROVIDERS).filter(enabled);
