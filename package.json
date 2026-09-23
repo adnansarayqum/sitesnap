@@ -22,7 +22,7 @@
     "@anthropic-ai/sdk": "^0.124.0",
     "@azure/msal-browser": "^5.21.0",
     "@sentry/node": "^10.73.0",
-    "@sentry/react": "^10.73.0",
+    "@sentry/react": "^10.75.0",
     "express": "^5.2.1",
     "idb-keyval": "^6.3.0",
     "jszip": "^3.10.2",
