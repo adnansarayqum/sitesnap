@@ -24,9 +24,11 @@ self.addEventListener("install", (event) => {
       const res = await fetch("/", { cache: "no-store" });
       if (!res.ok) return;
       const html = await res.clone().text();
+      const assets = await shellAssets(html, true);
+      // Preserve an existing complete release during an update: only swap
+      // its shell after every chunk referenced by the new manifest exists.
+      await Promise.all(assets.map((a) => c.add(a)));
       await c.put("/", res);
-      const assets = await shellAssets(html);
-      await Promise.all(assets.map((a) => c.add(a).catch(() => {})));
     } catch { /* offline at install — the next online visit fills the cache */ }
   })());
 });
@@ -56,7 +58,6 @@ self.addEventListener("fetch", (event) => {
       const copy = res.clone();
       const forPrune = res.clone();
       const c = await caches.open(CACHE);
-      await c.put("/", copy);
       // every deploy ships a new hashed bundle; stage the whole new release
       // before dropping assets from the previous one
       const html = await forPrune.text();
@@ -65,6 +66,10 @@ self.addEventListener("fetch", (event) => {
       await Promise.all([...wanted]
         .filter((url) => !before.has(url))
         .map((url) => c.add(url)));
+      // Commit the new shell only after every asset it can reference exists.
+      // A failed staging fetch therefore leaves the previous complete shell
+      // and its chunks untouched.
+      await c.put("/", copy);
       const cached = await c.keys();
       await Promise.all(cached
         .filter((req) => new URL(req.url).pathname.startsWith("/assets/") && !wanted.has(req.url))
