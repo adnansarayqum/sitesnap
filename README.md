@@ -43,6 +43,11 @@ monitoring, rollback, backups and the release checklist are in the
 **[production runbook](docs/production-runbook.md)**. Cloud provider setup is
 in [`docs/direct-cloud-link-setup.md`](docs/direct-cloud-link-setup.md).
 
+The verified Railway origin is
+[`https://sitesnap-production-821d.up.railway.app`](https://sitesnap-production-821d.up.railway.app).
+Treat its `/readyz` response, rather than a Railway deployment badge, as the
+authority for the running commit.
+
 Production is not activated merely because Railway reports a successful
 deployment. The public hostname must resolve, `PUBLIC_URL` must match that
 HTTPS origin, an operator must configure `SITESNAP_ACCESS_KEY`, and the
