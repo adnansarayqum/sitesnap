@@ -15,6 +15,15 @@ const results = [];
 const rec = (id, status, detail = "") => { results.push({ id, status, detail }); console.log(`${status.padEnd(4)} ${id}${detail ? " — " + detail : ""}`); };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// A bare `node server/index.js` is a production server whose access-key gate
+// answers every AI/cloud route with 503; this suite tests the ungated
+// single-user mode, and test/e2e/smoke.mjs covers the gated one.
+const preflight = await fetch(BASE + "/api/session").then((r) => r.json()).catch(() => null);
+if (preflight && preflight.required === false && (await fetch(BASE + "/api/ai/config")).status === 503) {
+  console.error("The server under test is in production mode with no SITESNAP_ACCESS_KEY, so its API is locked. Restart it with NODE_ENV=development (see test/e2e/README.md).");
+  process.exit(2);
+}
+
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM || "/opt/pw-browsers/chromium",
   args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"],

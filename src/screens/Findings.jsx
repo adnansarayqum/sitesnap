@@ -3,7 +3,7 @@ import {
   AlertTriangle, Check, ChevronDown, ChevronRight, FolderTree, History, Loader2, Pencil, RotateCcw, ShieldAlert, ShieldCheck, Sparkles, X,
 } from "lucide-react";
 import {
-  aiConfig, transcribeMemo, draftIssue, issueRequest, reviewFinding, priceWithQuantities, newRequestId,
+  aiConfig, aiOffReason, transcribeMemo, draftIssue, issueRequest, reviewFinding, priceWithQuantities, newRequestId,
 } from "../ai.js";
 import {
   migrateFindings, mergeRun, transition, reconcile, coverage, effective, liveItems, approvalBlockers, needsAttention, flagLabel, flagSeverity,
@@ -224,7 +224,7 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
     <div className="ss-ai-bar">
       <Sparkles size={15} />
       <span>
-        {cfg.enabled ? <>Drafted by AI and checked separately, against <b>{cfg.reference && cfg.reference.label}</b>. Model and run details are in each finding's History &amp; audit.</> : <>Drafting is <b>off</b> on this server — it needs an ANTHROPIC_API_KEY.</>}
+        {cfg.enabled ? <>Drafted by AI and checked separately, against <b>{cfg.reference && cfg.reference.label}</b>. Model and run details are in each finding's History &amp; audit.</> : aiOffReason(cfg)}
         {cfg.enabled && !cfg.transcription && <> Voice notes can't be transcribed here (no OPENAI_API_KEY) — issues with voice notes will be marked incomplete.</>}
       </span>
       {cfg.enabled && (

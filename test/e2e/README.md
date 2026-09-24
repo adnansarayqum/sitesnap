@@ -16,8 +16,24 @@ being tested.
 
 ```sh
 npm run build
-CSP_CONNECT_EXTRA="http://localhost:3100" node server/index.js &   # the CRM-webhook scenario posts to a mock on :3100
-node test/e2e/local.mjs                                            # BASE=http://localhost:3000 by default
+NODE_ENV=development CSP_CONNECT_EXTRA="http://localhost:3100" node server/index.js &   # the CRM-webhook scenario posts to a mock on :3100
+node test/e2e/local.mjs                                                                # BASE=http://localhost:3000 by default
+```
+
+`NODE_ENV=development` matters: without it the server is a production
+server, and with no `SITESNAP_ACCESS_KEY` its access gate answers every
+AI/cloud route with 503. The suite checks for this and stops with a message
+rather than reporting a page of misleading failures.
+
+## Production gate (access key, offline activation)
+
+`test/e2e/smoke.mjs` starts its own production server with an access key
+and checks the unlock flow, readiness, the SPA fallback and the offline
+cache upgrade:
+
+```sh
+npm run build
+npm run test:e2e:smoke          # set CHROMIUM=/path/to/chromium if Playwright's own browser isn't installed
 ```
 
 ## Accounts mode (Postgres)
