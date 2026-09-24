@@ -97,6 +97,7 @@ export default function SiteSnap() {
   const originals = useRef({}); // id -> File/Blob (full quality, this session only)
   const audioCache = useRef({}); // memo id -> Blob
   const photoSeq = useRef({}); // roomId -> running exhibit number, reset per room
+  const navigationHistory = useRef([{ screen: "loading", inspection: null, caseTab: null, returnTab: "home" }]);
 
   // --- persistence -----------------------------------------------------
   // Whatever React has committed is what gets written, a beat later. Writing
@@ -180,6 +181,52 @@ export default function SiteSnap() {
     WAL.writePosition(inspection.id, { screen, caseTab, walkIndex });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inspection && inspection.id, screen, caseTab, walkIndex]);
+
+  // Handle hardware back button by preventing exit from app and navigating
+  // back through the app's own screen history instead.
+  useEffect(() => {
+    const handlePopState = (e) => {
+      const state = e.state;
+      if (state) {
+        setScreen(state.screen);
+        if (state.inspection !== null) setInspection(state.inspection);
+        if (state.caseTab !== null) setCaseTab(state.caseTab);
+        if (state.returnTab !== null) setReturnTab(state.returnTab);
+        if (state.walkIndex !== undefined) setWalkIndex(state.walkIndex);
+        navigationHistory.current.pop();
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    // Push initial state to history to prevent accidental exit on first back press
+    window.history.pushState(
+      { screen: "loading", inspection: null, caseTab: null, returnTab: "home", walkIndex: 0 },
+      "",
+      window.location.href
+    );
+
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  // Track navigation by pushing state to browser history
+  useEffect(() => {
+    const currentState = {
+      screen,
+      inspection: inspection ? { id: inspection.id } : null,
+      caseTab,
+      returnTab,
+      walkIndex,
+    };
+    // Only push if state actually changed (not on initial load)
+    if (
+      navigationHistory.current.length === 1 ||
+      navigationHistory.current[navigationHistory.current.length - 1].screen !== screen
+    ) {
+      navigationHistory.current.push(currentState);
+      window.history.pushState(currentState, "", window.location.href);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen]);
 
   useEffect(() => {
     // A dropped write means photos that cannot be reshot, so it has to be
