@@ -400,7 +400,7 @@ try {
   await page.locator(".ss-caption").first().fill("Sealant lifting");
   await backToCase(page); await tab(page, "Findings"); await w(page, 500);
   const findings = await page.locator("body").innerText();
-  const aiOff = /Drafting is off/.test(findings);
+  const aiOff = /AI drafting isn't switched on/.test(findings);
   await tab(page, "Export");
   const [dl] = await Promise.all([page.waitForEvent("download", { timeout: 20000 }), page.getByRole("button", { name: /Export ZIP/ }).click()]);
   const zip = await JSZip.loadAsync(fs.readFileSync(await dl.path()));

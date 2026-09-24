@@ -29,7 +29,7 @@ describe("cloud link vs the access-key gate", () => {
 
   it("keeps the OneDrive link when the server has no access key configured", async () => {
     globalThis.fetch = vi.fn(async () => reply(503, { error: "access_not_configured" }));
-    await expect(serviceToken("onedrive")).rejects.toThrow(/SITESNAP_ACCESS_KEY/);
+    await expect(serviceToken("onedrive")).rejects.toThrow(/aren't switched on/);
     expect(store.onedrive).toBeTruthy();
   });
 
@@ -41,7 +41,7 @@ describe("cloud link vs the access-key gate", () => {
 
   it("Connect explains a locked server instead of blaming OneDrive setup", async () => {
     globalThis.fetch = vi.fn(async () => reply(503, { error: "access_not_configured" }));
-    await expect(beginLink("onedrive", null)).rejects.toThrow(/SITESNAP_ACCESS_KEY/);
+    await expect(beginLink("onedrive", null)).rejects.toThrow(/aren't switched on/);
     globalThis.fetch = vi.fn(async () => reply(404, { error: "provider not configured" }));
     await expect(beginLink("onedrive", null)).rejects.toThrow(/isn't set up for OneDrive/);
   });

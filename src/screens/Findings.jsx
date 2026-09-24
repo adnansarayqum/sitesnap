@@ -602,7 +602,7 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
           {progress && progress.running ? (
             <Button variant="danger-ghost" onClick={cancelDraft}><X size={15} /> Cancel</Button>
           ) : (
-            <Button variant={total > 0 ? "ghost" : "primary"} size={total > 0 ? undefined : "big"} onClick={() => draftIssues(draftTargets)} disabled={aiOff || !cfg || !draftTargets.length} title={aiOff ? "Set ANTHROPIC_API_KEY on the server" : !draftTargets.length ? "Confirm an issue with evidence first" : undefined}>
+            <Button variant={total > 0 ? "ghost" : "primary"} size={total > 0 ? undefined : "big"} onClick={() => draftIssues(draftTargets)} disabled={aiOff || !cfg || !draftTargets.length} title={aiOff ? aiOffReason(cfg) : !draftTargets.length ? "Confirm an issue with evidence first" : undefined}>
               <Sparkles size={15} /> {draftLabel}
             </Button>
           )}
