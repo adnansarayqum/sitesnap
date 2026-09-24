@@ -703,7 +703,12 @@ export default function SiteSnap() {
       <StyleBlock />
       <div className="ss-frame">
         {view === "loading" && (
-          <div className="ss-center"><Loader2 className="ss-spin" size={26} /></div>
+          <div className="ss-center" style={{ flexDirection: "column", gap: "20px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Loader2 className="ss-spin" size={48} />
+            </div>
+            <p style={{ margin: 0, fontSize: "14px", color: "var(--muted)", fontWeight: 600, textAlign: "center" }}>SiteSnap built for Stonebridge Surveyors</p>
+          </div>
         )}
 
         {view === "home" && (
