@@ -4,6 +4,7 @@
 // and the older in-browser MSAL / Google flows in msGraph.js and
 // googleDrive.js carry on exactly as before.
 import { loadCloudLink, saveCloudLink, clearCloudLink } from "../storage.js";
+import { accessProblem, ACCESS_MESSAGE } from "../access.js";
 
 const LABEL = { onedrive: "OneDrive", google: "Google Drive" };
 const json = (body) => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -34,7 +35,10 @@ export async function linkedAccount(provider) {
 // there is none, the current tab navigates and comes back via ?cloudpair=.
 export async function beginLink(provider, win) {
   const r = await fetch("/api/cloud/pair", json({ provider }));
-  if (!r.ok) throw new Error(`This deployment isn't set up for ${LABEL[provider] || provider} yet.`);
+  if (!r.ok) {
+    const problem = await accessProblem(r);
+    throw new Error(problem ? ACCESS_MESSAGE[problem] : `This deployment isn't set up for ${LABEL[provider] || provider} yet.`);
+  }
   const { pair, url } = await r.json();
   if (win) win.location.href = url; else { window.location.assign(url); return null; }
 
@@ -44,6 +48,8 @@ export async function beginLink(provider, win) {
     await sleep(1500);
     const c = await fetch(`/api/cloud/claim?pair=${encodeURIComponent(pair)}`, { cache: "no-store" });
     if (c.status === 404) throw new Error("The sign-in link expired — tap Connect again.");
+    const problem = await accessProblem(c);
+    if (problem) throw new Error(ACCESS_MESSAGE[problem]);
     const j = await c.json();
     if (j.status === "done") {
       await recordLink(provider, j);
@@ -94,6 +100,9 @@ export async function serviceToken(provider) {
   const link = await loadCloudLink(provider);
   if (!link || !link.blob) return null;
   const r = await fetch("/api/cloud/token", json({ blob: link.blob }));
+  // an expired unlock is also a 401 — keep the link, it's still good
+  const problem = await accessProblem(r);
+  if (problem) throw new Error(ACCESS_MESSAGE[problem]);
   if (r.status === 401) {
     delete cache[provider];
     await clearCloudLink(provider);

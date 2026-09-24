@@ -3,6 +3,7 @@
 // and evidence.js.
 import { drawScaled, loadImage } from "./lib/image.js";
 import { issuePhotoIds, issueMemoIds, issueReadingIds, noteIsHuman } from "./evidence.js";
+import { accessProblem, ACCESS_MESSAGE } from "./access.js";
 export { approvedByRoom, findingsFiles, fromLegacyDraft, effective, isApproved, needsAttention, emptyFindings, mergeRun, SCHEDULE_COLUMNS, scheduleRows, toCsv } from "./findings.js";
 
 // Claude reads images best at or under ~1568px on the long edge; the stored
@@ -18,9 +19,16 @@ export async function aiConfig(force = false) {
   if (cfgCache && !force) return cfgCache;
   try {
     const r = await fetch("/api/ai/config", { cache: "no-store" });
-    cfgCache = r.ok ? await r.json() : { enabled: false, transcription: false };
+    cfgCache = r.ok ? await r.json() : { enabled: false, transcription: false, locked: await accessProblem(r) };
   } catch { cfgCache = { enabled: false, transcription: false, offline: true }; }
   return cfgCache;
+}
+
+// why AI is unavailable, in words for the surveyor
+export function aiOffReason(cfg) {
+  if (cfg && cfg.locked) return ACCESS_MESSAGE[cfg.locked];
+  if (cfg && cfg.offline) return "The AI service isn't reachable — check the signal and reopen this tab.";
+  return "Drafting is off on this server — it needs an ANTHROPIC_API_KEY.";
 }
 
 export async function aiPhotoCopy(dataUrl) {
@@ -31,7 +39,7 @@ export async function aiPhotoCopy(dataUrl) {
 
 async function readError(r, fallback) {
   const j = await r.json().catch(() => ({}));
-  const e = new Error(j.message || fallback);
+  const e = new Error(ACCESS_MESSAGE[j.error] || j.message || fallback);
   e.code = j.error || String(r.status);
   e.status = r.status;
   e.body = j;

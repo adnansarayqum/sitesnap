@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { AlertTriangle, Check, Loader2, Mic, Plus, Sparkles, Trash2 } from "lucide-react";
 import { addIssue, addSuggestedIssues, adoptLegacyIssue, confirmIssue, deleteIssue, linkEvidence, openIssues, unassigned, unlinkEvidence, transcriptUsable } from "../evidence.js";
-import { aiConfig, aiPhotoCopy, suggestClusters, transcribeMemo, AI_MAX_PHOTOS } from "../ai.js";
+import { aiConfig, aiOffReason, aiPhotoCopy, suggestClusters, transcribeMemo, AI_MAX_PHOTOS } from "../ai.js";
 import { transcriptFromServer, failedTranscript } from "../evidence.js";
 import { withOfflineRetry } from "../aiRetry.js";
 import { IssuePicker, linkSourceLabel } from "./Evidence.jsx";
@@ -36,7 +36,7 @@ export function OrganiseSheet({ caseId, room, photoCache, fullPhoto, audioCache,
     setBusy("suggest"); setError(null);
     try {
       const cfg = await aiConfig();
-      if (!cfg.enabled) throw new Error("Suggestions need ANTHROPIC_API_KEY on the server.");
+      if (!cfg.enabled) throw new Error(cfg.locked || cfg.offline ? aiOffReason(cfg) : "Suggestions need ANTHROPIC_API_KEY on the server.");
       const photos = [];
       for (const pid of loose.photoIds.slice(0, AI_MAX_PHOTOS)) {
         const p = await fullPhoto(pid);

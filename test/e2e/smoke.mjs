@@ -52,7 +52,7 @@ try {
     if (!shell.ok || !shellBody.includes("id=\"root\"")) throw new Error(`${route} did not serve the shell (${shell.status} ${shellBody.slice(0, 120)})\nserver:\n${output}`);
   }
 
-  browser = await chromium.launch({ headless: true });
+  browser = await chromium.launch({ headless: true, ...(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {}) });
   const context = await browser.newContext();
   const page = await context.newPage();
   await page.goto(base, { waitUntil: "networkidle" });
