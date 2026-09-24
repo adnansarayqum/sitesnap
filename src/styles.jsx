@@ -962,6 +962,92 @@ export function StyleBlock() {
         display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 16px;
         background: var(--hivis); color: var(--hivis-deep); padding: 11px 0; border-radius: 10px; font-size: 13px; font-weight: 800;
       }
+      /* ---- the gold "do the next thing" button and its outlined sibling ---- */
+      .ss-btn-go { background: var(--hivis); color: var(--ss-color-on-accent); box-shadow: 0 1px 2px rgba(15,23,42,.06), 0 6px 14px -6px rgba(var(--ss-color-accent-rgb),.55); }
+      .ss-btn-go:active { filter: brightness(.94); }
+      .ss-btn-outline { background: var(--card); color: var(--pine); border: 1.5px solid var(--pine); }
+      .ss-btn-outline:active { background: var(--pine-tint); }
+
+      /* ---- progress ring (rooms covered) ---- */
+      .ss-ring { position: relative; flex-shrink: 0; }
+      .ss-ring svg { display: block; }
+      .ss-ring-track { stroke: var(--pine-tint); }
+      .ss-ring-arc { stroke: var(--pine); transition: stroke-dasharray .4s ease; }
+      .ss-ring.dark .ss-ring-track { stroke: rgba(255,255,255,.18); }
+      .ss-ring.dark .ss-ring-arc { stroke: var(--hivis); }
+      .ss-ring-mid { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; }
+      .ss-ring-mid b { font-family: var(--ss-font-mono); font-size: 17px; font-weight: 700; color: var(--ink); }
+      .ss-ring-mid span { font-size: 10.5px; font-weight: 600; color: var(--muted); margin-top: 3px; }
+      .ss-ring.dark .ss-ring-mid b { color: #fff; }
+      .ss-ring.dark .ss-ring-mid span { color: rgba(255,255,255,.75); }
+
+      /* ---- case overview: progress, the walkthrough as a checklist ---- */
+      .ss-ov-progress { display: flex; align-items: center; gap: 18px; padding: 18px; margin-top: 14px; border-radius: 20px; background: var(--card); border: 1px solid var(--line); }
+      .ss-ov-progress .ss-ring-mid b { font-size: 24px; }
+      .ss-ov-progress .ss-ring-mid span { font-size: 12px; }
+      .ss-ov-stats { flex: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 10px; }
+      .ss-ov-stats div { display: flex; flex-direction: column; }
+      .ss-ov-stats b { font-family: var(--ss-font-mono); font-size: 20px; font-weight: 700; color: var(--ink); line-height: 1.1; }
+      .ss-ov-stats span { font-size: 12px; color: var(--muted); }
+      .ss-ov-section { display: flex; align-items: baseline; justify-content: space-between; margin: 22px 2px 8px; }
+      .ss-ov-section > span { font-family: var(--ss-font-display); font-size: 18px; font-weight: 700; color: var(--ink); }
+      .ss-ov-section small { font-size: 13px; color: var(--muted); }
+      .ss-ov-rooms { display: flex; flex-direction: column; border-radius: 18px; background: var(--card); border: 1px solid var(--line); overflow: hidden; }
+      .ss-ov-room { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--line-soft); }
+      .ss-ov-room:last-child { border-bottom: none; }
+      .ss-ov-room:active { background: var(--paper-deep); }
+      .ss-ov-room-ic { width: 28px; height: 28px; border-radius: 999px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
+      .ss-ov-room.done .ss-ov-room-ic { background: var(--pine); color: var(--pine-ink); }
+      .ss-ov-room.next { background: var(--pine-tint); }
+      .ss-ov-room.next .ss-ov-room-ic { border: 2.5px solid var(--pine); }
+      .ss-ov-room.next .ss-ov-room-ic span { width: 10px; height: 10px; border-radius: 999px; background: var(--pine); }
+      .ss-ov-room.todo .ss-ov-room-ic { border: 2px dashed var(--line-strong); }
+      .ss-ov-room-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+      .ss-ov-room-main b { font-size: 15px; font-weight: 600; color: var(--ink); }
+      .ss-ov-room.next .ss-ov-room-main b, .ss-ov-room.next .ss-ov-room-main small { color: var(--pine); font-weight: 700; }
+      .ss-ov-room.todo .ss-ov-room-main b { color: var(--muted); }
+      .ss-ov-room-main small { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .ss-ov-room .ss-cbadge { margin-left: 0; flex-shrink: 0; }
+      .ss-ov-room-go { color: var(--pine); flex-shrink: 0; }
+      .ss-ov-checks { display: flex; flex-direction: column; gap: 8px; }
+      .ss-ov-check { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px; border-radius: 16px; border: 1px solid var(--line); background: var(--card); text-align: left; color: var(--muted); }
+      .ss-ov-check-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+      .ss-ov-check-main b { font-size: 15px; font-weight: 600; color: var(--ink); }
+      .ss-ov-check-main small { font-size: 13px; color: var(--muted); }
+      .ss-ov-check.warn { background: var(--amber-tint); border-color: color-mix(in srgb, var(--ss-color-warning) 30%, transparent); color: var(--amber); }
+      .ss-ov-check.warn .ss-ov-check-main b { color: var(--ss-color-on-warning); }
+      .ss-ov-check.warn .ss-ov-check-main small { color: var(--amber); }
+
+      /* ---- home: the case in hand ---- */
+      .ss-home-hero { margin-top: 18px; padding: 20px; border-radius: 20px; background: var(--pine); color: var(--pine-ink); display: flex; flex-direction: column; gap: 14px; box-shadow: 0 8px 20px -8px rgba(16,53,42,.35); }
+      .ss-home-hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+      .ss-home-hero-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+      .ss-home-hero-eyebrow { font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--hivis); }
+      .ss-home-hero .ss-case-hero-title { margin-top: 0; font-size: 22px; font-weight: 800; line-height: 1.15; overflow-wrap: anywhere; }
+      .ss-home-hero .ss-case-hero-sub { margin-top: 0; font-size: 13.5px; color: rgba(255,255,255,.78); }
+      .ss-home-hero-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+      .ss-home-hero-chips span { padding: 6px 10px; border-radius: 999px; background: rgba(255,255,255,.12); font-size: 13px; font-weight: 600; }
+      .ss-home-hero .ss-btn-big { margin: 0; border-radius: 14px; }
+      .ss-home-hero-open { align-self: center; display: flex; align-items: center; gap: 2px; min-height: var(--ss-touch-min); margin: -6px 0 -8px; padding: 0 12px; font-size: 14px; font-weight: 700; color: rgba(255,255,255,.88); }
+      .ss-home-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+      .ss-home-tile { display: flex; flex-direction: column; gap: 4px; padding: 14px; border-radius: 16px; border: 1px solid var(--line); background: var(--card); text-align: left; }
+      .ss-home-tile b { font-family: var(--ss-font-mono); font-size: 22px; font-weight: 700; color: var(--ink); line-height: 1.1; }
+      .ss-home-tile span { font-size: 13px; font-weight: 600; color: var(--muted); }
+      .ss-home-tile.warn { background: var(--amber-tint); border-color: color-mix(in srgb, var(--ss-color-warning) 30%, transparent); }
+      .ss-home-tile.warn b { color: var(--ss-color-on-warning); }
+      .ss-home-tile.warn span { color: var(--amber); }
+      .ss-home-section { display: flex; align-items: baseline; justify-content: space-between; margin: 24px 2px 8px; }
+      .ss-home-section > span { font-family: var(--ss-font-display); font-size: 18px; font-weight: 700; color: var(--ink); }
+      .ss-home-rows { display: flex; flex-direction: column; gap: 8px; }
+      .ss-home-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px; border-radius: 16px; border: 1px solid var(--line); background: var(--card); text-align: left; }
+      .ss-home-row:active { background: var(--paper-deep); }
+      .ss-home-row-thumb { width: 56px; height: 56px; border-radius: 10px; background: var(--pine-tint); color: var(--pine); display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; }
+      .ss-home-row-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .ss-home-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+      .ss-home-row-main b { font-size: 15px; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .ss-home-row-main span { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .ss-home-row .ss-pill { font-family: var(--ss-font-sans); white-space: nowrap; flex-shrink: 0; }
+
       .ss-row-tap-full {
         display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; text-align: left;
         background: var(--card); border: 1px solid var(--line); border-radius: 9px; padding: 13px 14px; font-size: 13.5px; font-weight: 700;
@@ -1162,13 +1248,8 @@ export function StyleBlock() {
       .ss-cap-status.failed { background: rgba(255,138,115,.22); color: var(--ss-color-danger-soft); }
       .ss-cap-body { justify-content: flex-start; padding-top: 10px; gap: 0; overflow-y: auto; min-height: 0; }
       .ss-cap-active { width: 100%; max-width: 420px; border-radius: 14px; padding: 14px 16px; background: var(--hivis); color: var(--ss-color-on-accent); text-align: left; display: flex; flex-direction: column; gap: 2px; }
-      .ss-cap-active.none { background: rgba(255,255,255,.08); color: #fff; border: 1px dashed rgba(var(--ss-color-accent-rgb),.45); }
       .ss-cap-active-label { font-size: 10.5px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; opacity: .75; }
       .ss-cap-active-title { font-size: 22px; font-weight: 900; line-height: 1.15; }
-      /* the "must never be ambiguous" weight belongs to the active issue's
-         own title, not to instructional copy with no data behind it yet —
-         the empty/no-selection state reads as guidance, not a headline */
-      .ss-cap-active.none .ss-cap-active-title { font-size: 15px; font-weight: 700; opacity: .92; }
       .ss-cap-active-sub { font-size: 12.5px; font-weight: 700; opacity: .8; margin-top: 2px; }
       .ss-cap-finish-issue {
         display: inline-flex; align-items: center; gap: 5px; align-self: flex-start; margin-top: 10px;
@@ -1213,8 +1294,31 @@ export function StyleBlock() {
       .ss-cap-recording .ss-vm-pulse { background: var(--ss-color-on-danger-soft); }
       .ss-cap .ss-live-cond { margin-top: 12px; }
       .ss-cap .ss-live-cond button { min-height: 40px; }
-      .ss-cap .ss-live-nav button { min-height: 48px; }
+      .ss-cap .ss-live-nav button { min-height: 56px; border-radius: 14px; }
+      .ss-cap .ss-live-nav .prev { flex: 0 0 56px; padding: 0; color: #fff; border-color: rgba(255,255,255,.2); }
+      .ss-cap .ss-live-nav .next { background: var(--hivis); border-color: var(--hivis); color: var(--ss-color-on-accent); font-size: 16px; font-weight: 800; }
+      .ss-cap .ss-live-nav .next span { overflow: hidden; text-overflow: ellipsis; }
+      .ss-cap .ss-live-nav .next:active { filter: brightness(.94); }
       .ss-cap .ss-last { margin-top: 10px; }
+
+      /* the walk's place in the property: one segment per room */
+      .ss-cap-progress { display: flex; flex-direction: column; gap: 6px; padding: 4px 22px 10px; }
+      .ss-cap-segs { display: grid; gap: 4px; }
+      .ss-cap-segs span { height: 5px; border-radius: 3px; background: rgba(255,255,255,.22); }
+      .ss-cap-segs span.done { background: var(--hivis); }
+      .ss-cap-segs span.here { background: #fff; }
+
+      /* no active issue: where photos go, one line, with Add issue beside it */
+      .ss-cap-filing { width: 100%; max-width: 420px; display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 14px; border-radius: 14px; background: rgba(255,255,255,.07); text-align: left; }
+      .ss-cap-filing-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+      .ss-cap-filing-label { font-size: 10.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.6); }
+      .ss-cap-filing-text b { font-size: 15px; font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .ss-cap-filing-text small { font-size: 12px; font-weight: 600; color: rgba(255,255,255,.65); }
+      .ss-cap-filing .ss-live-ichip { flex-shrink: 0; min-height: 44px; font-size: 14px; padding: 8px 14px; }
+
+      /* zoom + lens folded into one chip beside Wide shot */
+      .ss-livecam-zoomchip { height: 34px; padding: 0 10px; border-radius: 999px; background: rgba(255,255,255,.14); color: #fff; display: flex; align-items: center; gap: 4px; flex-shrink: 0; font-family: var(--ss-font-mono); font-weight: 700; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+      .ss-livecam-zoomchip.on { background: rgba(255,255,255,.26); }
       .ss-roomsheet .ss-sheet-body { max-height: 70vh; overflow-y: auto; }
       .ss-finish-stats { display: flex; flex-direction: column; gap: 8px; font-size: 14px; font-weight: 600; color: var(--ink); margin-bottom: 14px; }
       .ss-finish-stats b { font-weight: 800; }

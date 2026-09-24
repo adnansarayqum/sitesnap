@@ -1,17 +1,17 @@
 import { useEffect, useState } from "react";
 import { useRef } from "react";
 import {
-  Camera, Check, Image as ImageIcon, Loader2, Pencil, Plus, ScanLine, Share2, Trash2, User,
+  Camera, Check, ChevronRight, Image as ImageIcon, Loader2, Pencil, Plus, ScanLine, Share2, Trash2, User,
 } from "lucide-react";
 import { ReorderableList } from "../components/shared.jsx";
 import { Coach } from "../components/Hints.jsx";
 import { openIssues } from "../evidence.js";
 import { FinishScreen } from "./Finish.jsx";
 import { FindingsTab } from "./Findings.jsx";
-import { coverage, migrateFindings } from "../findings.js";
+import { coverage, inspectionHealth, migrateFindings } from "../findings.js";
 import { ClipboardCheck, Sparkles } from "lucide-react";
 import { relativeDay } from "./Home.jsx";
-import { AppHeader, Button, EmptyState, InlineAlert, Modal, ProgressBar, RoomCard, SegmentedControl, StickyActionBar, SyncIndicator } from "../ui/index.js";
+import { AppHeader, Button, EmptyState, InlineAlert, Modal, ProgressBar, ProgressRing, RoomCard, SegmentedControl, StickyActionBar, SyncIndicator } from "../ui/index.js";
 import { aiConfig, aiPhotoCopy, extractIntake } from "../ai.js";
 import { readFileAsDataUrl } from "../lib/image.js";
 
@@ -182,7 +182,15 @@ export function OverviewTab({ inspection, filing, saveStatus, rooms, totalPhotos
   const [importError, setImportError] = useState(null);
   const [aiCfg, setAiCfg] = useState({ enabled: false });
   useEffect(() => { aiConfig().then(setAiCfg); }, []);
-  const firstEmpty = Math.max(0, rooms.findIndex((r) => r.photoIds.length === 0));
+  const emptyIdx = rooms.findIndex((r) => r.photoIds.length === 0);
+  const nextIdx = emptyIdx; // -1 once every room has photos
+  // every room covered: pick up at the last one, where Finish inspection is
+  const firstEmpty = emptyIdx === -1 ? Math.max(0, rooms.length - 1) : emptyIdx;
+  const issueCount = rooms.reduce((n, r) => n + openIssues(r).length, 0);
+  const memoCount = rooms.reduce((n, r) => n + (r.memos || []).length, 0);
+  const readingCount = rooms.reduce((n, r) => n + (r.readings || []).length, 0);
+  const health = inspectionHealth(inspection, rooms);
+  const exported = !!(inspection.lastExport || (inspection.lastUpload && inspection.lastUpload.confirmed));
   const rank = { Poor: 3, Fair: 2, Good: 1 };
   const worst = rooms.reduce((w, r) => ((rank[r.condition] || 0) > (rank[w] || 0) ? r.condition : w), null);
   const details = [
@@ -250,6 +258,74 @@ export function OverviewTab({ inspection, filing, saveStatus, rooms, totalPhotos
             <b>Overview</b>, <b>Rooms</b>, <b>Findings</b> and <b>Export</b> are the four tabs above. <b>Start walkthrough</b> opens the camera and takes you room by room.
           </Coach>
         )}
+
+        {rooms.length > 0 && (
+          <div className="ss-ov-progress">
+            <ProgressRing done={doneRooms} total={rooms.length} size={104} stroke={10} label="rooms" />
+            <div className="ss-ov-stats">
+              <div><b>{totalPhotos}</b><span>photo{totalPhotos === 1 ? "" : "s"}</span></div>
+              <div><b>{issueCount}</b><span>issue{issueCount === 1 ? "" : "s"}</span></div>
+              <div><b>{memoCount}</b><span>voice note{memoCount === 1 ? "" : "s"}</span></div>
+              <div><b>{readingCount}</b><span>reading{readingCount === 1 ? "" : "s"}</span></div>
+            </div>
+          </div>
+        )}
+
+        {/* the walkthrough as a checklist: what's done, what's next, what's
+            left — tap any room to go straight to it in the camera */}
+        {rooms.length > 0 && (
+          <>
+            <div className="ss-ov-section">
+              <span>Walkthrough</span>
+              <small>{rooms.length - doneRooms ? `${rooms.length - doneRooms} room${rooms.length - doneRooms === 1 ? "" : "s"} left` : "Every room has photos"}</small>
+            </div>
+            <div className="ss-ov-rooms">
+              {rooms.map((r, i) => {
+                const n = r.photoIds.length;
+                const iss = openIssues(r);
+                const state = n > 0 ? "done" : i === nextIdx ? "next" : "todo";
+                return (
+                  <button key={r.id} className={`ss-ov-room ${state}`} onClick={() => onWalk(i)}>
+                    <span className="ss-ov-room-ic" aria-hidden="true">{state === "done" ? <Check size={15} strokeWidth={3} /> : state === "next" ? <span /> : null}</span>
+                    <span className="ss-ov-room-main">
+                      <b>{r.name}</b>
+                      <small>{state === "done"
+                        ? `${n} photo${n === 1 ? "" : "s"}${iss.length ? ` · ${iss.length === 1 ? `1 issue: ${iss[0].title}` : `${iss.length} issues`}` : ""}`
+                        : state === "next" ? "Up next" : "Not visited"}</small>
+                    </span>
+                    {r.condition && <span className={`ss-cbadge ${r.condition.toLowerCase()}`}>{r.condition}</span>}
+                    {state === "next" && <ChevronRight size={18} className="ss-ov-room-go" />}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {totalPhotos > 0 && (
+          <>
+            <div className="ss-ov-section"><span>Before you finish</span></div>
+            <div className="ss-ov-checks">
+              <button className="ss-ov-check" onClick={() => onCaseTab && onCaseTab("findings")}>
+                <span className="ss-ov-check-main">
+                  <b>Findings</b>
+                  <small>{health.findingsTotal
+                    ? (health.findingsTotal > health.findingsApproved ? `${health.findingsTotal - health.findingsApproved} of ${health.findingsTotal} waiting for your review` : `All ${health.findingsTotal} reviewed`)
+                    : issueCount ? `${issueCount} issue${issueCount === 1 ? "" : "s"} ready to draft` : "No issues raised yet"}</small>
+                </span>
+                <ChevronRight size={18} />
+              </button>
+              <button className={`ss-ov-check${exported ? "" : " warn"}`} onClick={() => onCaseTab && onCaseTab("export")}>
+                <span className="ss-ov-check-main">
+                  <b>Export</b>
+                  <small>{exported ? (inspection.lastUpload && inspection.lastUpload.confirmed ? "Filed in the cloud" : "Exported") : "Not exported yet: photos are only on this phone"}</small>
+                </span>
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          </>
+        )}
+
         <div className="ss-case-cover">
           <div className="ss-case-cover-head">
             <span className="ss-stamp">Case No. {inspection.caseNo || "—"}</span>
@@ -342,7 +418,7 @@ export function OverviewTab({ inspection, filing, saveStatus, rooms, totalPhotos
         <div style={{ height: 12 }} />
       </div>
       <StickyActionBar>
-        <Button variant="primary" size="big" onClick={() => onWalk(firstEmpty)}>
+        <Button variant="go" size="big" onClick={() => onWalk(firstEmpty)}>
           <Camera size={20} strokeWidth={2.4} />
           {totalPhotos === 0 ? "Start walkthrough" : "Continue walkthrough"}
         </Button>

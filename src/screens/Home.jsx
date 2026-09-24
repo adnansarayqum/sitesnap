@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import {
-  AlertTriangle, ArrowRight, Camera, CloudUpload, Plus, Search, Smartphone, Trash2, X,
+  AlertTriangle, ArrowRight, Camera, ChevronRight, CloudUpload, Home as HomeIcon, Plus, Search, Smartphone, Trash2, X,
 } from "lucide-react";
 import {
   loadInspection, loadPhoto,
 } from "../storage.js";
-import { AppHeader, BottomNavigation, Button, EmptyState, InlineAlert, InspectionCard, Modal, StickyActionBar } from "../ui/index.js";
+import { openIssues } from "../evidence.js";
+import { AppHeader, BottomNavigation, Button, EmptyState, InlineAlert, InspectionCard, Modal, ProgressRing, StatusPill, StickyActionBar } from "../ui/index.js";
 
 /* ---------------- home ---------------- */
 
@@ -50,98 +51,154 @@ function archiveStatus(a) {
   return { tone: "bad", label: "Never uploaded" };
 }
 
-export function HomeScreen({ index, archive, onNew, onOpen, onTab, needsCloud }) {
+// What the index summary doesn't carry but the hero wants: the next room
+// still to photograph and the open issue count. Read from the case record
+// itself (no photos loaded — just the JSON).
+async function caseDetail(id) {
+  const data = await loadInspection(id);
+  if (!data) return null;
+  const rooms = data.rooms || [];
+  const next = rooms.find((r) => !(r.photoIds || []).length);
+  return {
+    nextRoom: next ? next.name : null,
+    issues: rooms.reduce((n, r) => n + openIssues(r).length, 0),
+    firstPhotoId: rooms.flatMap((r) => r.photoIds || [])[0] || null,
+  };
+}
+
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+export function HomeScreen({ index, archive, onNew, onOpen, onContinue, onTab, needsCloud }) {
   const open = [...index].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   const active = open[0] || null;
   const others = open.slice(1, 5);
-  const [thumbs, setThumbs] = useState([]);
+  const [detail, setDetail] = useState(null);
+  const [thumbs, setThumbs] = useState({}); // case id -> first photo's thumbnail
 
   useEffect(() => {
-    if (!active) { setThumbs([]); return; }
+    if (!active) { setDetail(null); return; }
     let cancelled = false;
-    (async () => {
-      const data = await loadInspection(active.id);
-      if (cancelled || !data) return;
-      const ids = (data.rooms || []).flatMap((r) => r.photoIds).slice(-4).reverse();
-      const thumbList = await Promise.all(ids.map(async (pid) => {
-        const p = await loadPhoto(pid);
-        return p ? (p.thumb || p.dataUrl) : null;
-      }));
-      if (!cancelled) setThumbs(thumbList.filter(Boolean));
-    })();
+    caseDetail(active.id).then((d) => { if (!cancelled) setDetail(d); }).catch(() => {});
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active && active.id, active && active.updatedAt]);
 
-  // Stats are computed from cases on this device — the same source the
-  // Cases tab already treats as the record for "here". A closed case's
-  // photos are gone from the phone, so "awaiting export" only ever looks
-  // at open ones; "total" and "this month" count everything, open or not.
+  const othersKey = others.map((c) => `${c.id}:${c.photos}`).join(",");
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const out = {};
+      for (const c of others) {
+        if (!c.photos) continue;
+        const d = await caseDetail(c.id).catch(() => null);
+        const p = d && d.firstPhotoId ? await loadPhoto(d.firstPhotoId).catch(() => null) : null;
+        if (p) out[c.id] = p.thumb || p.dataUrl;
+      }
+      if (!cancelled) setThumbs(out);
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [othersKey]);
+
+  // Counted from cases on this device, the same source the Cases tab treats
+  // as the record for "here". A closed case's photos are gone from the phone,
+  // so "not exported" only looks at open ones.
   const closed = archive || [];
   const totalCases = index.length + closed.length;
   const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
   const thisMonth = [...index, ...closed].filter((c) => (c.startedAt || 0) >= monthStart.getTime()).length;
   const awaitingExport = index.filter((c) => c.photos > 0 && !(c.lastExport || (c.lastUpload && c.lastUpload.confirmed))).length;
 
+  const status = active ? caseStatus(active) : null;
+  const walking = active && !active.completedAt;
+
   return (
     <div className="ss-col">
       <div className="ss-scroll">
         <div className="ss-eyebrow-sm">Stonebridge Surveyors</div>
         <h1 className="ss-h1">{timeGreeting()}, Shah</h1>
-        <p className="ss-lede">Ready for your next inspection?</p>
 
-        <Button variant="primary" size="big" onClick={onNew}>
-          <Plus size={20} strokeWidth={2.6} /> New inspection
-        </Button>
+        {!active && (
+          <>
+            <p className="ss-lede">Ready for your next inspection?</p>
+            <Button variant="primary" size="big" onClick={onNew}>
+              <Plus size={20} strokeWidth={2.6} /> New inspection
+            </Button>
+          </>
+        )}
+
+        {/* the one case in hand, and the one thing to do with it */}
+        {active && (
+          <div className="ss-home-hero">
+            <div className="ss-home-hero-top">
+              <div className="ss-home-hero-text">
+                <span className="ss-home-hero-eyebrow">{status.label} · Case {active.caseNo || "—"}</span>
+                <span className="ss-case-hero-title">{active.address}</span>
+                <span className="ss-case-hero-sub">{active.postcode ? `${active.postcode} · ` : ""}updated {relativeDay(active.updatedAt)}</span>
+              </div>
+              {active.rooms > 0 && <ProgressRing tone="dark" done={active.doneRooms || 0} total={active.rooms} />}
+            </div>
+            <div className="ss-home-hero-chips">
+              <span>{plural(active.photos || 0, "photo")}</span>
+              {detail && detail.issues > 0 && <span>{plural(detail.issues, "issue")}</span>}
+              {walking && detail && detail.nextRoom && <span>Next: {detail.nextRoom}</span>}
+            </div>
+            {walking ? (
+              <>
+                <Button variant="go" size="big" onClick={() => onContinue(active.id)}>
+                  {active.photos ? "Continue walkthrough" : "Start walkthrough"} <ArrowRight size={18} strokeWidth={2.4} />
+                </Button>
+                <button className="ss-home-hero-open" onClick={() => onOpen(active.id)}>
+                  Open case file <ChevronRight size={15} />
+                </button>
+              </>
+            ) : (
+              <Button variant="go" size="big" onClick={() => onOpen(active.id)}>
+                Open case file <ArrowRight size={18} strokeWidth={2.4} />
+              </Button>
+            )}
+          </div>
+        )}
 
         {needsCloud && <CloudStatusRow onTab={onTab} />}
 
         {totalCases > 0 && (
-          <div className="ss-stat-row">
-            <div className="ss-stat-tile"><span className="ss-stat-value">{totalCases}</span><span className="ss-stat-label">Total cases</span></div>
-            <div className="ss-stat-tile"><span className="ss-stat-value">{thisMonth}</span><span className="ss-stat-label">This month</span></div>
-            <div className="ss-stat-tile"><span className="ss-stat-value">{awaitingExport}</span><span className="ss-stat-label">Awaiting export</span></div>
+          <div className="ss-home-tiles">
+            <button className={`ss-home-tile${awaitingExport ? " warn" : ""}`} onClick={() => onTab("cases")}>
+              <b>{awaitingExport}</b><span>Not exported yet</span>
+            </button>
+            <div className="ss-home-tile">
+              <b>{thisMonth}</b><span>This month</span>
+            </div>
           </div>
         )}
 
         {active && (
-          <>
-            <div className="ss-section-label" style={{ marginTop: 24 }}>Continue where you left off</div>
-            <button className="ss-case-hero" onClick={() => onOpen(active.id)}>
-              <div className="ss-case-hero-head">
-                <span className="ss-stamp light">Case No. {active.caseNo || "—"}</span>
-                <span className="ss-case-hero-time">{relativeDay(active.updatedAt)}</span>
-              </div>
-              <div className="ss-case-hero-title">{active.address}</div>
-              <div className="ss-case-hero-sub">
-                {active.postcode ? active.postcode + " · " : ""}{active.photos} photo{active.photos === 1 ? "" : "s"} · {active.rooms} area{active.rooms === 1 ? "" : "s"}
-              </div>
-              {thumbs.length > 0 && (
-                <div className="ss-case-hero-collage">
-                  {thumbs.map((t, i) => <img key={i} src={t} alt="" />)}
-                </div>
-              )}
-              {active.rooms > 0 && (
-                <div className="ss-case-hero-progress">
-                  <div className="ss-progress"><div style={{ width: `${Math.round(((active.doneRooms || 0) / active.rooms) * 100)}%` }} /></div>
-                  <span className="ss-case-hero-progress-label">{active.doneRooms || 0} of {active.rooms} rooms covered</span>
-                </div>
-              )}
-              <div className="ss-case-hero-cta"><span>Resume case</span><ArrowRight size={15} /></div>
-            </button>
-          </>
+          <Button variant="outline" size="big" style={{ marginTop: 12 }} onClick={onNew}>
+            <Plus size={18} strokeWidth={2.6} /> New inspection
+          </Button>
         )}
 
         {others.length > 0 && (
           <>
-            <div className="ss-section-label" style={{ marginTop: 24 }}>Recent inspections</div>
-            <div className="ss-list">
-              {others.map((c) => (
-                <InspectionCard key={c.id}
-                  address={c.address} caseNo={c.caseNo} date={relativeDay(c.updatedAt)}
-                  photos={c.photos} rooms={c.rooms} doneRooms={c.doneRooms}
-                  status={caseStatus(c)} onClick={() => onOpen(c.id)} />
-              ))}
+            <div className="ss-home-section">
+              <span>Other cases</span>
+              <button className="ss-link" onClick={() => onTab("cases")}>See all</button>
+            </div>
+            <div className="ss-home-rows">
+              {others.map((c) => {
+                const st = caseStatus(c);
+                return (
+                  <button key={c.id} className="ss-home-row" onClick={() => onOpen(c.id)}>
+                    <span className="ss-home-row-thumb">{thumbs[c.id] ? <img src={thumbs[c.id]} alt="" /> : <HomeIcon size={20} />}</span>
+                    <span className="ss-home-row-main">
+                      <b>{c.address}</b>
+                      <span>Case {c.caseNo || "—"} · {relativeDay(c.updatedAt)} · {c.rooms ? `${c.doneRooms || 0} of ${c.rooms} rooms` : plural(c.photos || 0, "photo")}</span>
+                    </span>
+                    <StatusPill tone={st.tone}>{st.label}</StatusPill>
+                  </button>
+                );
+              })}
             </div>
           </>
         )}

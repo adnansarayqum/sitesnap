@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  AlertTriangle, Aperture, ArrowLeft, ArrowRight, Camera, Check, ChevronDown, ChevronRight, Expand, Gauge, Images, Loader2, Moon, Plus, RefreshCw, StickyNote, Sun, SwitchCamera, Trash2, X,
+  AlertTriangle, Aperture, ArrowLeft, ArrowRight, Camera, Check, ChevronDown, ChevronRight, ChevronUp, Expand, Gauge, Images, Loader2, Moon, Plus, RefreshCw, StickyNote, Sun, SwitchCamera, Trash2, X,
 } from "lucide-react";
 import { VoiceMemo } from "../components/VoiceMemo.jsx";
 import { PHOTO_DIM, THUMB_DIM, drawScaled, processCapture } from "../lib/image.js";
@@ -113,6 +113,8 @@ export function LiveCamera({ label, count, lastThumb, resumeKey, onCapture, onCl
   }
 
   const activeLabel = (lenses.find((d) => d.deviceId === activeLensId) || {}).label || "";
+  const lensNo = Math.max(0, lenses.findIndex((d) => d.deviceId === activeLensId)) + 1;
+  const [lensOpen, setLensOpen] = useState(false);
   // the slider reads in the lens's own units; shown relative to the main
   // camera so 0.5× on an iPhone's ultra-wide means what it means in the
   // phone's camera app
@@ -321,12 +323,6 @@ export function LiveCamera({ label, count, lastThumb, resumeKey, onCapture, onCl
       <div className="ss-livecam-top">
         {!inline && <button className="ss-livecam-close" onClick={close}><X size={20} /></button>}
         <span className="ss-livecam-label">{label}</span>
-        {state === "ready" && lenses.length > 1 && (
-          <button className="ss-livecam-lens" onClick={switchLens} title={activeLabel ? `Lens: ${activeLabel} — tap for the next one` : "Try the other camera lens"}>
-            <SwitchCamera size={16} />
-            <span>{Math.max(0, lenses.findIndex((d) => d.deviceId === activeLensId)) + 1}/{lenses.length}</span>
-          </button>
-        )}
         {onToggleFieldMode && (
           <button className="ss-livecam-lens" onClick={onToggleFieldMode} title="Field mode — high-contrast for bright daylight">
             {fieldMode ? <Moon size={16} /> : <Sun size={16} />}
@@ -368,26 +364,41 @@ export function LiveCamera({ label, count, lastThumb, resumeKey, onCapture, onCl
         </div>
       )}
 
+      {/* Wide shot stays one tap away (the ultra-wide escape hatch on phones
+          whose browser can't reach that lens). Zoom and lens choice are
+          occasional, so they fold into one chip: tap to show the slider and
+          the lens switch, pinch works either way. */}
       {state === "ready" && (
         <div className="ss-livecam-zoom">
           <button className="ss-livecam-wide" onClick={wideShot}
             title="One wide-angle shot with the phone's own camera app, then straight back here">
             <Expand size={14} /> Wide shot
           </button>
-          {zoomCaps && (
-            <>
-              <span className="ss-livecam-zoom-label">{(zoom * lensScale).toFixed(1)}×</span>
-              <input
-                type="range"
-                className="ss-livecam-zoom-slider"
-                min={zoomCaps.min}
-                max={zoomCaps.max}
-                step={zoomCaps.step}
-                value={zoom}
-                onChange={(e) => applyZoom(parseFloat(e.target.value))}
-                aria-label="Zoom"
-              />
-            </>
+          {(zoomCaps || lenses.length > 1) && (
+            <button className={`ss-livecam-zoomchip${lensOpen ? " on" : ""}`} onClick={() => setLensOpen((o) => !o)}
+              aria-expanded={lensOpen} aria-label={lensOpen ? "Hide zoom and lens" : "Zoom and lens"}>
+              {zoomCaps ? `${(zoom * lensScale).toFixed(1)}×` : `Lens ${lensNo}/${lenses.length}`}
+              {lensOpen ? <ChevronDown size={13} /> : <ChevronUp size={13} />}
+            </button>
+          )}
+          {lensOpen && zoomCaps && (
+            <input
+              type="range"
+              className="ss-livecam-zoom-slider"
+              min={zoomCaps.min}
+              max={zoomCaps.max}
+              step={zoomCaps.step}
+              value={zoom}
+              onChange={(e) => applyZoom(parseFloat(e.target.value))}
+              aria-label="Zoom"
+            />
+          )}
+          {lensOpen && lenses.length > 1 && (
+            <button className="ss-livecam-lens" onClick={switchLens} title={activeLabel ? `Lens: ${activeLabel} — tap for the next one` : "Try the other camera lens"}
+              aria-label={`Switch lens (${lensNo} of ${lenses.length})`}>
+              <SwitchCamera size={16} />
+              <span>{lensNo}/{lenses.length}</span>
+            </button>
           )}
         </div>
       )}
@@ -439,6 +450,12 @@ export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCa
   const stripIds = (active ? activePhotos.map((e) => e.id) : loose.photoIds).slice(-6).reverse();
 
   useEffect(() => { setPanel(null); setRoomsOpen(false); }, [index]);
+
+  const addIssueButton = (
+    <button className={`ss-live-ichip add ${panel === "addIssue" ? "on" : ""}`} onClick={() => setPanel((p) => p === "addIssue" ? null : "addIssue")}>
+      {panel === "addIssue" ? <>Cancel</> : <><Plus size={14} /> Add issue</>}
+    </button>
+  );
 
   function createIssue() {
     const t = issueTitle.trim();
@@ -503,7 +520,6 @@ export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCa
         <button className="ss-cap-where" onClick={() => setRoomsOpen(true)} aria-label="Switch room">
           <span className="ss-cap-address">{inspection ? inspection.address : ""}</span>
           <span className="ss-cap-room">{room.name} <ChevronDown size={16} /></span>
-          <span className="ss-cap-roomno">Room {index + 1} of {rooms.length} · {count} photo{count === 1 ? "" : "s"}{(room.memos || []).length ? ` · ${(room.memos || []).length} voice` : ""}</span>
         </button>
         <div className="ss-cap-head-right">
           {/* the field-mode toggle lives once, inside LiveCamera itself
@@ -511,6 +527,14 @@ export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCa
               same control twice on one screen */}
           <SyncIndicator saveStatus={saveStatus} filing={filing} />
         </div>
+      </div>
+      {/* where this room sits in the walk: done / here / still to do */}
+      <div className="ss-cap-progress">
+        <div className="ss-cap-segs" role="img" aria-label={`Room ${index + 1} of ${rooms.length}`}
+          style={{ gridTemplateColumns: `repeat(${rooms.length}, minmax(0, 1fr))` }}>
+          {rooms.map((r, i) => <span key={r.id} className={i === index ? "here" : r.photoIds.length ? "done" : ""} />)}
+        </div>
+        <span className="ss-cap-roomno">Room {index + 1} of {rooms.length} · {count} photo{count === 1 ? "" : "s"}{(room.memos || []).length ? ` · ${(room.memos || []).length} voice` : ""}</span>
       </div>
 
       {/* the viewfinder itself — part of the walkthrough, not a screen you
@@ -532,31 +556,40 @@ export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCa
       />
 
       <div className="ss-live-body ss-cap-body" onTouchStart={onBodyTouchStart} onTouchEnd={onBodyTouchEnd}>
-        {/* the one thing that must never be ambiguous */}
-        <div className={`ss-cap-active ${active ? "" : "none"}`}>
-          <span className="ss-cap-active-label">{active ? "Active issue" : issues.length ? "No issue selected" : "Issues"}</span>
-          <span className="ss-cap-active-title">{active ? active.title : issues.length ? "Photos go to the room in general" : "Add an issue to group evidence by defect"}</span>
-          <span className="ss-cap-active-sub">{active
-            ? `${activePhotos.length} photo${activePhotos.length === 1 ? "" : "s"} · ${activeMemos} voice · ${activeReadings} reading${activeReadings === 1 ? "" : "s"} — everything you capture now is filed here`
-            : `Next shot: exhibit ${nextExhibitNo}`}</span>
-          {active && (
+        {/* where the next shot is filed — the one thing that must never be
+            ambiguous. An active issue gets the full card; with none, it's a
+            single line with the way to raise one right beside it. */}
+        {active ? (
+          <div className="ss-cap-active">
+            <span className="ss-cap-active-label">Active issue</span>
+            <span className="ss-cap-active-title">{active.title}</span>
+            <span className="ss-cap-active-sub">{`${activePhotos.length} photo${activePhotos.length === 1 ? "" : "s"} · ${activeMemos} voice · ${activeReadings} reading${activeReadings === 1 ? "" : "s"} — everything you capture now is filed here`}</span>
             <button className="ss-cap-finish-issue" onClick={() => { tapFeedback("light"); onRoom((r) => setActiveIssue(r, null)); }}>
               <Check size={13} /> Finish issue
             </button>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="ss-cap-filing">
+            <span className="ss-cap-filing-text">
+              <span className="ss-cap-filing-label">Photos go to</span>
+              <b>{room.name} (general)</b>
+              <small>Next shot: exhibit {nextExhibitNo}</small>
+            </span>
+            {addIssueButton}
+          </div>
+        )}
 
         {/* one tap to switch, one tap to raise */}
-        <div className="ss-cap-chips">
-          {issues.map((i) => (
-            <button key={i.id} className={`ss-live-ichip ${room.activeIssueId === i.id ? "on" : ""}`} onClick={() => { tapFeedback("light"); onRoom((r) => setActiveIssue(r, room.activeIssueId === i.id ? null : i.id)); }}>
-              {room.activeIssueId === i.id && <span className="ss-cap-dot" />}{i.title} <small>{(i.evidence || []).filter((e) => e.kind === "photo").length}</small>
-            </button>
-          ))}
-          <button className={`ss-live-ichip add ${panel === "addIssue" ? "on" : ""}`} onClick={() => setPanel((p) => p === "addIssue" ? null : "addIssue")}>
-            {panel === "addIssue" ? <>Cancel</> : <><Plus size={14} /> Add issue</>}
-          </button>
-        </div>
+        {issues.length > 0 && (
+          <div className="ss-cap-chips">
+            {issues.map((i) => (
+              <button key={i.id} className={`ss-live-ichip ${room.activeIssueId === i.id ? "on" : ""}`} onClick={() => { tapFeedback("light"); onRoom((r) => setActiveIssue(r, room.activeIssueId === i.id ? null : i.id)); }}>
+                {room.activeIssueId === i.id && <span className="ss-cap-dot" />}{i.title} <small>{(i.evidence || []).filter((e) => e.kind === "photo").length}</small>
+              </button>
+            ))}
+            {active && addIssueButton}
+          </div>
+        )}
 
         {/* a starting point for the title, not a form — tap a category to
             fill it in, then edit or just go */}
@@ -625,11 +658,12 @@ export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCa
           </div>
         </div>
         <div className="ss-live-nav">
-          <button disabled={index === 0} onClick={() => onIndex(index - 1)}>
-            <ArrowLeft size={17} /> {index > 0 ? rooms[index - 1].name : "—"}
+          <button className="prev" disabled={index === 0} onClick={() => onIndex(index - 1)}
+            aria-label={index > 0 ? `Previous room: ${rooms[index - 1].name}` : "No previous room"}>
+            <ArrowLeft size={20} />
           </button>
           <button className="next" onClick={() => (isLast ? setFinishCheck(inspectionHealth(inspection, rooms)) : onIndex(index + 1))}>
-            {isLast ? "Finish inspection" : rooms[index + 1].name} {isLast ? <Check size={17} /> : <ArrowRight size={17} />}
+            <span>{isLast ? "Finish inspection" : `Next: ${rooms[index + 1].name}`}</span> {isLast ? <Check size={18} /> : <ArrowRight size={18} />}
           </button>
         </div>
       </div>
