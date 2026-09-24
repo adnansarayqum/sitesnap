@@ -15,7 +15,7 @@ const money = (n) => `£${Math.round(n).toLocaleString("en-GB")}`;
 // chrome off the page, and a `display: none` ancestor takes this report
 // down with it — the browser's "print" and "save as PDF" both end up
 // blank. Outside that tree, the report prints on its own.
-export function ReportView({ inspection, rooms, photoCache, onClose }) {
+export function ReportView({ inspection, rooms, photoCache, onClose, onPrint }) {
   const totalPhotos = rooms.reduce((s, r) => s + r.photoIds.length, 0);
   const covered = rooms.filter((r) => r.photoIds.length > 0).length;
   const date = new Date(inspection.startedAt).toLocaleDateString("en-GB", {
@@ -33,7 +33,7 @@ export function ReportView({ inspection, rooms, photoCache, onClose }) {
     <div className="ss-report">
       <div className="ss-report-bar ss-noprint">
         <button className="close" onClick={onClose}><X size={16} /> Close</button>
-        <button className="print" onClick={() => window.print()}><Printer size={15} /> Print / Save PDF</button>
+        <button className="print" onClick={() => { onPrint && onPrint(); window.print(); }}><Printer size={15} /> Print / Save PDF</button>
       </div>
       <div className="ss-report-page">
         <header className="ss-rep-head">

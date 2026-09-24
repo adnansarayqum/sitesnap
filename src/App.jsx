@@ -82,6 +82,12 @@ export default function SiteSnap() {
   // returns to whichever tab it was opened from.
   const [screen, setScreen] = useState("loading");
   const [returnTab, setReturnTab] = useState("home");
+  // Room ("evidence") is opened from two places — CaseFile's Rooms tab, or
+  // the photo strip mid-walkthrough — and its own back button always sent
+  // the surveyor to the case file either way, dropping out of the
+  // walkthrough (and the live camera) to review one photo. This remembers
+  // which one it was opened from so Room's back returns there instead.
+  const [roomReturnScreen, setRoomReturnScreen] = useState("casefile");
   const [cfg, setCfg] = useState({ mode: "local", onedrive: false, google: false });
   // background filing: which linked drive photos go to as they're taken,
   // and whether Home should still be asking where photos go
@@ -833,7 +839,7 @@ export default function SiteSnap() {
             onReorder={reorderRooms}
             onAddRoom={addRoom}
             onRename={(patch) => setInspectionMeta(patch)}
-            onOpenRoom={(id) => { setActiveRoomId(id); setScreen("evidence"); }}
+            onOpenRoom={(id) => { setActiveRoomId(id); setRoomReturnScreen("casefile"); setScreen("evidence"); }}
             onWalk={(startIdx) => { setWalkIndex(startIdx); setScreen("walk"); }}
             filesForRoom={(room) => filesFor(room)}
             filesForUpload={(room) => filesFor(room, true)}
@@ -874,7 +880,7 @@ export default function SiteSnap() {
             index={walkIndex}
             photoCache={photoCache}
             saveStatus={saveStatus}
-            onOpenRoom={(id) => { setActiveRoomId(id); setScreen("evidence"); }}
+            onOpenRoom={(id) => { setActiveRoomId(id); setRoomReturnScreen("walk"); setScreen("evidence"); }}
             onFinish={finishInspection}
             onIndex={setWalkIndex}
             onCapture={(dataUrl, file, thumb) => addPhoto(rooms[walkIndex].id, dataUrl, file, thumb)}
@@ -915,7 +921,7 @@ export default function SiteSnap() {
               room={room}
               caseId={inspection.id}
               photos={room.photoIds.map((id) => photoCache[id]).filter(Boolean)}
-              onBack={() => setScreen("casefile")}
+              onBack={() => setScreen(roomReturnScreen)}
               onCapture={(dataUrl, file, thumb) => addPhoto(room.id, dataUrl, file, thumb)}
               onError={setStorageAlert}
               onDelete={(pid) => deletePhoto(room.id, pid)}

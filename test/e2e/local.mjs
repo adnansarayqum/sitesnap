@@ -594,6 +594,45 @@ try {
   await ctx.close();
 } catch (e) { rec("S17", "FAIL", e.message); }
 
+// ---------------------------------------------------------------- S18 report preview alone must not count as "exported"
+// Regression guard, council review 2026-09-24: openReport() used to record
+// the export the instant the PDF preview opened, before Print/Save was ever
+// tapped, which downgraded the close-inspection guard from the
+// checkbox-gated "This isn't saved anywhere yet" warning to a soft "Close
+// this inspection?" — so a preview-only visit could get a case deleted with
+// nothing actually saved anywhere. The marker now only records on an actual
+// tap of "Print / Save PDF".
+try {
+  const { ctx, page } = await fresh();
+  await newCase(page, { address: "9 Preview Place", rooms: ["Kitchen"] });
+  await openRoom(page, "Kitchen"); await addPhotos(page, [PHOTOS[0]]); await backToCase(page);
+  await tab(page, "Export");
+  await page.getByRole("button", { name: /Report \(PDF\)/ }).click(); await w(page, 500);
+  const reportOpenedTitle = await page.locator("h1").first().innerText().catch(() => "");
+  // close the preview without printing — nothing has left the device
+  await page.locator(".ss-report-bar .close").click(); await w(page, 300);
+  await page.getByRole("button", { name: /Close inspection/ }).click(); await w(page);
+  const modalAfterPreviewOnly = await page.locator(".ss-modal").innerText();
+  const stillGuarded = await page.getByRole("button", { name: /Delete & close/ }).isDisabled();
+  await page.getByRole("button", { name: /Go back and save it first/ }).click(); await w(page);
+
+  // now actually tap Print / Save PDF — this is the real export
+  await page.getByRole("button", { name: /Report \(PDF\)/ }).click(); await w(page, 500);
+  await page.locator(".ss-report-bar .print").click(); await w(page, 400);
+  await page.locator(".ss-report-bar .close").click(); await w(page, 300);
+  await page.getByRole("button", { name: /Close inspection/ }).click(); await w(page);
+  const modalAfterPrint = await page.locator(".ss-modal").innerText();
+  const unguardedAfterPrint = !(await page.getByRole("button", { name: /Delete & close/ }).isDisabled());
+
+  const ok = reportOpenedTitle.includes("9 Preview Place")
+    && stillGuarded && /isn't saved anywhere/.test(modalAfterPreviewOnly)
+    && unguardedAfterPrint && /Close this inspection\?/.test(modalAfterPrint);
+  rec("S18 report preview alone doesn't satisfy the close-inspection safety guard; an actual Print/Save does", ok ? "PASS" : "FAIL",
+    `opened=${reportOpenedTitle.includes("9 Preview Place")} guardedAfterPreview=${stillGuarded} modal1="${modalAfterPreviewOnly.slice(0, 60)}" unguardedAfterPrint=${unguardedAfterPrint} modal2="${modalAfterPrint.slice(0, 40)}"`);
+  const e18 = errs(page); if (e18.length) rec("S18 console", "FAIL", e18.join(" | "));
+  await ctx.close();
+} catch (e) { rec("S18", "FAIL", e.message); }
+
 await browser.close();
 console.log("\n==== SUMMARY ====");
 for (const r of results) console.log(`${r.status.padEnd(4)} ${r.id}`);

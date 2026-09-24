@@ -18,6 +18,7 @@
   --ss-color-accent: #F2BE42;         /* gold: shutter, hi-vis emphasis */
   --ss-color-accent-rgb: 242, 190, 66; /* for rgba(var(--ss-color-accent-rgb), a) */
   --ss-color-on-accent: #043F38;      /* text on a gold fill */
+  --ss-color-on-primary: #FFFFFF;     /* text on a primary-colour fill */
 
   /* ---- colour: surfaces ----------------------------------------------- */
   --ss-color-bg: #F6F8F7;
@@ -130,6 +131,7 @@
   --ss-color-primary-tint: #163B33;
   --ss-color-accent: #F2BE42;
   --ss-color-on-accent: #043F38;
+  --ss-color-on-primary: #043F38;     /* mint is light — needs dark text, same pairing as on-accent */
 
   --ss-color-bg: #0B1A17;
   --ss-color-bg-deep: #10231F;

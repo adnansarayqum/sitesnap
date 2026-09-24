@@ -27,6 +27,7 @@ export function StyleBlock() {
         --pine: var(--ss-color-primary);
         --pine-press: var(--ss-color-primary-deep);
         --pine-tint: var(--ss-color-primary-tint);
+        --pine-ink: var(--ss-color-on-primary);
         --hivis: var(--ss-color-accent);
         --hivis-deep: var(--ss-color-surface-dark);
         --red: var(--ss-color-danger-text);
@@ -100,7 +101,7 @@ export function StyleBlock() {
       .ss-btn:active { transform: scale(.98); }
       .ss-btn:disabled { opacity: .45; pointer-events: none; }
       .ss-btn-big { width: 100%; padding: 18px; font-size: 16px; }
-      .ss-btn-primary { background: var(--pine); color: #fff; box-shadow: 0 1px 2px rgba(15,23,42,.06), 0 6px 14px -6px color-mix(in srgb, var(--pine) 55%, transparent); }
+      .ss-btn-primary { background: var(--pine); color: var(--pine-ink); box-shadow: 0 1px 2px rgba(15,23,42,.06), 0 6px 14px -6px color-mix(in srgb, var(--pine) 55%, transparent); }
       .ss-btn-primary:active { background: var(--pine-press); box-shadow: 0 1px 2px rgba(15,23,42,.06); }
       .ss-btn-ghost { width: 100%; background: var(--card); border: 1px solid var(--line); color: var(--ink); box-shadow: var(--shadow-sm); }
       .ss-btn-secondary { background: none; border: 1.5px dashed var(--line); color: var(--muted); }
@@ -216,7 +217,7 @@ export function StyleBlock() {
         flex: 1; padding: 10px 4px; border-radius: 10px; border: 1px solid var(--line);
         background: var(--card); color: var(--muted); font-weight: 700; font-size: 13px; text-align: center;
       }
-      .ss-seg-item.on { background: var(--pine); border-color: var(--pine); color: #fff; }
+      .ss-seg-item.on { background: var(--pine); border-color: var(--pine); color: var(--pine-ink); }
 
       /* an added-room row's inline rename field, in place of its label */
       .ss-room-rename { padding: 6px 8px; font-size: 14px; }
@@ -231,12 +232,12 @@ export function StyleBlock() {
       }
       .ss-chip:active { transform: scale(.97); }
       .ss-chip.on { border-color: var(--pine); background: var(--pine); box-shadow: 0 2px 6px -2px rgba(16,53,42,.3); }
-      .ss-chip.on .ss-chip-main { color: #fff; }
+      .ss-chip.on .ss-chip-main { color: var(--pine-ink); }
       .ss-chip-main { flex: 1; text-align: left; padding: 10px 12px; font-weight: 700; font-size: 14px; }
       .ss-chip-check { color: #fff; margin-right: 4px; flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%; background: rgba(255,255,255,.22); display: inline-flex; align-items: center; justify-content: center; }
       .ss-stepper { display: flex; gap: 4px; }
       .ss-stepper button {
-        width: 28px; height: 28px; border-radius: 8px; background: var(--card);
+        width: 40px; height: 40px; border-radius: 8px; background: var(--card);
         border: 1px solid var(--line); display: flex; align-items: center; justify-content: center;
         color: var(--pine);
       }
@@ -261,7 +262,7 @@ export function StyleBlock() {
       .ss-thumb { width: 34px; height: 34px; border-radius: 8px; object-fit: cover; border: 1px solid var(--line); }
       .ss-thumb-empty { display: flex; align-items: center; justify-content: center; color: var(--muted2); background: var(--line-soft); }
       .ss-pill { font-family: var(--ss-font-mono); min-width: 30px; text-align: center; font-size: 12px; font-weight: 800; padding: 4px 8px; border-radius: 999px; background: var(--line-soft); color: var(--muted); }
-      .ss-pill.done { background: var(--pine); color: #fff; }
+      .ss-pill.done { background: var(--pine); color: var(--pine-ink); }
       .ss-pill.active { background: var(--pine-tint); color: var(--pine-press); }
       .ss-pill.warn { background: var(--amber-tint); color: var(--amber); }
       .ss-pill.bad { background: var(--red-tint); color: var(--red); }
@@ -274,7 +275,7 @@ export function StyleBlock() {
       /* ---- walkthrough (LIVE) ---- */
       .ss-live { background: var(--hivis-deep); color: var(--hivis); min-height: 100vh; }
       .ss-live-top { display: flex; align-items: center; justify-content: space-between; padding: 16px; }
-      .ss-live-exit { display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 14px; color: rgba(var(--ss-color-accent-rgb),.75); }
+      .ss-live-exit { display: flex; align-items: center; justify-content: center; gap: 6px; min-width: var(--ss-touch-min); min-height: var(--ss-touch-min); font-weight: 800; font-size: 14px; color: rgba(var(--ss-color-accent-rgb),.75); }
       .ss-live-flag { font-size: 12px; font-weight: 900; letter-spacing: .14em; animation: ss-pulse 1.6s ease-in-out infinite; }
       .ss-live-fieldmode { width: var(--ss-touch-min); height: var(--ss-touch-min); border-radius: 999px; background: rgba(255,255,255,.1); color: rgba(255,255,255,.85); display: flex; align-items: center; justify-content: center; }
       @keyframes ss-pulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
@@ -449,7 +450,7 @@ export function StyleBlock() {
       .ss-cond-label { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-right: auto; }
       .ss-cond { padding: 8px 14px; border-radius: 999px; font-weight: 700; font-size: 13px; border: 1px solid var(--line-strong); color: var(--muted); background: var(--paper); transition: transform .1s ease; }
       .ss-cond:active { transform: scale(.94); }
-      .ss-cond.good.on { background: var(--pine); border-color: var(--pine); color: #fff; box-shadow: 0 2px 6px -2px rgba(16,53,42,.3); }
+      .ss-cond.good.on { background: var(--pine); border-color: var(--pine); color: var(--pine-ink); box-shadow: 0 2px 6px -2px rgba(16,53,42,.3); }
       .ss-cond.fair.on { background: var(--amber); border-color: var(--amber); color: #fff; box-shadow: 0 2px 6px -2px rgba(143,110,42,.3); }
       .ss-cond.poor.on { background: var(--red); border-color: var(--red); color: #fff; box-shadow: 0 2px 6px -2px rgba(147,50,31,.3); }
       .ss-field-label {
@@ -591,7 +592,7 @@ export function StyleBlock() {
         display: flex; justify-content: center; gap: 8px; padding: 0 16px;
       }
       .ss-livecam-cond button {
-        flex: 0 1 92px; padding: 7px 0; border-radius: 999px; font-weight: 800; font-size: 12.5px;
+        flex: 0 1 92px; min-height: 40px; padding: 7px 0; border-radius: 999px; font-weight: 800; font-size: 12.5px;
         background: rgba(0,0,0,.45); color: #fff; border: 1px solid rgba(255,255,255,.3);
       }
       .ss-livecam-cond button.on.good { background: var(--hivis); border-color: var(--hivis); color: var(--hivis-deep); }
@@ -667,7 +668,7 @@ export function StyleBlock() {
         display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700;
         background: var(--pine-tint); color: var(--pine); border-radius: 999px; padding: 6px 6px 6px 11px;
       }
-      .ss-vm-item button { display: inline-flex; color: var(--muted); padding: 2px; }
+      .ss-vm-item button { display: inline-flex; align-items: center; justify-content: center; color: var(--muted); padding: 8px; }
       .ss-vm-msg { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--muted); }
       .ss-vm.dark .ss-vm-btn { background: rgba(var(--ss-color-accent-rgb),.1); border-color: rgba(var(--ss-color-accent-rgb),.35); color: var(--hivis); }
       .ss-vm.dark .ss-vm-btn.rec { background: var(--ss-color-danger-soft); border-color: var(--ss-color-danger-soft); color: var(--ss-color-on-danger-soft); }
@@ -703,7 +704,7 @@ export function StyleBlock() {
       }
       .ss-report-bar button { display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 13.5px; padding: 9px 14px; border-radius: 10px; }
       .ss-report-bar .close { color: var(--muted); }
-      .ss-report-bar .print { background: var(--pine); color: #fff; }
+      .ss-report-bar .print { background: var(--pine); color: var(--pine-ink); }
       .ss-report-page { max-width: 720px; margin: 0 auto; padding: 28px 22px 48px; color: var(--ink); }
       .ss-rep-head { border-bottom: 3px solid var(--pine); padding-bottom: 18px; margin-bottom: 22px; }
       .ss-rep-brand { display: flex; align-items: center; gap: 6px; font-weight: 900; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--pine); margin-bottom: 10px; }
@@ -947,7 +948,7 @@ export function StyleBlock() {
       /* ---- home dashboard: active case hero ---- */
       .ss-case-hero {
         display: block; width: 100%; text-align: left; margin: 16px 0 0; padding: 18px;
-        background: var(--pine); color: #fff; border-radius: 10px; box-shadow: 0 6px 16px -4px rgba(16,53,42,.28);
+        background: var(--pine); color: var(--pine-ink); border-radius: 10px; box-shadow: 0 6px 16px -4px rgba(16,53,42,.28);
         transition: transform .1s ease;
       }
       .ss-case-hero:active { transform: scale(.985); }
@@ -1006,7 +1007,7 @@ export function StyleBlock() {
       .ss-ichip { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 700; padding: 7px 11px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); color: var(--ink); }
       .ss-ichip small { font-weight: 800; color: var(--muted2); font-size: 11px; }
       .ss-ichip.on { border-color: var(--pine); box-shadow: inset 0 0 0 1px var(--pine); }
-      .ss-ichip.active { background: var(--pine); border-color: var(--pine); color: #fff; }
+      .ss-ichip.active { background: var(--pine); border-color: var(--pine); color: var(--pine-ink); }
       .ss-ichip.active small { color: rgba(255,255,255,.75); }
       .ss-ichip.suggested { border-style: dashed; color: var(--amber); }
       .ss-ichip.add { color: var(--pine); border-style: dashed; }
