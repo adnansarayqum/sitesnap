@@ -4,6 +4,7 @@ export { BottomNavigation } from "./BottomNavigation.jsx";
 export { Button } from "./Button.jsx";
 export { StatusPill } from "./StatusPill.jsx";
 export { ProgressBar } from "./ProgressBar.jsx";
+export { ProgressRing } from "./ProgressRing.jsx";
 export { Modal } from "./Modal.jsx";
 export { BottomSheet } from "./BottomSheet.jsx";
 export { Toast } from "./Toast.jsx";

@@ -283,7 +283,9 @@ export default function SiteSnap() {
   // opening one only pulls that property's media into memory. `fromTab` is
   // remembered so the case file's back button returns to wherever it was
   // opened from (Home's active case, or the full Cases ledger).
-  async function openInspection(id, fromTab = "home") {
+  // `intoWalk` (Home's Continue walkthrough): land in the camera at the
+  // room left off in, else the first room with no photos yet.
+  async function openInspection(id, fromTab = "home", { intoWalk = false } = {}) {
     const data = await loadInspection(id);
     if (!data || !data.inspection) { await refreshIndex(); return; }
     // an edit whose IndexedDB save never completed (app killed mid-debounce)
@@ -302,8 +304,13 @@ export default function SiteSnap() {
     // resume exactly where the surveyor left off — the same room mid-walk,
     // or the same case-file tab — rather than always landing on Overview
     const pos = WAL.readPosition(id);
-    const resumeWalk = !!(pos && pos.screen === "walk" && Number.isInteger(pos.walkIndex) && pos.walkIndex >= 0 && pos.walkIndex < roomsList.length);
-    if (resumeWalk) { setWalkIndex(pos.walkIndex); setCaseTab("overview"); }
+    const validPos = !!(pos && Number.isInteger(pos.walkIndex) && pos.walkIndex >= 0 && pos.walkIndex < roomsList.length);
+    const resumeWalk = (validPos && pos.screen === "walk") || (intoWalk && roomsList.length > 0);
+    if (resumeWalk) {
+      const firstEmpty = roomsList.findIndex((r) => !(r.photoIds || []).length);
+      setWalkIndex(validPos && pos.screen === "walk" ? pos.walkIndex : Math.max(0, firstEmpty));
+      setCaseTab("overview");
+    }
     else setCaseTab(pos && ["overview", "rooms", "findings", "export"].includes(pos.caseTab) ? pos.caseTab : "overview");
     const ids = (data.rooms || []).flatMap((r) => r.photoIds);
     const entries = await Promise.all(ids.map(async (pid) => [pid, await loadPhoto(pid)]));
@@ -796,6 +803,7 @@ export default function SiteSnap() {
             me={ME}
             onNew={() => { setReturnTab("home"); setScreen("setup"); }}
             onOpen={(id) => openInspection(id, "home")}
+            onContinue={(id) => openInspection(id, "home", { intoWalk: true })}
             onTab={setScreen}
           /></Screen>
         )}

@@ -181,7 +181,7 @@ try {
   await page.locator(".ss-cell").first().click(); await w(page);
   await page.getByRole("button", { name: /Delete photo/ }).click(); await w(page, 5600);
   await page.reload({ waitUntil: "networkidle" }); await w(page, 500);
-  await page.getByRole("button", { name: /Resume case/i }).click(); await w(page, 500);
+  await page.getByRole("button", { name: /Open case file/i }).click(); await w(page, 500);
   await openRoom(page, "Kitchen");
   const persisted = await page.locator(".ss-cell").count();
   const nos2 = (await page.locator(".ss-cell-no").allInnerTexts()).map(Number);
@@ -229,7 +229,7 @@ try {
   await page.locator(".ss-caption").first().fill("Caption typed right before reload");
   // no wait: reload immediately — the debounce must be flushed by pagehide/focusout
   await page.reload({ waitUntil: "networkidle" }); await w(page, 500);
-  await page.getByRole("button", { name: /Resume case/i }).click(); await w(page, 500);
+  await page.getByRole("button", { name: /Open case file/i }).click(); await w(page, 500);
   // resumed on the Rooms tab, where the Kitchen room was open before the reload
   const resumedOnRooms = await page.locator(".ss-case-tab.on").innerText().catch(() => "");
   await tab(page, "Overview");
@@ -268,7 +268,7 @@ try {
   await page.mouse.up(); await w(page, 400);
   names = await page.locator(".ss-row-name").allInnerTexts();
   await page.reload({ waitUntil: "networkidle" }); await w(page, 500);
-  await page.getByRole("button", { name: /Resume case/i }).click(); await w(page, 500);
+  await page.getByRole("button", { name: /Open case file/i }).click(); await w(page, 500);
   await tab(page, "Rooms");
   const after = await page.locator(".ss-row-name").allInnerTexts();
   const reordered = names[0] !== "Kitchen" && JSON.stringify(after) === JSON.stringify(names);
@@ -376,7 +376,7 @@ try {
   await page.getByText("Kitchen", { exact: true }).first().click();
   await page.getByRole("button", { name: /Start inspection/ }).click(); await w(page, 500);
   const caseNo = await page.locator(".ss-eyebrow-sm").first().innerText();
-  rec("S8 three cases → recent inspections, search, discard, case numbers never reused", /recent inspections/i.test(homeText) && count === "3" && shown.length === 1 && nothing && remaining.length === 2 && /Case No\. 4/i.test(caseNo) ? "PASS" : "FAIL", `badge=${count} search=${JSON.stringify(shown)} noMatchMsg=${nothing} afterDiscard=${JSON.stringify(remaining)} newCase="${caseNo}"`);
+  rec("S8 three cases → other cases on Home, search, discard, case numbers never reused", /other cases/i.test(homeText) && /3 Gamma Lane/.test(homeText) && /2 Beta Avenue/.test(homeText) && count === "3" && shown.length === 1 && nothing && remaining.length === 2 && /Case No\. 4/i.test(caseNo) ? "PASS" : "FAIL", `badge=${count} search=${JSON.stringify(shown)} noMatchMsg=${nothing} afterDiscard=${JSON.stringify(remaining)} newCase="${caseNo}"`);
   const e = errs(page); if (e.length) rec("S8 console", "FAIL", e.join(" | "));
   await ctx.close();
 } catch (e) { rec("S8", "FAIL", e.message); }
@@ -401,7 +401,7 @@ try {
   const home = await page.locator("body").innerText();
   await page.locator(".ss-tabbar-item", { hasText: "Cases" }).click(); await w(page, 400);
   const cases = await page.locator("body").innerText();
-  const homeEmpty = !/Resume case/.test(home);
+  const homeEmpty = !/Open case file|Continue walkthrough/.test(home);
   rec("S9 close: blocked until exported/acknowledged; archived as 'Exported only'", guarded && /isn't saved anywhere/.test(modal) && unguarded && /Close this inspection\?/.test(modal2) && homeEmpty && /Exported only/.test(cases) && /5 Closing Court/.test(cases) ? "PASS" : "FAIL", `guarded=${guarded} unguardedAfterExport=${unguarded} homeEmpty=${homeEmpty} archiveShows=${/Exported only/.test(cases)}`);
   const e = errs(page); if (e.length) rec("S9 console", "FAIL", e.join(" | "));
   await ctx.close();
@@ -493,7 +493,7 @@ try {
   try { await page.reload({ waitUntil: "load", timeout: 15000 }); await w(page, 800); homeOffline = await page.locator("body").innerText(); } catch (err) { reloadOk = false; homeOffline = err.message; }
   await ctx.setOffline(false);
   if (!reloadOk) { await page.goto(BASE + "/", { waitUntil: "networkidle" }); await w(page, 500); }
-  await page.getByRole("button", { name: /Resume case/i }).click(); await w(page, 500);
+  await page.getByRole("button", { name: /Open case file/i }).click(); await w(page, 500);
   await openRoom(page, "Kitchen");
   const cells = await page.locator(".ss-cell").count();
   const cap = await page.locator(".ss-caption").first().inputValue();
@@ -509,12 +509,12 @@ try {
   await newCase(a, { address: "10 Two Tabs", rooms: ["Kitchen"] });
   await openRoom(a, "Kitchen"); await addPhotos(a, [PHOTOS[0]]); await w(a, 800);
   const b = await ctx.newPage(); await b.goto(BASE + "/", { waitUntil: "networkidle" }); await w(b, 300);
-  await b.getByRole("button", { name: /Resume case/i }).click(); await w(b, 500);
+  await b.getByRole("button", { name: /Open case file/i }).click(); await w(b, 500);
   await openRoom(b, "Kitchen"); await addPhotos(b, [PHOTOS[1]]); await w(b, 800);
   await addPhotos(a, [PHOTOS[2]]); await w(a, 1200);
   await a.close(); await b.close();
   const c = await ctx.newPage(); await c.goto(BASE + "/", { waitUntil: "networkidle" }); await w(c, 300);
-  await c.getByRole("button", { name: /Resume case/i }).click(); await w(c, 500);
+  await c.getByRole("button", { name: /Open case file/i }).click(); await w(c, 500);
   await openRoom(c, "Kitchen");
   const cells = await c.locator(".ss-cell").count();
   rec("S14 same case open in two tabs — photos from both kept?", cells === 3 ? "PASS" : "NOTE", `expected 3, kept ${cells} (last writer wins is a known single-device limitation)`);
@@ -599,9 +599,9 @@ try {
   const landedTab = await page.locator(".ss-case-tab.on").innerText().catch(() => "");
   await page.reload({ waitUntil: "networkidle" }); await w(page, 500);
   const heroTitle = await page.locator(".ss-case-hero-title").first().innerText().catch(() => "");
-  const heroSub = await page.locator(".ss-case-hero-sub").first().innerText().catch(() => "");
-  const caseNoShown = await page.locator(".ss-stamp").first().innerText().catch(() => "");
-  await page.getByRole("button", { name: /Resume case/i }).click(); await w(page, 500);
+  const heroSub = await page.locator(".ss-home-hero").first().innerText().catch(() => "");
+  const caseNoShown = await page.locator(".ss-home-hero-eyebrow").first().innerText().catch(() => "");
+  await page.getByRole("button", { name: /Open case file/i }).click(); await w(page, 500);
   const overview = await page.locator("body").innerText();
   const ok = landedOn === "42 Backbutton Close" && /Overview/i.test(landedTab)
     && heroTitle === "42 Backbutton Close" && /1 photo/.test(heroSub)
@@ -688,6 +688,35 @@ try {
   const e19 = errs(page); if (e19.length) rec("S19 console", "FAIL", e19.join(" | "));
   await ctx.close();
 } catch (e) { rec("S19", "FAIL", e.message); }
+
+// ---------------------------------------------------------------- S20 redesign: checklist, Home's Continue, walk progress
+try {
+  const { ctx, page } = await fresh();
+  await newCase(page, { address: "20 Ring Road", rooms: ["Kitchen", "Bathroom"] });
+  await page.getByRole("button", { name: /Start walkthrough/i }).click(); await w(page, 500);
+  await page.locator(".ss-livecam-shutter").click(); await w(page, 800);
+  await page.locator(".ss-live-exit").click(); await w(page, 400);
+  // case overview: the walkthrough as a checklist — Kitchen done, Bathroom up next
+  const doneRows = await page.locator(".ss-ov-room.done").count();
+  const nextRow = await page.locator(".ss-ov-room.next").innerText().catch(() => "");
+  const ring = await page.locator(".ss-ov-progress .ss-ring").getAttribute("aria-label").catch(() => "");
+  rec("S20a case overview shows rooms as a checklist with the next room called out", doneRows === 1 && /Bathroom/.test(nextRow) && /Up next/.test(nextRow) && ring === "1 of 2 rooms" ? "PASS" : "FAIL",
+    `done=${doneRows} next="${nextRow.replace(/\n/g, " ")}" ring="${ring}"`);
+  // Home: the case in hand, with Continue walkthrough going straight to the next room
+  await backToCase(page);
+  const hero = await page.locator(".ss-home-hero").innerText().catch(() => "");
+  await page.getByRole("button", { name: /Continue walkthrough/i }).click(); await w(page, 700);
+  const roomNow = (await page.locator(".ss-cap-room").innerText().catch(() => "")).trim();
+  const segs = await page.locator(".ss-cap-segs span").count();
+  const segsDone = await page.locator(".ss-cap-segs span.done").count();
+  const filing = await page.locator(".ss-cap-filing").innerText().catch(() => "");
+  const nextBtn = await page.locator(".ss-live-nav .next").innerText().catch(() => "");
+  rec("S20b Home's Continue walkthrough lands in the next room; walk shows room progress and where photos go",
+    /Next: Bathroom/.test(hero) && roomNow === "Bathroom" && segs === 2 && segsDone === 1 && /Photos go to/i.test(filing) && /Bathroom \(general\)/.test(filing) && /Finish inspection/.test(nextBtn) ? "PASS" : "FAIL",
+    `hero="${hero.replace(/\n/g, " ")}" room="${roomNow}" segs=${segs}/${segsDone} filing="${filing.replace(/\n/g, " ")}" next="${nextBtn}"`);
+  const e20 = errs(page); if (e20.length) rec("S20 console", "FAIL", e20.join(" | "));
+  await ctx.close();
+} catch (e) { rec("S20", "FAIL", e.message); }
 
 await browser.close();
 console.log("\n==== SUMMARY ====");
