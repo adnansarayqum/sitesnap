@@ -1,7 +1,15 @@
 // SiteSnap service worker — keeps the app shell available offline so an
 // inspection can carry on mid-property with no signal. Photos live in
 // IndexedDB, so only the shell (HTML + hashed assets) is cached here.
-const CACHE = "sitesnap-shell-v5";
+const CACHE = "sitesnap-shell-v6";
+
+async function shellAssets(html, requireManifest = false) {
+  const manifestResponse = await fetch("/manifest.json", { cache: "no-store" }).catch(() => null);
+  if (requireManifest && (!manifestResponse || !manifestResponse.ok)) throw new Error("manifest unavailable");
+  const manifest = manifestResponse && manifestResponse.ok ? await manifestResponse.json().catch(() => ({})) : {};
+  const built = Object.values(manifest).flatMap((entry) => [entry.file, ...(entry.css || []), ...(entry.assets || [])]).filter(Boolean).map((file) => `/${file.replace(/^\//, "")}`);
+  return Array.from(new Set([...(html.match(/\/assets\/[^"' )]+/g) || []), ...built]));
+}
 
 // Precache the shell and the hashed bundles it references at install, so
 // the app works offline from the very first visit. Without this the shell
@@ -16,9 +24,11 @@ self.addEventListener("install", (event) => {
       const res = await fetch("/", { cache: "no-store" });
       if (!res.ok) return;
       const html = await res.clone().text();
+      const assets = await shellAssets(html, true);
+      // Preserve an existing complete release during an update: only swap
+      // its shell after every chunk referenced by the new manifest exists.
+      await Promise.all(assets.map((a) => c.add(new Request(a, { cache: "reload" }))));
       await c.put("/", res);
-      const assets = Array.from(new Set(html.match(/\/assets\/[^"' )]+/g) || []));
-      await Promise.all(assets.map((a) => c.add(a).catch(() => {})));
     } catch { /* offline at install — the next online visit fills the cache */ }
   })());
 });
@@ -41,31 +51,32 @@ self.addEventListener("fetch", (event) => {
 
   // App shell: network-first so deploys show up, cached copy when offline.
   if (event.request.mode === "navigate") {
-    event.respondWith(
-      fetch(event.request)
-        .then((res) => {
-          // a 502 from a mid-deploy host must not become the offline shell
-          if (res.ok) {
-            const copy = res.clone();
-            const forPrune = res.clone();
-            caches.open(CACHE).then(async (c) => {
-              await c.put("/", copy);
-              // every deploy ships a new hashed bundle; drop the ones this
-              // shell no longer references so the cache doesn't grow forever
-              try {
-                const html = await forPrune.text();
-                const wanted = new Set((html.match(/\/assets\/[^"' )]+/g) || []).map((p) => new URL(p, location.origin).href));
-                const cached = await c.keys();
-                await Promise.all(cached
-                  .filter((req) => new URL(req.url).pathname.startsWith("/assets/") && !wanted.has(req.url))
-                  .map((req) => c.delete(req)));
-              } catch { /* pruning is best-effort */ }
-            });
-          }
-          return res;
-        })
-        .catch(() => caches.match("/"))
-    );
+    const network = fetch(event.request);
+    const refreshShell = network.then(async (res) => {
+      // a 502 from a mid-deploy host must not become the offline shell
+      if (!res.ok) return;
+      const copy = res.clone();
+      const forPrune = res.clone();
+      const c = await caches.open(CACHE);
+      // every deploy ships a new hashed bundle; stage the whole new release
+      // before publishing its shell or dropping the previous one
+      const html = await forPrune.text();
+      const wanted = new Set((await shellAssets(html, true)).map((p) => new URL(p, location.origin).href));
+      const before = new Set((await c.keys()).map((req) => req.url));
+      await Promise.all([...wanted]
+        .filter((url) => !before.has(url))
+        .map((url) => c.add(new Request(url, { cache: "reload" }))));
+      // Commit the new shell only after every asset it can reference exists.
+      // A failed staging fetch therefore leaves the previous complete shell
+      // and its chunks untouched.
+      await c.put("/", copy);
+      const cached = await c.keys();
+      await Promise.all(cached
+        .filter((req) => new URL(req.url).pathname.startsWith("/assets/") && !wanted.has(req.url))
+        .map((req) => c.delete(req)));
+    }).catch(() => { /* retain the previous complete offline release */ });
+    event.waitUntil(refreshShell);
+    event.respondWith(network.catch(() => caches.match("/")));
     return;
   }
 

@@ -1,14 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Loader2, Undo2 } from "lucide-react";
 import {
   loadIndex, loadInspection, migrateLegacy, saveState, clearState, loadPhoto, savePhoto, updatePhoto, removePhoto, loadAudio, saveAudio, removeAudio, loadArchive, archiveInspection, removeArchiveEntry, sweepOrphans, setStorageErrorHandler, requestDurableStorage, storageEstimate, loadFieldMode, saveFieldMode, nextCaseNo, loadWebhook,
 } from "./storage.js";
 import { THUMB_DIM, dataUrlToFile, drawScaled, loadImage, processCapture, shareFiles } from "./lib/image.js";
-import { idPhotoName } from "./screens/Finish.jsx";
 import { pad, safeFileName, uid } from "./lib/util.js";
-import { CaseFileScreen } from "./screens/CaseFile.jsx";
 import { CasesScreen, HomeScreen } from "./screens/Home.jsx";
-import { RoomScreen } from "./screens/Room.jsx";
 import { SettingsScreen } from "./screens/Settings.jsx";
 import { SetupScreen } from "./screens/Setup.jsx";
 import { WalkScreen } from "./screens/Walk.jsx";
@@ -20,6 +17,13 @@ import { migrateFindings } from "./findings.js";
 import { track, flushTelemetry } from "./telemetry.js";
 import { configureFiling, enqueueFiling, clearFilingQueue, onFiling, filingState } from "./filing.js";
 import { Banner, Toast } from "./ui/index.js";
+
+// Review/export and evidence editing pull in the largest report/AI modules.
+// Load them when first opened; the service worker precaches every build chunk
+// so this split does not trade away first-visit offline reliability.
+const CaseFileScreen = lazy(() => import("./screens/CaseFile.jsx").then((m) => ({ default: m.CaseFileScreen })));
+const RoomScreen = lazy(() => import("./screens/Room.jsx").then((m) => ({ default: m.RoomScreen })));
+const idPhotoName = (inspection) => `ID ${safeFileName(inspection.postcode || inspection.address || "photo")}.jpg`;
 
 // A single-user, local-only app — there is no sign-in and no firm/org
 // concept — so this is a fixed stand-in for the "who's using the app"
@@ -740,7 +744,7 @@ export default function SiteSnap() {
         )}
 
         {view === "casefile" && inspection && (
-          <Screen><CaseFileScreen
+          <Screen><Suspense fallback={<div className="ss-center"><Loader2 className="ss-spin" size={26} /></div>}><CaseFileScreen
             inspection={inspection}
             saveStatus={saveStatus}
             rooms={rooms}
@@ -784,7 +788,7 @@ export default function SiteSnap() {
             onFiled={(ids, provider) => ids.forEach((id) => markFiled(id, { provider, at: Date.now() }))}
             onSaveAll={async () => shareFiles(await filesForAll(), "Inspection photos")}
             onDone={finishAndReset}
-          /></Screen>
+          /></Suspense></Screen>
         )}
 
         {view === "walk" && inspection && rooms[walkIndex] && (
@@ -831,7 +835,7 @@ export default function SiteSnap() {
           const room = rooms.find((r) => r.id === activeRoomId);
           if (!room) { setScreen("casefile"); return null; }
           return (
-            <Screen><RoomScreen
+            <Screen><Suspense fallback={<div className="ss-center"><Loader2 className="ss-spin" size={26} /></div>}><RoomScreen
               room={room}
               caseId={inspection.id}
               photos={room.photoIds.map((id) => photoCache[id]).filter(Boolean)}
@@ -853,7 +857,7 @@ export default function SiteSnap() {
               onAddMemo={(blob, secs) => addMemo(room.id, blob, secs)}
               onDeleteMemo={(mid) => deleteMemo(room.id, mid)}
               onSaveToPhotos={async () => shareFiles(await filesFor(room), `${room.name} photos`)}
-            /></Screen>
+            /></Suspense></Screen>
           );
         })()}
 

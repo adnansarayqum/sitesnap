@@ -3,6 +3,7 @@ import "./ui/tokens.css";
 import ReactDOM from "react-dom/client";
 import App from "./App.jsx";
 import { Sentry } from "./sentry.js";
+import { AccessGate } from "./AccessGate.jsx";
 
 function CrashFallback() {
   return (
@@ -16,7 +17,7 @@ function CrashFallback() {
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <Sentry.ErrorBoundary fallback={<CrashFallback />}>
-      <App />
+      <AccessGate><App /></AccessGate>
     </Sentry.ErrorBoundary>
   </React.StrictMode>
 );
@@ -25,7 +26,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
 // itself loadable with no signal. Dev servers are skipped.
 // localhost counts as a secure context, so the offline shell can be
 // exercised against a local build too, not only in production
-if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
+if ("serviceWorker" in navigator && (location.protocol === "https:" || ["localhost", "127.0.0.1"].includes(location.hostname))) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/sw.js").catch(() => {});
   });

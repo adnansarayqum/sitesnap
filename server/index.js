@@ -5,12 +5,12 @@
 // Secrets never leave this process; the phone only ever holds a sealed blob
 // it can't read.
 //
-// A database is optional and, if configured, is used only by the AI
-// drafting/reference-pack routes (server/ai-routes.js, server/pricebook.js) —
-// there is no sign-in, no firm/org model, and no server-side case register.
+// A database is optional and, if configured, runs the retained migrations;
+// it never enables the abandoned account/org mode or a server-side register.
 import { captureServerError, captureFatal, sentryEnabled } from "./sentry.js"; // first: see server/sentry.js
 import express from "express";
 import crypto from "node:crypto";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { hasDb, migrate, closeDb, q } from "./db.js";
@@ -19,10 +19,16 @@ import { emailConfigured } from "./email.js";
 import { mountAi } from "./ai-routes.js";
 import { mountProduct } from "./product.js";
 import { aiEnabled, transcriptionEnabled, AI_MODEL } from "./ai.js";
+import { createAccessControl } from "./access.js";
+import { createTokenKey } from "./token-key.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DIST = path.join(__dirname, "..", "dist");
+const DIST = process.env.SITESNAP_DIST_DIR ? path.resolve(process.env.SITESNAP_DIST_DIR) : path.join(__dirname, "..", "dist");
 const PORT = process.env.PORT || 3000;
+const APP_VERSION = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8")).version;
+const releaseIdentity = (value) => String(value || "").replace(/[^a-zA-Z0-9._-]/g, "").slice(0, 80) || null;
+const access = createAccessControl();
+let optionalDbStatus = hasDb ? "starting" : "not_configured";
 
 const PROVIDERS = {
   onedrive: {
@@ -52,13 +58,11 @@ const PROVIDERS = {
 };
 
 // ---- sealing -------------------------------------------------------------
-// TOKEN_KEY may be 64 hex chars or any passphrase; either way it becomes a
-// 32-byte AES-256-GCM key. Without it no provider is enabled at all.
-const KEY = (() => {
-  const raw = process.env.TOKEN_KEY || "";
-  if (!raw) return null;
-  return /^[0-9a-f]{64}$/i.test(raw) ? Buffer.from(raw, "hex") : crypto.createHash("sha256").update(raw).digest();
-})();
+// Production accepts only 32 bytes of random key material. A human-memorable
+// passphrase makes a stolen sealed refresh-token blob vulnerable to offline
+// dictionary guessing.
+const CLOUD_CONFIGURED = Object.values(PROVIDERS).some((provider) => provider.clientId || provider.clientSecret);
+const KEY = createTokenKey(process.env, CLOUD_CONFIGURED);
 
 function enabled(provider) {
   const c = PROVIDERS[provider];
@@ -98,6 +102,11 @@ setInterval(sweep, 60 * 1000).unref();
 // the OAuth `state` is the pair code plus an HMAC, so a callback can only
 // ever complete the pairing it was started for
 const sign = (pair) => crypto.createHmac("sha256", KEY).update(pair).digest("base64url").slice(0, 22);
+function sameSecret(a, b) {
+  const left = Buffer.from(String(a || ""));
+  const right = Buffer.from(String(b || ""));
+  return left.length === right.length && crypto.timingSafeEqual(left, right);
+}
 
 function baseUrl(req) {
   if (process.env.PUBLIC_URL) return process.env.PUBLIC_URL.replace(/\/+$/, "");
@@ -250,9 +259,11 @@ app.use((req, res, next) => {
 // (ai-routes.js); everything else is small JSON
 // originalUrl, not path: inside app.use("/api", ...) the mount prefix is
 // stripped from req.path
-const isAi = (req) => String(req.originalUrl || req.url).split("?")[0].startsWith("/api/ai/");
+const requestPath = (req) => String(req.originalUrl || req.url).split("?")[0].toLowerCase();
+const isAi = (req) => requestPath(req).startsWith("/api/ai/");
 const jsonBody = express.json({ limit: "4mb" });
 app.use((req, res, next) => (isAi(req) ? next() : jsonBody(req, res, next)));
+access.mount(app);
 // every mutating API call is JSON from our own page; a cross-site form
 // post can't set that content type, and SameSite=Lax keeps the cookie
 // off cross-site posts anyway. DELETE carries no body and can't be sent
@@ -266,20 +277,38 @@ app.use("/api", (req, res, next) => {
   res.set("Cache-Control", "no-store");
   next();
 });
-// no sign-in exists to populate these — set so the reference-pack /
-// price-book routes' requireOrg/requireAdmin guards (server/auth.js) can
-// read req.session without each route needing its own null check
+// Use Express's own case-insensitive, trailing-slash-tolerant matcher for
+// authorization as well as dispatch. A separately parsed originalUrl can
+// disagree with Express and turn path variants into an auth bypass.
+const protect = [access.requireSameOrigin, access.requireAccess];
+app.use("/api/ai", ...protect);
+app.use("/api/price-book", ...protect);
+app.use("/api/admin", ...protect);
+for (const route of ["/api/cloud/pair", "/api/cloud/claim", "/api/cloud/token", "/api/cloud/revoke", "/api/events", "/api/feedback"]) {
+  app.all(route, ...protect);
+}
+// Legacy org code stays inert even when DATABASE_URL is configured.
 app.use((req, res, next) => { req.session = null; req.membership = null; next(); });
 mountAi(app);
 mountProduct(app);
 
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
-app.get("/healthz", wrap(async (req, res) => {
-  let dbOk = null;
-  if (hasDb) { try { await q("select 1"); dbOk = true; } catch { dbOk = false; } }
-  res.status(dbOk === false ? 503 : 200).json({ ok: dbOk !== false, mode: "local", db: dbOk });
-}));
+app.get("/healthz", (req, res) => {
+  const dbOk = optionalDbStatus === "ok" ? true : optionalDbStatus === "unavailable" ? false : null;
+  // Postgres is retained only for optional migrations/reference schema. It
+  // must not take the local-first capture app out of service.
+  res.json({ ok: true, mode: "local", db: dbOk });
+});
+
+app.get("/readyz", (req, res) => {
+  res.json({
+    status: "ok",
+    version: APP_VERSION,
+    commit: releaseIdentity(process.env.RAILWAY_GIT_COMMIT_SHA || process.env.COMMIT_SHA),
+    release: releaseIdentity(process.env.RAILWAY_DEPLOYMENT_ID || process.env.RELEASE_ID),
+  });
+});
 
 app.get("/api/config", wrap(async (req, res) => {
   res.json({ mode: "local", providers: { onedrive: enabled("onedrive"), google: enabled("google") }, email: emailConfigured });
@@ -298,7 +327,7 @@ app.post("/api/cloud/pair", wrap(async (req, res) => {
   res.json({ pair, url: `${baseUrl(req)}/auth/${provider}/start?pair=${pair}` });
 }));
 
-app.get("/auth/:provider/start", (req, res) => {
+app.get("/auth/:provider/start", access.requireAccess, (req, res) => {
   const { provider } = req.params;
   const pair = String(req.query.pair || "");
   const p = pending.get(pair);
@@ -322,7 +351,7 @@ app.get("/auth/:provider/callback", wrap(async (req, res) => {
   const { provider } = req.params;
   const [pair, sig] = String(req.query.state || "").split(".");
   const p = pending.get(pair);
-  if (!enabled(provider) || !p || p.provider !== provider || sig !== sign(pair)) {
+  if (!enabled(provider) || !p || p.provider !== provider || !sameSecret(sig, sign(pair))) {
     return res.status(400).send(page("This sign-in link has expired", "Go back to SiteSnap and tap Connect again.", baseUrl(req)));
   }
   if (req.query.error) {
@@ -357,7 +386,7 @@ app.get("/api/cloud/claim", wrap(async (req, res) => {
   // the pair value alone isn't enough to claim it — only the browser that
   // started this pairing (and so holds the matching cookie) can. Left in
   // `pending` (not deleted) so the real browser can still claim it.
-  if (pairBindFromReq(req) !== p.bind) return res.status(403).json({ status: "forbidden" });
+  if (!sameSecret(pairBindFromReq(req), p.bind)) return res.status(403).json({ status: "forbidden" });
   if (!p.result) return res.json({ status: "pending" });
   pending.delete(pair);
   res.json({ status: "done", purpose: "link", provider: p.provider, ...p.result });
@@ -400,15 +429,26 @@ app.use(express.static(DIST, {
     res.setHeader("Cache-Control", /[\\/]assets[\\/]/.test(filePath) ? "public, max-age=31536000, immutable" : "no-cache");
   },
 }));
+// A missing hashed/static asset is not an SPA navigation. Returning
+// index.html with 200 here makes service-worker staging accept HTML under a
+// JavaScript URL and leaves the next offline launch unrecoverable.
+app.get(["/assets/{*splat}", "/tesseract/{*splat}", "/templates/{*splat}"], (req, res) => {
+  res.status(404).type("text").send("Not found");
+});
 // an unknown API path is a JSON 404 whatever the method — never Express's
 // HTML error page, which a fetch() caller can't read
 app.all("/api/{*splat}", (req, res) => res.status(404).json({ error: "not found" }));
 app.all("/auth/{*splat}", (req, res) => res.status(404).json({ error: "not found" }));
 // Express 5 (path-to-regexp 8) needs the catch-all named; the braces make
 // the segment optional so the bare "/" is caught too
-app.get("/{*splat}", (req, res) => {
+app.get("/{*splat}", (req, res, next) => {
   if (req.path.startsWith("/api/") || req.path.startsWith("/auth/")) return res.status(404).json({ error: "not found" });
-  res.sendFile(path.join(DIST, "index.html"), { headers: { "Cache-Control": "no-cache" } });
+  // Read explicitly rather than relying on sendFile's platform-specific path
+  // resolution; this is the same file for every SPA navigation in a deploy.
+  fs.readFile(path.join(DIST, "index.html"), (err, html) => {
+    if (err) return next(err);
+    res.set("Cache-Control", "no-cache").type("html").send(html);
+  });
 });
 
 // eslint-disable-next-line no-unused-vars
@@ -436,10 +476,20 @@ async function purge() {
   } catch (e) { console.error("purge failed:", e.message); }
 }
 
-(async () => {
+export async function startServer() {
   if (hasDb) {
-    try { await migrate(); await purge(); setInterval(purge, 6 * 60 * 60 * 1000).unref(); }
-    catch (e) { console.error("database unavailable:", e.message); process.exit(1); }
+    // Migrations run independently of the local-first web server. Even a
+    // reachable database blocked on a lock must not delay camera capture.
+    migrate()
+      .then(async () => {
+        optionalDbStatus = "ok";
+        await purge();
+        setInterval(purge, 6 * 60 * 60 * 1000).unref();
+      })
+      .catch((e) => {
+        optionalDbStatus = "unavailable";
+        console.error("optional database unavailable; continuing without it:", e.message);
+      });
   }
   const server = app.listen(PORT, "0.0.0.0", () => {
     const on = Object.keys(PROVIDERS).filter(enabled);
@@ -463,4 +513,14 @@ async function purge() {
     console.error("unhandledRejection:", err);
     captureFatal(err).finally(() => process.exit(1));
   });
-})();
+  return server;
+}
+
+export { app };
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  startServer().catch((err) => {
+    console.error("startup failed:", err.message);
+    process.exit(1);
+  });
+}

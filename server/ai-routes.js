@@ -14,11 +14,9 @@
 //   GET  /api/ai/cases/:id/runs/:runId                            one run's audit record
 //   PUT  /api/ai/findings/:fid                                    the surveyor's review, under the state machine
 //
-// This app has no sign-in, so nothing here is stored server-side — the
-// phone keeps everything (findings, runs, transcripts) in the case itself.
-// The org-scoped persistence path below (guarded by requireOrg) predates
-// that decision and is dead code today, kept only because a database is
-// still optionally used by the reference pack / price-book routes.
+// This app has no account/org model, so nothing here is stored server-side.
+// The legacy org-scoped persistence path remains dormant for schema/history
+// compatibility; DATABASE_URL must never switch it on by itself.
 import express from "express";
 import crypto from "node:crypto";
 import { hasDb, q, one } from "./db.js";
@@ -37,6 +35,7 @@ import { normaliseRow } from "../shared/pricebook.js";
 // one surveyor's "Draft findings" is one user action (rate-limited as such)
 // that makes several provider calls; this protects the provider and the box
 const pipelines = semaphore(Number(process.env.AI_MAX_CONCURRENT_PIPELINES) || 4);
+const ACCOUNT_MODE = false;
 
 const CASE_ID = /^insp_[\w-]{4,60}$/;
 const ROOM_ID = /^room_[\w-]{4,60}$/;
@@ -59,15 +58,12 @@ const MAX_INTAKE_DOCS = 8;
 const MAX_INTAKE_DOC_B64 = 17 * 1024 * 1024;
 
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
-// no sign-in exists to create a session, so this never actually gates
-// anything — kept only so these routes fail the same way (401, not 500)
-// if a database happens to be configured
-const guard = hasDb ? requireOrg : (req, res, next) => next();
+const guard = (req, res, next) => next();
 const who = (req) => (req.session ? `u:${req.session.user_id}` : `ip:${clientIp(req)}`);
 const s = (v, n) => String(v == null ? "" : v).slice(0, n);
 
 async function ownedCase(req, id) {
-  if (!hasDb) return null;
+  if (!ACCOUNT_MODE) return null;
   return one("select id, org_id from cases where id = $1 and org_id = $2", [id, req.session.org_id]);
 }
 
@@ -75,7 +71,7 @@ async function ownedCase(req, id) {
 // the surveyor's own rates, sent from the phone and cleaned like any other input
 async function refFor(req, clientRows) {
   const base = loadReference();
-  if (hasDb && req.session && req.session.org_id) return mergeReference(base, await loadFirmRows(req.session.org_id));
+  if (ACCOUNT_MODE && hasDb && req.session && req.session.org_id) return mergeReference(base, await loadFirmRows(req.session.org_id));
   return mergeReference(base, cleanFirmRows(clientRows));
 }
 
@@ -129,7 +125,7 @@ export function mountAi(app) {
 
   // --- the firm's own rates ------------------------------------------------------
   app.get("/api/price-book", guard, wrap(async (req, res) => {
-    if (!hasDb) return res.json({ rows: [], local: true });
+    if (!ACCOUNT_MODE) return res.json({ rows: [], local: true });
     res.json({ rows: await loadFirmRows(req.session.org_id) });
   }));
 
@@ -330,7 +326,7 @@ export function mountAi(app) {
     res.json(priceItems(await refFor(req, b.firmRows), items, overrides));
   }));
 
-  if (!hasDb) return;
+  if (!ACCOUNT_MODE) return;
 
   app.post("/api/price-book/rows", requireOrg, express.json({ limit: "64kb" }), wrap(async (req, res) => {
     if (!rateLimit(`pricebook:${req.session.user_id}`, 120, 60 * 60 * 1000)) return res.status(429).json({ error: "slow_down" });

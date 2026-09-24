@@ -1,9 +1,6 @@
-// No accounts, no sign-in — this app is a single-user PWA for Stonebridge
-// Surveyors. What's left here is generic request-side plumbing still used
-// by the cloud-link pairing routes (server/index.js) and by the reference
-// pack / price-book routes (server/ai-routes.js, server/product.js), which
-// gate on an org membership that — with no sign-in — never exists, so they
-// simply 401 rather than crash if a database happens to be configured.
+// No accounts or org model — this is a single-client PWA. Generic cookie,
+// rate-limit and IP helpers are used by deployment access and cloud linking.
+// The legacy org helpers remain only for dormant schema-era code paths.
 import { q } from "./db.js";
 
 export const normEmail = (e) => String(e || "").trim().toLowerCase();
