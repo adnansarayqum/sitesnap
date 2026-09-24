@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import fs from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "playwright-core";
 
@@ -63,17 +64,39 @@ try {
   // Model an incomplete install/deployment update by deleting an unvisited
   // lazy chunk. A controlled navigation must restage the complete manifest,
   // not merely avoid pruning whatever happened to survive installation.
-  const deletedLazyChunk = await page.evaluate(async () => {
+  const incompleteCache = await page.evaluate(async () => {
     const manifest = await fetch("/manifest.json", { cache: "no-store" }).then((response) => response.json());
     const target = Object.values(manifest).map((entry) => entry.file).find((file) => /CaseFile/i.test(file));
     const names = await caches.keys();
     const shell = names.find((name) => name.startsWith("sitesnap-shell-"));
     if (!target || !shell) return null;
     const url = new URL(`/${target.replace(/^\//, "")}`, location.origin).href;
-    await (await caches.open(shell)).delete(url);
-    return url;
+    const cache = await caches.open(shell);
+    await cache.delete(url);
+    await cache.put("/", new Response("OLD-COMPLETE-SHELL", { headers: { "content-type": "text/html" } }));
+    return { url, target, shell };
   });
-  if (!deletedLazyChunk) throw new Error("could not prepare incomplete lazy cache");
+  if (!incompleteCache) throw new Error("could not prepare incomplete lazy cache");
+
+  // Prove a failed asset fetch cannot commit the new shell or prune the old
+  // release. Removing the file plus the HTTP cache forces cache.add() to 404.
+  const blockedPath = path.join(process.cwd(), "dist", incompleteCache.target.replace(/^\//, ""));
+  const heldPath = `${blockedPath}.smoke-held`;
+  const cdp = await context.newCDPSession(page);
+  await cdp.send("Network.enable");
+  await fs.rename(blockedPath, heldPath);
+  try {
+    await cdp.send("Network.clearBrowserCache");
+    await page.reload({ waitUntil: "networkidle" });
+    await page.getByRole("button", { name: /new inspection/i }).waitFor({ timeout: 15_000 });
+    await page.waitForTimeout(300);
+    const retained = await page.evaluate(async (cacheName) => (await (await caches.open(cacheName)).match("/")).text(), incompleteCache.shell);
+    if (retained !== "OLD-COMPLETE-SHELL") throw new Error("failed staging replaced the previous complete shell");
+  } finally {
+    await fs.rename(heldPath, blockedPath).catch(() => {});
+  }
+
+  await cdp.send("Network.clearBrowserCache");
   await page.reload({ waitUntil: "networkidle" });
   const missingChunks = await page.evaluate(async () => {
     const manifest = await fetch("/manifest.json", { cache: "no-store" }).then((response) => response.json());
@@ -96,7 +119,7 @@ try {
   await page.evaluate(() => localStorage.setItem("sitesnap:device-activated-v1", "yes"));
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: /new inspection/i }).waitFor({ timeout: 15_000 });
-  console.log("production smoke passed: auth, SPA fallback, JSON 404, exact readiness identity, full lazy cache, offline activation gate and reload");
+  console.log("production smoke passed: auth, SPA fallback, JSON 404, exact readiness identity, atomic cache upgrade/recovery, offline activation gate and reload");
 } finally {
   if (browser) await browser.close();
   if (child.exitCode === null) {

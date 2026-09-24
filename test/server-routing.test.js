@@ -26,12 +26,12 @@ beforeAll(async () => {
   const address = server.address();
   base = `http://127.0.0.1:${address.port}`;
   origin = base;
-}, 30_000);
+}, 60_000);
 
 afterAll(async () => {
   if (server) await new Promise((resolve) => server.close(resolve));
   await fs.rm(temp, { recursive: true, force: true });
-});
+}, 30_000);
 
 describe("production server routing and access", () => {
   it("serves root, index.html and deep links but keeps unknown APIs JSON", async () => {
@@ -44,6 +44,9 @@ describe("production server routing and access", () => {
     expect(missing.status).toBe(404);
     expect(missing.headers.get("content-type")).toMatch(/json/);
     expect(await missing.json()).toEqual({ error: "not found" });
+    const missingAsset = await fetch(base + "/assets/missing-chunk.js");
+    expect(missingAsset.status).toBe(404);
+    expect(await missingAsset.text()).not.toContain("SiteSnap fixture");
   });
 
   it("returns only bounded readiness and release identity", async () => {

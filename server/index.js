@@ -429,6 +429,12 @@ app.use(express.static(DIST, {
     res.setHeader("Cache-Control", /[\\/]assets[\\/]/.test(filePath) ? "public, max-age=31536000, immutable" : "no-cache");
   },
 }));
+// A missing hashed/static asset is not an SPA navigation. Returning
+// index.html with 200 here makes service-worker staging accept HTML under a
+// JavaScript URL and leaves the next offline launch unrecoverable.
+app.get(["/assets/{*splat}", "/tesseract/{*splat}", "/templates/{*splat}"], (req, res) => {
+  res.status(404).type("text").send("Not found");
+});
 // an unknown API path is a JSON 404 whatever the method — never Express's
 // HTML error page, which a fetch() caller can't read
 app.all("/api/{*splat}", (req, res) => res.status(404).json({ error: "not found" }));

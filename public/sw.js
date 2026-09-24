@@ -27,7 +27,7 @@ self.addEventListener("install", (event) => {
       const assets = await shellAssets(html, true);
       // Preserve an existing complete release during an update: only swap
       // its shell after every chunk referenced by the new manifest exists.
-      await Promise.all(assets.map((a) => c.add(a)));
+      await Promise.all(assets.map((a) => c.add(new Request(a, { cache: "reload" }))));
       await c.put("/", res);
     } catch { /* offline at install — the next online visit fills the cache */ }
   })());
@@ -65,7 +65,7 @@ self.addEventListener("fetch", (event) => {
       const before = new Set((await c.keys()).map((req) => req.url));
       await Promise.all([...wanted]
         .filter((url) => !before.has(url))
-        .map((url) => c.add(url)));
+        .map((url) => c.add(new Request(url, { cache: "reload" }))));
       // Commit the new shell only after every asset it can reference exists.
       // A failed staging fetch therefore leaves the previous complete shell
       // and its chunks untouched.
