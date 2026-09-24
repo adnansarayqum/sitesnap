@@ -27,7 +27,16 @@ const DIST = process.env.SITESNAP_DIST_DIR ? path.resolve(process.env.SITESNAP_D
 const PORT = process.env.PORT || 3000;
 const APP_VERSION = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8")).version;
 const releaseIdentity = (value) => String(value || "").replace(/[^a-zA-Z0-9._-]/g, "").slice(0, 80) || null;
-const access = createAccessControl();
+let access;
+try {
+  access = createAccessControl();
+} catch (error) {
+  // A malformed optional deployment secret must not take the local capture
+  // app offline. Rebuild access control with no passphrase: production
+  // capability routes then fail closed with 503 until configuration is fixed.
+  console.error("protected capabilities disabled; invalid SITESNAP_ACCESS_KEY:", error.message);
+  access = createAccessControl({ ...process.env, SITESNAP_ACCESS_KEY: "" });
+}
 let optionalDbStatus = hasDb ? "starting" : "not_configured";
 
 const PROVIDERS = {
@@ -62,7 +71,15 @@ const PROVIDERS = {
 // passphrase makes a stolen sealed refresh-token blob vulnerable to offline
 // dictionary guessing.
 const CLOUD_CONFIGURED = Object.values(PROVIDERS).some((provider) => provider.clientId || provider.clientSecret);
-const KEY = createTokenKey(process.env, CLOUD_CONFIGURED);
+let KEY = null;
+try {
+  KEY = createTokenKey(process.env, CLOUD_CONFIGURED);
+} catch (error) {
+  // OAuth is optional. Keep inspections available while every cloud route
+  // remains disabled through enabled(), and surface the operator error in
+  // deployment logs without ever printing the key itself.
+  console.error("cloud OAuth disabled; invalid TOKEN_KEY:", error.message);
+}
 
 function enabled(provider) {
   const c = PROVIDERS[provider];
