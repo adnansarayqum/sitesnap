@@ -414,7 +414,11 @@ export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCa
   const inputRef = useRef(null);
   // no `capture` attribute: the phone offers its photo library, not the camera
   const libraryRef = useRef(null);
-  const [panel, setPanel] = useState(null); // note | reading | null
+  // note | reading | addIssue | null — one at a time: these all share the
+  // same below-camera slot, and used to be tracked as separate booleans that
+  // could render stacked together (e.g. the add-issue panel left open while
+  // Note was also opened).
+  const [panel, setPanel] = useState(null);
   const [roomsOpen, setRoomsOpen] = useState(false);
   const [finishCheck, setFinishCheck] = useState(null); // inspectionHealth() result, or null when closed
   const [resumeKey, setResumeKey] = useState(0);
@@ -426,7 +430,6 @@ export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCa
   const nextExhibitNo = count + 1;
   const issues = openIssues(room);
   const active = issues.find((i) => i.id === room.activeIssueId) || null;
-  const [addingIssue, setAddingIssue] = useState(false);
   const [issueTitle, setIssueTitle] = useState("");
   const [reading, setReading] = useState({ text: "", value: "", unit: "" });
   const activePhotos = active ? (active.evidence || []).filter((e) => e.kind === "photo") : [];
@@ -435,14 +438,14 @@ export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCa
   const loose = unassigned(room);
   const stripIds = (active ? activePhotos.map((e) => e.id) : loose.photoIds).slice(-6).reverse();
 
-  useEffect(() => { setPanel(null); setAddingIssue(false); setRoomsOpen(false); }, [index]);
+  useEffect(() => { setPanel(null); setRoomsOpen(false); }, [index]);
 
   function createIssue() {
     const t = issueTitle.trim();
     if (!t) return;
     onRoom((r) => addIssue(r, t).room);
     onActivity && onActivity(`Issue "${t}" raised in ${room.name}`);
-    setIssueTitle(""); setAddingIssue(false);
+    setIssueTitle(""); setPanel(null);
     tapFeedback("light");
   }
   function saveReading() {
@@ -550,14 +553,14 @@ export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCa
               {room.activeIssueId === i.id && <span className="ss-cap-dot" />}{i.title} <small>{(i.evidence || []).filter((e) => e.kind === "photo").length}</small>
             </button>
           ))}
-          <button className={`ss-live-ichip add ${addingIssue ? "on" : ""}`} onClick={() => setAddingIssue((a) => !a)}>
-            {addingIssue ? <>Cancel</> : <><Plus size={14} /> Add issue</>}
+          <button className={`ss-live-ichip add ${panel === "addIssue" ? "on" : ""}`} onClick={() => setPanel((p) => p === "addIssue" ? null : "addIssue")}>
+            {panel === "addIssue" ? <>Cancel</> : <><Plus size={14} /> Add issue</>}
           </button>
         </div>
 
         {/* a starting point for the title, not a form — tap a category to
             fill it in, then edit or just go */}
-        {addingIssue && (
+        {panel === "addIssue" && (
           <div className="ss-cap-issuepanel">
             <div className="ss-cap-issuequick">
               {ISSUE_CATEGORIES.map((cat) => (
@@ -567,7 +570,7 @@ export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCa
             </div>
             <span className="ss-live-iadd">
               <input autoFocus placeholder="e.g. Ceiling mould" value={issueTitle} onChange={(e) => setIssueTitle(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") createIssue(); if (e.key === "Escape") setAddingIssue(false); }} />
+                onKeyDown={(e) => { if (e.key === "Enter") createIssue(); if (e.key === "Escape") setPanel(null); }} />
               <button onClick={createIssue} disabled={!issueTitle.trim()} aria-label="Add issue"><Check size={15} /></button>
             </span>
           </div>
