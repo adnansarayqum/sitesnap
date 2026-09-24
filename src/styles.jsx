@@ -864,6 +864,10 @@ export function StyleBlock() {
       .ss-suggest-label { font-size: 10.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--muted2); }
       .ss-suggest-chip { border: 1px dashed var(--pine); color: var(--pine); background: var(--pine-tint); border-radius: 999px; padding: 6px 10px; font-size: 12.5px; font-weight: 700; text-align: left; }
       .ss-hyp-input { margin-top: 6px; font-size: 14px; }
+      /* address/document scanner — the camera element html5-qrcode mounts
+         a <video> into; everything around it is the BottomSheet's own chrome */
+      .ss-qr-reader { width: 100%; aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: #000; }
+      .ss-qr-reader video { width: 100% !important; }
       /* ID photo slot */
       .ss-idphoto { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 9px; background: var(--card); border: 1px solid var(--line); margin-top: 14px; }
       .ss-idphoto img { width: 54px; height: 54px; border-radius: 10px; object-fit: cover; border: 1px solid var(--line); }

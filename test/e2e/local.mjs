@@ -550,6 +550,50 @@ try {
   await ctx.close();
 } catch (e) { rec("S16", "FAIL", e.message); }
 
+// ---------------------------------------------------------------- S17 hardware back button: no data loss, no stuck spinner
+// Regression guard, council review 2026-09-24: the Android hardware back
+// button was wired through the History API (App.jsx), and two bugs shipped
+// with it. (1) The history state it pushed carried only {id} for the open
+// inspection; popstate replaced the full in-memory record with that stub,
+// which the debounced save then persisted over the real data in IndexedDB —
+// silently wiping address, ref, findings, everything but the rooms
+// themselves. (2) Two near-identical "loading" entries were pushed at
+// startup, so a single back press on Home could strand the app on the
+// loading spinner with no way back (the one-time init effect that clears it
+// never re-runs). Both are exercised here with page.goBack() — a real
+// popstate, not the screen's own on-screen back/exit control.
+try {
+  const { ctx, page } = await fresh();
+  // (2) first back press ever, before any case exists
+  await page.goBack(); await w(page, 400);
+  const stillUsable = await page.getByRole("button", { name: /new inspection/i }).count();
+  rec("S17a back on Home (no case open) doesn't strand the app on the loading spinner", stillUsable > 0 ? "PASS" : "FAIL", `newInspectionButtons=${stillUsable}`);
+
+  // (1) open a case, go into Walk, shoot a photo, then press back — the
+  // exact sequence the council review reproduced the corruption with
+  await newCase(page, { address: "42 Backbutton Close", postcode: "BB4 2CK", ref: "REF-BACK", rooms: ["Kitchen"] });
+  await page.getByRole("button", { name: /Start walkthrough/i }).click(); await w(page, 500);
+  await page.locator(".ss-livecam-shutter").click(); await w(page, 800);
+  await page.goBack(); await w(page, 500);
+  const landedOn = await page.locator(".ss-title").first().innerText().catch(() => "");
+  // Walk was started from the Overview tab, so back-to-casefile lands there too
+  const landedTab = await page.locator(".ss-case-tab.on").innerText().catch(() => "");
+  await page.reload({ waitUntil: "networkidle" }); await w(page, 500);
+  const heroTitle = await page.locator(".ss-case-hero-title").first().innerText().catch(() => "");
+  const heroSub = await page.locator(".ss-case-hero-sub").first().innerText().catch(() => "");
+  const caseNoShown = await page.locator(".ss-stamp").first().innerText().catch(() => "");
+  await page.getByRole("button", { name: /Resume case/i }).click(); await w(page, 500);
+  const overview = await page.locator("body").innerText();
+  const ok = landedOn === "42 Backbutton Close" && /Overview/i.test(landedTab)
+    && heroTitle === "42 Backbutton Close" && /1 photo/.test(heroSub)
+    && !/—/.test(caseNoShown)
+    && overview.includes("42 Backbutton Close") && overview.includes("REF-BACK");
+  rec("S17b back from Walk to CaseFile keeps the real inspection (address/caseNo/ref/photo survive a reload)", ok ? "PASS" : "FAIL",
+    `landedOn="${landedOn}" landedTab="${landedTab}" heroTitle="${heroTitle}" heroSub="${heroSub}" caseNo="${caseNoShown}" hasRef=${overview.includes("REF-BACK")}`);
+  const e = errs(page); if (e.length) rec("S17 console", "FAIL", e.join(" | "));
+  await ctx.close();
+} catch (e) { rec("S17", "FAIL", e.message); }
+
 await browser.close();
 console.log("\n==== SUMMARY ====");
 for (const r of results) console.log(`${r.status.padEnd(4)} ${r.id}`);
