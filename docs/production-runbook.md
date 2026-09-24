@@ -52,9 +52,11 @@ Do not add the access key, provider credentials or `TOKEN_KEY` to any
 ## Current activation state (verified 24 September 2026)
 
 - `https://sitesnap-production-821d.up.railway.app/readyz` returns HTTP 200,
-  version `2.1.0`, and reviewed commit
-  `d131460ae4d84bd24f67821bb752c85647ce0696`. Its Railway deployment also
-  passed the configured `/healthz` promotion gate. The similarly named
+  version `2.1.0`, and the full deployed GitHub commit. Verify that live value
+  against the release branch each time; do not pin a mutable deployment SHA in
+  this runbook. The current release includes the reviewed application baseline
+  `d131460ae4d84bd24f67821bb752c85647ce0696` and passes Railway's configured
+  `/healthz` promotion gate. The similarly named
   `sitesnap-production.up.railway.app` hostname is not this service and must
   not be used.
 - The generated origin renders successfully at desktop and mobile widths with
