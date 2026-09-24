@@ -39,6 +39,15 @@ describe("gate", () => {
     expect(decideGate({ ...base, verification: { claims: [{ type: "extent", support: "unsupported", claim: "the whole ceiling" }] } }).status).toBe("blocked");
     expect(decideGate({ ...base, verification: { claims: [{ type: "legal", support: "unsupported", claim: "s.11" }] } }).status).toBe("review_ready");
   });
+  // GOLDEN-V-007 (server/evals/cases/verifier): a real-provider eval run found
+  // the verifier correctly flagged "£50" as unsupported against a £160-220
+  // price-book range, but the gate still returned review_ready — cost wasn't
+  // in MATERIAL_TYPES, so only "contradicted" money claims blocked, not
+  // "unsupported" ones. Money is a checkable fact like extent or a reading,
+  // not professional judgement like a legal citation.
+  it("blocks on an unsupported cost claim in prose, same as an unsupported extent", () => {
+    expect(decideGate({ ...base, verification: { claims: [{ type: "cost", support: "unsupported", claim: "approximately £50" }] } }).status).toBe("blocked");
+  });
   it("blocks on a rejected legal id, an unknown price row, an id problem, or a price arithmetic mismatch", () => {
     expect(decideGate({ ...base, legal: { refs: [], rejected: [{ id: "LEGAL-X" }] } }).status).toBe("blocked");
     expect(decideGate({ ...base, pricing: { ...base.pricing, problems: [{ row_id: "PB-X", problem: "unknown_row", detail: "no" }] } }).status).toBe("blocked");
