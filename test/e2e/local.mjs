@@ -633,6 +633,43 @@ try {
   await ctx.close();
 } catch (e) { rec("S18", "FAIL", e.message); }
 
+// ---------------------------------------------------------------- S19 finish walkthrough -> Complete screen
+// The Complete screen (src/screens/Complete.jsx) — shown once, right after
+// "Finish inspection" — was never exercised by this suite (council review
+// coverage-gap finding). Covers reaching it, its stats, and both of its
+// exits (Review findings / Export report), plus the back arrow returning
+// to the case file without re-triggering the finish flow.
+try {
+  const { ctx, page } = await fresh();
+  await newCase(page, { address: "3 Complete Close", rooms: ["Kitchen"] });
+  await page.getByRole("button", { name: /Start walkthrough/i }).click(); await w(page, 500);
+  await page.locator(".ss-livecam-shutter").click(); await w(page, 800);
+  await page.locator(".ss-live-nav .next").click(); await w(page, 400); // single room -> this is "Finish inspection"
+  await page.locator(".ss-finish-actions").getByRole("button", { name: /Finish inspection|Finish anyway/ }).click(); await w(page, 500);
+
+  const heading = await page.locator("h1").first().innerText().catch(() => "");
+  const stats = await page.locator(".ss-stat-row").innerText().catch(() => "");
+  const onComplete = /Inspection complete/.test(heading) && /1/.test(stats);
+  rec("S19a finishing the walkthrough reaches the Complete screen with correct stats", onComplete ? "PASS" : "FAIL", `heading="${heading}" stats="${stats.replace(/\n/g, " ")}"`);
+
+  // back arrow returns to the case file, not back into Walk / another finish check
+  await page.locator(".ss-back").first().click(); await w(page, 400);
+  const backLandedOnCaseTitle = await page.locator(".ss-title").first().innerText().catch(() => "");
+  rec("S19b Complete screen's back returns to the case file", backLandedOnCaseTitle === "3 Complete Close" ? "PASS" : "FAIL", `title="${backLandedOnCaseTitle}"`);
+
+  // reach Complete again, this time exit via "Export report"
+  await page.getByText("Rooms", { exact: true }).first().click(); await w(page, 300);
+  await page.getByRole("button", { name: /Continue walkthrough|Start walkthrough/i }).click(); await w(page, 500);
+  await page.locator(".ss-live-nav .next").click(); await w(page, 400);
+  await page.locator(".ss-finish-actions").getByRole("button", { name: /Finish inspection|Finish anyway/ }).click(); await w(page, 500);
+  await page.getByRole("button", { name: /Export report/ }).click(); await w(page, 500);
+  const onExportTab = await page.locator(".ss-case-tab.on").innerText().catch(() => "");
+  rec("S19c Complete screen's Export report opens the case file's Export tab", /Export/i.test(onExportTab) ? "PASS" : "FAIL", `tab="${onExportTab}"`);
+
+  const e19 = errs(page); if (e19.length) rec("S19 console", "FAIL", e19.join(" | "));
+  await ctx.close();
+} catch (e) { rec("S19", "FAIL", e.message); }
+
 await browser.close();
 console.log("\n==== SUMMARY ====");
 for (const r of results) console.log(`${r.status.padEnd(4)} ${r.id}`);
