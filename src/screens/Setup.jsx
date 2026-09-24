@@ -3,9 +3,10 @@ import {
   ArrowRight, Briefcase, Check, Minus, Pencil, Plus, ScanLine, X,
 } from "lucide-react";
 import { ReorderableList } from "../components/shared.jsx";
+import { QRScanner } from "../components/QRScanner.jsx";
 import { PRESETS } from "../lib/presets.js";
 import { pad, uid } from "../lib/util.js";
-import { AppHeader, Button, InlineAlert, SegmentedControl, StickyActionBar } from "../ui/index.js";
+import { AppHeader, Button, InlineAlert, StickyActionBar } from "../ui/index.js";
 
 /* ---------------- setup ---------------- */
 // Two presentations sharing one set of state and logic: guided (one
@@ -20,8 +21,6 @@ function loadMode() {
 }
 function saveMode(m) { try { localStorage.setItem(MODE_KEY, m); } catch { /* per-device convenience only */ } }
 
-const INSPECTION_TYPES = ["Standard", "Inventory", "Other"];
-
 export function SetupScreen({ onBack, onStart }) {
   const [mode, setMode] = useState(loadMode);
   const [address, setAddress] = useState("");
@@ -35,8 +34,7 @@ export function SetupScreen({ onBack, onStart }) {
   const [client, setClient] = useState("");
   const [occupier, setOccupier] = useState("");
   const [solicitor, setSolicitor] = useState("");
-  const [type, setType] = useState("Standard");
-  const [scanNotice, setScanNotice] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editingValue, setEditingValue] = useState("");
   const [step, setStep] = useState(1);
@@ -92,8 +90,12 @@ export function SetupScreen({ onBack, onStart }) {
     onStart(address.trim(), postcode.trim(), named, {
       ref: ref.trim(), client: client.trim(),
       occupier: occupier.trim(), solicitor: solicitor.trim(),
-      type,
     });
+  }
+
+  function handleAddressScanned(scannedText) {
+    setAddress(scannedText);
+    setScanning(false);
   }
 
   const chip = (p) => {
@@ -122,21 +124,13 @@ export function SetupScreen({ onBack, onStart }) {
       <div className="ss-scan-row">
         <input
           className="ss-input" autoFocus placeholder="23 High Street"
-          value={address} onChange={(e) => { setAddress(e.target.value); setScanNotice(false); }}
+          value={address} onChange={(e) => setAddress(e.target.value)}
         />
-        <button className="ss-scan-btn" onClick={() => setScanNotice(true)} title="Scan an address from a letter or document">
+        <button className="ss-scan-btn" onClick={() => setScanning(true)} title="Scan an address from a letter or document">
           <ScanLine size={16} /> Scan
         </button>
       </div>
       <input className="ss-input" placeholder="Postcode (optional)" style={{ marginTop: 8 }} value={postcode} onChange={(e) => setPostcode(e.target.value.toUpperCase())} />
-      {scanNotice && (
-        <InlineAlert tone="info" icon={<ScanLine size={14} />}>
-          Address scanning isn't built yet — type it in above for now.
-        </InlineAlert>
-      )}
-
-      <div className="ss-field-label" style={{ margin: "14px 2px 6px" }}>Inspection type</div>
-      <SegmentedControl className="ss-seg-row" itemClass="ss-seg-item" options={INSPECTION_TYPES} value={type} onChange={setType} />
 
       <input className="ss-input" style={{ marginTop: 8 }} placeholder="Your reference (optional)" value={ref} onChange={(e) => setRef(e.target.value)} />
       <input className="ss-input" style={{ marginTop: 8 }} placeholder="Client (optional)" value={client} onChange={(e) => setClient(e.target.value)} />
@@ -224,6 +218,7 @@ export function SetupScreen({ onBack, onStart }) {
   if (mode === "classic") {
     return (
       <div className="ss-col">
+        {scanning && <QRScanner onClose={() => setScanning(false)} onAddressScanned={handleAddressScanned} />}
         <AppHeader title="New inspection" eyebrow="Set up once, then just shoot" onBack={onBack} />
         <div className="ss-scroll">
           <div className="ss-section-label">Property</div>
@@ -263,6 +258,7 @@ export function SetupScreen({ onBack, onStart }) {
 
   return (
     <div className="ss-col">
+      {scanning && <QRScanner onClose={() => setScanning(false)} onAddressScanned={handleAddressScanned} />}
       <AppHeader title="New inspection" eyebrow={STEP_LABEL[step]} onBack={() => (step > 1 ? setStep(step - 1) : onBack())} />
       <div className="ss-wiz-progress">
         {[1, 2].map((n) => <div key={n} className={`ss-wiz-seg ${n <= step ? "on" : ""}`} />)}
