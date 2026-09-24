@@ -93,8 +93,18 @@ export function SetupScreen({ onBack, onStart }) {
     });
   }
 
-  function handleAddressScanned(scannedText) {
-    setAddress(scannedText);
+  function handleAddressScanned(scannedData) {
+    // Handle both QR code (string) and extracted document data (object)
+    if (typeof scannedData === "string") {
+      setAddress(scannedData);
+    } else if (typeof scannedData === "object") {
+      setAddress(scannedData.address || "");
+      setPostcode(scannedData.postcode || "");
+      setRef(scannedData.reference || "");
+      setClient(scannedData.client || "");
+      setOccupier(scannedData.occupier || "");
+      setSolicitor(scannedData.solicitor || "");
+    }
     setScanning(false);
   }
 
