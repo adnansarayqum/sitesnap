@@ -400,7 +400,7 @@ try {
   await page.locator(".ss-caption").first().fill("Sealant lifting");
   await backToCase(page); await tab(page, "Findings"); await w(page, 500);
   const findings = await page.locator("body").innerText();
-  const aiOff = /Drafting is off/.test(findings);
+  const aiOff = /AI drafting isn't switched on/.test(findings);
   await tab(page, "Export");
   const [dl] = await Promise.all([page.waitForEvent("download", { timeout: 20000 }), page.getByRole("button", { name: /Export ZIP/ }).click()]);
   const zip = await JSZip.loadAsync(fs.readFileSync(await dl.path()));
@@ -549,6 +549,126 @@ try {
   const e = errs(page); if (e.length) rec("S16 console", "FAIL", e.join(" | "));
   await ctx.close();
 } catch (e) { rec("S16", "FAIL", e.message); }
+
+// ---------------------------------------------------------------- S17 hardware back button: no data loss, no stuck spinner
+// Regression guard, council review 2026-09-24: the Android hardware back
+// button was wired through the History API (App.jsx), and two bugs shipped
+// with it. (1) The history state it pushed carried only {id} for the open
+// inspection; popstate replaced the full in-memory record with that stub,
+// which the debounced save then persisted over the real data in IndexedDB —
+// silently wiping address, ref, findings, everything but the rooms
+// themselves. (2) Two near-identical "loading" entries were pushed at
+// startup, so a single back press on Home could strand the app on the
+// loading spinner with no way back (the one-time init effect that clears it
+// never re-runs). Both are exercised here with page.goBack() — a real
+// popstate, not the screen's own on-screen back/exit control.
+try {
+  const { ctx, page } = await fresh();
+  // (2) first back press ever, before any case exists
+  await page.goBack(); await w(page, 400);
+  const stillUsable = await page.getByRole("button", { name: /new inspection/i }).count();
+  rec("S17a back on Home (no case open) doesn't strand the app on the loading spinner", stillUsable > 0 ? "PASS" : "FAIL", `newInspectionButtons=${stillUsable}`);
+
+  // (1) open a case, go into Walk, shoot a photo, then press back — the
+  // exact sequence the council review reproduced the corruption with
+  await newCase(page, { address: "42 Backbutton Close", postcode: "BB4 2CK", ref: "REF-BACK", rooms: ["Kitchen"] });
+  await page.getByRole("button", { name: /Start walkthrough/i }).click(); await w(page, 500);
+  await page.locator(".ss-livecam-shutter").click(); await w(page, 800);
+  await page.goBack(); await w(page, 500);
+  const landedOn = await page.locator(".ss-title").first().innerText().catch(() => "");
+  // Walk was started from the Overview tab, so back-to-casefile lands there too
+  const landedTab = await page.locator(".ss-case-tab.on").innerText().catch(() => "");
+  await page.reload({ waitUntil: "networkidle" }); await w(page, 500);
+  const heroTitle = await page.locator(".ss-case-hero-title").first().innerText().catch(() => "");
+  const heroSub = await page.locator(".ss-case-hero-sub").first().innerText().catch(() => "");
+  const caseNoShown = await page.locator(".ss-stamp").first().innerText().catch(() => "");
+  await page.getByRole("button", { name: /Resume case/i }).click(); await w(page, 500);
+  const overview = await page.locator("body").innerText();
+  const ok = landedOn === "42 Backbutton Close" && /Overview/i.test(landedTab)
+    && heroTitle === "42 Backbutton Close" && /1 photo/.test(heroSub)
+    && !/—/.test(caseNoShown)
+    && overview.includes("42 Backbutton Close") && overview.includes("REF-BACK");
+  rec("S17b back from Walk to CaseFile keeps the real inspection (address/caseNo/ref/photo survive a reload)", ok ? "PASS" : "FAIL",
+    `landedOn="${landedOn}" landedTab="${landedTab}" heroTitle="${heroTitle}" heroSub="${heroSub}" caseNo="${caseNoShown}" hasRef=${overview.includes("REF-BACK")}`);
+  const e = errs(page); if (e.length) rec("S17 console", "FAIL", e.join(" | "));
+  await ctx.close();
+} catch (e) { rec("S17", "FAIL", e.message); }
+
+// ---------------------------------------------------------------- S18 report preview alone must not count as "exported"
+// Regression guard, council review 2026-09-24: openReport() used to record
+// the export the instant the PDF preview opened, before Print/Save was ever
+// tapped, which downgraded the close-inspection guard from the
+// checkbox-gated "This isn't saved anywhere yet" warning to a soft "Close
+// this inspection?" — so a preview-only visit could get a case deleted with
+// nothing actually saved anywhere. The marker now only records on an actual
+// tap of "Print / Save PDF".
+try {
+  const { ctx, page } = await fresh();
+  await newCase(page, { address: "9 Preview Place", rooms: ["Kitchen"] });
+  await openRoom(page, "Kitchen"); await addPhotos(page, [PHOTOS[0]]); await backToCase(page);
+  await tab(page, "Export");
+  await page.getByRole("button", { name: /Report \(PDF\)/ }).click(); await w(page, 500);
+  const reportOpenedTitle = await page.locator("h1").first().innerText().catch(() => "");
+  // close the preview without printing — nothing has left the device
+  await page.locator(".ss-report-bar .close").click(); await w(page, 300);
+  await page.getByRole("button", { name: /Close inspection/ }).click(); await w(page);
+  const modalAfterPreviewOnly = await page.locator(".ss-modal").innerText();
+  const stillGuarded = await page.getByRole("button", { name: /Delete & close/ }).isDisabled();
+  await page.getByRole("button", { name: /Go back and save it first/ }).click(); await w(page);
+
+  // now actually tap Print / Save PDF — this is the real export
+  await page.getByRole("button", { name: /Report \(PDF\)/ }).click(); await w(page, 500);
+  await page.locator(".ss-report-bar .print").click(); await w(page, 400);
+  await page.locator(".ss-report-bar .close").click(); await w(page, 300);
+  await page.getByRole("button", { name: /Close inspection/ }).click(); await w(page);
+  const modalAfterPrint = await page.locator(".ss-modal").innerText();
+  const unguardedAfterPrint = !(await page.getByRole("button", { name: /Delete & close/ }).isDisabled());
+
+  const ok = reportOpenedTitle.includes("9 Preview Place")
+    && stillGuarded && /isn't saved anywhere/.test(modalAfterPreviewOnly)
+    && unguardedAfterPrint && /Close this inspection\?/.test(modalAfterPrint);
+  rec("S18 report preview alone doesn't satisfy the close-inspection safety guard; an actual Print/Save does", ok ? "PASS" : "FAIL",
+    `opened=${reportOpenedTitle.includes("9 Preview Place")} guardedAfterPreview=${stillGuarded} modal1="${modalAfterPreviewOnly.slice(0, 60)}" unguardedAfterPrint=${unguardedAfterPrint} modal2="${modalAfterPrint.slice(0, 40)}"`);
+  const e18 = errs(page); if (e18.length) rec("S18 console", "FAIL", e18.join(" | "));
+  await ctx.close();
+} catch (e) { rec("S18", "FAIL", e.message); }
+
+// ---------------------------------------------------------------- S19 finish walkthrough -> Complete screen
+// The Complete screen (src/screens/Complete.jsx) — shown once, right after
+// "Finish inspection" — was never exercised by this suite (council review
+// coverage-gap finding). Covers reaching it, its stats, and both of its
+// exits (Review findings / Export report), plus the back arrow returning
+// to the case file without re-triggering the finish flow.
+try {
+  const { ctx, page } = await fresh();
+  await newCase(page, { address: "3 Complete Close", rooms: ["Kitchen"] });
+  await page.getByRole("button", { name: /Start walkthrough/i }).click(); await w(page, 500);
+  await page.locator(".ss-livecam-shutter").click(); await w(page, 800);
+  await page.locator(".ss-live-nav .next").click(); await w(page, 400); // single room -> this is "Finish inspection"
+  await page.locator(".ss-finish-actions").getByRole("button", { name: /Finish inspection|Finish anyway/ }).click(); await w(page, 500);
+
+  const heading = await page.locator("h1").first().innerText().catch(() => "");
+  const stats = await page.locator(".ss-stat-row").innerText().catch(() => "");
+  const onComplete = /Inspection complete/.test(heading) && /1/.test(stats);
+  rec("S19a finishing the walkthrough reaches the Complete screen with correct stats", onComplete ? "PASS" : "FAIL", `heading="${heading}" stats="${stats.replace(/\n/g, " ")}"`);
+
+  // back arrow returns to the case file, not back into Walk / another finish check
+  await page.locator(".ss-back").first().click(); await w(page, 400);
+  const backLandedOnCaseTitle = await page.locator(".ss-title").first().innerText().catch(() => "");
+  rec("S19b Complete screen's back returns to the case file", backLandedOnCaseTitle === "3 Complete Close" ? "PASS" : "FAIL", `title="${backLandedOnCaseTitle}"`);
+
+  // reach Complete again, this time exit via "Export report"
+  await page.getByText("Rooms", { exact: true }).first().click(); await w(page, 300);
+  await page.getByRole("button", { name: /Continue walkthrough|Start walkthrough/i }).click(); await w(page, 500);
+  await page.locator(".ss-live-nav .next").click(); await w(page, 400);
+  await page.locator(".ss-finish-actions").getByRole("button", { name: /Finish inspection|Finish anyway/ }).click(); await w(page, 500);
+  await page.getByRole("button", { name: /Export report/ }).click(); await w(page, 500);
+  const onExportTab = await page.locator(".ss-case-tab.on").innerText().catch(() => "");
+  rec("S19c Complete screen's Export report opens the case file's Export tab", /Export/i.test(onExportTab) ? "PASS" : "FAIL", `tab="${onExportTab}"`);
+
+  const e19 = errs(page); if (e19.length) rec("S19 console", "FAIL", e19.join(" | "));
+  await ctx.close();
+} catch (e) { rec("S19", "FAIL", e.message); }
 
 await browser.close();
 console.log("\n==== SUMMARY ====");

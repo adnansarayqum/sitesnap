@@ -93,7 +93,10 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
       entries.forEach(([id, p]) => { if (p) cache[id] = p; });
       setReportCache(cache);
       setReportOpen(true);
-      onExportResult && onExportResult({ at: Date.now(), kind: "report" });
+      // Previewing is not exporting — nothing has left the device yet, so
+      // this must not satisfy the close-inspection safety check below.
+      // Only an actual tap on "Print / Save PDF" (ReportView's onPrint)
+      // records the export.
     } finally {
       setReportBusy(false);
     }
@@ -827,7 +830,8 @@ export function FinishScreen({ inspection, rooms, photoCache, totalPhotos, files
       )}
 
       {reportOpen && (
-        <ReportView inspection={inspection} rooms={rooms} photoCache={reportCache || photoCache} onClose={closeReport} />
+        <ReportView inspection={inspection} rooms={rooms} photoCache={reportCache || photoCache} onClose={closeReport}
+          onPrint={() => onExportResult && onExportResult({ at: Date.now(), kind: "report" })} />
       )}
     </>
   );

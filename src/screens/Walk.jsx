@@ -503,7 +503,9 @@ export function WalkScreen({ inspection, rooms, index, photoCache, onIndex, onCa
           <span className="ss-cap-roomno">Room {index + 1} of {rooms.length} · {count} photo{count === 1 ? "" : "s"}{(room.memos || []).length ? ` · ${(room.memos || []).length} voice` : ""}</span>
         </button>
         <div className="ss-cap-head-right">
-          {onToggleFieldMode && <button className="ss-live-fieldmode" onClick={onToggleFieldMode} title="Field mode — high-contrast for bright daylight">{fieldMode ? <Moon size={16} /> : <Sun size={16} />}</button>}
+          {/* the field-mode toggle lives once, inside LiveCamera itself
+              (.ss-livecam-lens) — it used to also render here, giving the
+              same control twice on one screen */}
           <SyncIndicator saveStatus={saveStatus} filing={filing} />
         </div>
       </div>

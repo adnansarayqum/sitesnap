@@ -36,7 +36,7 @@ export function OrganiseSheet({ caseId, room, photoCache, fullPhoto, audioCache,
     setBusy("suggest"); setError(null);
     try {
       const cfg = await aiConfig();
-      if (!cfg.enabled) throw new Error(cfg.locked || cfg.offline ? aiOffReason(cfg) : "Suggestions need ANTHROPIC_API_KEY on the server.");
+      if (!cfg.enabled) throw new Error(aiOffReason(cfg));
       const photos = [];
       for (const pid of loose.photoIds.slice(0, AI_MAX_PHOTOS)) {
         const p = await fullPhoto(pid);

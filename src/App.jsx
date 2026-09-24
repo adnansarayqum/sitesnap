@@ -61,6 +61,14 @@ const WAL = {
   clearPosition(id) { try { localStorage.removeItem(WAL.posKey(id)); } catch { /* nothing to clear */ } },
 };
 
+// Screens with their own tab bar (no case open under them) vs. screens that
+// exist inside an open case. Back-navigation crossing from the second group
+// into the first must drop the in-memory case the same way the explicit
+// "leave this case" action (exitCase) does — otherwise the case stays loaded
+// behind a top-level tab with nothing to refresh it.
+const IN_CASE_SCREENS = new Set(["setup", "casefile", "walk", "evidence", "complete"]);
+const TOP_LEVEL_SCREENS = new Set(["home", "cases", "settings"]);
+
 const SCREEN_STYLE = { display: "flex", flexDirection: "column", flex: 1, minHeight: 0 };
 const omit = (o, k) => { const { [k]: _x, ...rest } = o; return rest; };
 function Screen({ children }) {
@@ -74,6 +82,12 @@ export default function SiteSnap() {
   // returns to whichever tab it was opened from.
   const [screen, setScreen] = useState("loading");
   const [returnTab, setReturnTab] = useState("home");
+  // Room ("evidence") is opened from two places — CaseFile's Rooms tab, or
+  // the photo strip mid-walkthrough — and its own back button always sent
+  // the surveyor to the case file either way, dropping out of the
+  // walkthrough (and the live camera) to review one photo. This remembers
+  // which one it was opened from so Room's back returns there instead.
+  const [roomReturnScreen, setRoomReturnScreen] = useState("casefile");
   const [cfg, setCfg] = useState({ mode: "local", onedrive: false, google: false });
   // background filing: which linked drive photos go to as they're taken,
   // and whether Home should still be asking where photos go
@@ -97,7 +111,13 @@ export default function SiteSnap() {
   const originals = useRef({}); // id -> File/Blob (full quality, this session only)
   const audioCache = useRef({}); // memo id -> Blob
   const photoSeq = useRef({}); // roomId -> running exhibit number, reset per room
-  const navigationHistory = useRef([{ screen: "loading", inspection: null, caseTab: null, returnTab: "home" }]);
+  // Mirrors exactly what this app has pushed onto window.history, so a
+  // hardware/gesture back press can be replayed as an in-app navigation
+  // instead of exiting. Never carries the inspection itself — only its
+  // absence/presence is inferred from `screen` — so a back press can never
+  // overwrite the open case with a stub (see clearCaseMemory/handlePopState).
+  const navigationHistory = useRef([]);
+  const suppressHistoryPush = useRef(false); // set while applying a popstate so the tracking effect below doesn't re-push it
 
   // --- persistence -----------------------------------------------------
   // Whatever React has committed is what gets written, a beat later. Writing
@@ -183,45 +203,45 @@ export default function SiteSnap() {
   }, [inspection && inspection.id, screen, caseTab, walkIndex]);
 
   // Handle hardware back button by preventing exit from app and navigating
-  // back through the app's own screen history instead.
+  // back through the app's own screen history instead. Deliberately never
+  // touches `inspection` — the loaded case stays exactly as it is for any
+  // back step within it, and is dropped through the same path exitCase uses
+  // (clearCaseMemory) the moment a step leaves the case behind, so its
+  // in-memory copy can never be swapped for a stub and persisted over the
+  // real saved record.
   useEffect(() => {
     const handlePopState = (e) => {
       const state = e.state;
-      if (state) {
+      if (!state) return; // past everything this app pushed — let the browser handle it
+      const prevTop = navigationHistory.current[navigationHistory.current.length - 1];
+      navigationHistory.current.pop();
+      const apply = () => {
+        suppressHistoryPush.current = true;
         setScreen(state.screen);
-        if (state.inspection !== null) setInspection(state.inspection);
-        if (state.caseTab !== null) setCaseTab(state.caseTab);
-        if (state.returnTab !== null) setReturnTab(state.returnTab);
-        if (state.walkIndex !== undefined) setWalkIndex(state.walkIndex);
-        navigationHistory.current.pop();
-      }
+        setCaseTab(state.caseTab || "overview");
+        setReturnTab(state.returnTab || "home");
+        setWalkIndex(Number.isInteger(state.walkIndex) ? state.walkIndex : 0);
+      };
+      const leavingCase = prevTop && IN_CASE_SCREENS.has(prevTop.screen) && TOP_LEVEL_SCREENS.has(state.screen);
+      if (leavingCase) clearCaseMemory().then(apply);
+      else apply();
     };
-
     window.addEventListener("popstate", handlePopState);
-    // Push initial state to history to prevent accidental exit on first back press
-    window.history.pushState(
-      { screen: "loading", inspection: null, caseTab: null, returnTab: "home", walkIndex: 0 },
-      "",
-      window.location.href
-    );
-
     return () => window.removeEventListener("popstate", handlePopState);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Track navigation by pushing state to browser history
+  // Track navigation by pushing state to browser history — one entry per
+  // distinct screen, so a back press always has somewhere real to land.
+  // Nothing is pushed for the transient "loading" screen (there's nothing
+  // stable to return to yet); nothing is pushed while replaying a popstate
+  // (that entry already exists in window.history).
   useEffect(() => {
-    const currentState = {
-      screen,
-      inspection: inspection ? { id: inspection.id } : null,
-      caseTab,
-      returnTab,
-      walkIndex,
-    };
-    // Only push if state actually changed (not on initial load)
-    if (
-      navigationHistory.current.length === 1 ||
-      navigationHistory.current[navigationHistory.current.length - 1].screen !== screen
-    ) {
+    if (screen === "loading") return;
+    if (suppressHistoryPush.current) { suppressHistoryPush.current = false; return; }
+    const currentState = { screen, caseTab, returnTab, walkIndex };
+    const top = navigationHistory.current[navigationHistory.current.length - 1];
+    if (!top || top.screen !== screen) {
       navigationHistory.current.push(currentState);
       window.history.pushState(currentState, "", window.location.href);
     }
@@ -327,13 +347,13 @@ export default function SiteSnap() {
     if (p) enqueueFiling(ids.filter((pid) => !(cache[pid] && cache[pid].filed && cache[pid].filed.provider === p)), 1500);
   }
 
-  // Leaves the property loaded on disk — the surveyor is moving to the next
-  // job, not finishing this one. Lands on whichever tab the case was opened
-  // from by default, or `target` when a screen inside the case file (the
-  // Export tab's cloud-settings link) sends the surveyor somewhere specific —
-  // either way this is the ONLY path back to the top-level tabs, so it's the
-  // one place `index` gets refreshed with what just changed.
-  async function exitCase(target) {
+  // The actual unload: flushes whatever's pending, drops the case from
+  // memory, refreshes the index. Shared by the explicit "leave this case"
+  // action (exitCase, below) and by a hardware/gesture back press that
+  // crosses out of a case (see the popstate handler above) — so both paths
+  // leave the app in the same state, and neither ever substitutes a stub
+  // for the real inspection.
+  async function clearCaseMemory() {
     await flushAll();
     flushTelemetry();
     setInspection(null);
@@ -343,6 +363,16 @@ export default function SiteSnap() {
     audioCache.current = {};
     photoSeq.current = {};
     await refreshIndex();
+  }
+
+  // Leaves the property loaded on disk — the surveyor is moving to the next
+  // job, not finishing this one. Lands on whichever tab the case was opened
+  // from by default, or `target` when a screen inside the case file (the
+  // Export tab's cloud-settings link) sends the surveyor somewhere specific —
+  // either way this is the ONLY explicit path back to the top-level tabs, so
+  // it's the one place `index` gets refreshed with what just changed.
+  async function exitCase(target) {
+    await clearCaseMemory();
     setScreen(target || returnTab);
   }
 
@@ -809,7 +839,7 @@ export default function SiteSnap() {
             onReorder={reorderRooms}
             onAddRoom={addRoom}
             onRename={(patch) => setInspectionMeta(patch)}
-            onOpenRoom={(id) => { setActiveRoomId(id); setScreen("evidence"); }}
+            onOpenRoom={(id) => { setActiveRoomId(id); setRoomReturnScreen("casefile"); setScreen("evidence"); }}
             onWalk={(startIdx) => { setWalkIndex(startIdx); setScreen("walk"); }}
             filesForRoom={(room) => filesFor(room)}
             filesForUpload={(room) => filesFor(room, true)}
@@ -850,7 +880,7 @@ export default function SiteSnap() {
             index={walkIndex}
             photoCache={photoCache}
             saveStatus={saveStatus}
-            onOpenRoom={(id) => { setActiveRoomId(id); setScreen("evidence"); }}
+            onOpenRoom={(id) => { setActiveRoomId(id); setRoomReturnScreen("walk"); setScreen("evidence"); }}
             onFinish={finishInspection}
             onIndex={setWalkIndex}
             onCapture={(dataUrl, file, thumb) => addPhoto(rooms[walkIndex].id, dataUrl, file, thumb)}
@@ -891,7 +921,7 @@ export default function SiteSnap() {
               room={room}
               caseId={inspection.id}
               photos={room.photoIds.map((id) => photoCache[id]).filter(Boolean)}
-              onBack={() => setScreen("casefile")}
+              onBack={() => setScreen(roomReturnScreen)}
               onCapture={(dataUrl, file, thumb) => addPhoto(room.id, dataUrl, file, thumb)}
               onError={setStorageAlert}
               onDelete={(pid) => deletePhoto(room.id, pid)}

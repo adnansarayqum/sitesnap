@@ -4,7 +4,7 @@
 // as a provider failure.
 export const ACCESS_MESSAGE = {
   access_required: "SiteSnap needs unlocking again — close and reopen the app, then enter the access key.",
-  access_not_configured: "Online features are switched off on this server until its access key is set (SITESNAP_ACCESS_KEY in Railway).",
+  access_not_configured: "Online features aren't switched on for this app yet — ask whoever manages it to finish setting it up.",
 };
 
 // The gate's error code for a response, or null when the response isn't one.

@@ -28,7 +28,7 @@ export async function aiConfig(force = false) {
 export function aiOffReason(cfg) {
   if (cfg && cfg.locked) return ACCESS_MESSAGE[cfg.locked];
   if (cfg && cfg.offline) return "The AI service isn't reachable — check the signal and reopen this tab.";
-  return "Drafting is off on this server — it needs an ANTHROPIC_API_KEY.";
+  return "AI drafting isn't switched on for this app yet — ask whoever set it up to turn it on.";
 }
 
 export async function aiPhotoCopy(dataUrl) {
