@@ -27,7 +27,7 @@ Set these in **Service → Variables**, then redeploy:
 | Variable | Required | Value |
 | --- | --- | --- |
 | `NODE_ENV` | yes | `production` |
-| `PUBLIC_URL` | yes | Exact generated HTTPS origin, for example `https://sitesnap-production.up.railway.app` (no path) |
+| `PUBLIC_URL` | yes | Exact generated HTTPS origin: `https://sitesnap-production-821d.up.railway.app` (no path) |
 | `SITESNAP_ACCESS_KEY` | yes for production server features | A unique passphrase of at least 16 characters; use 5+ random words or 32 random bytes. Never prefix it with `VITE_`. |
 | `SITESNAP_SESSION_DAYS` | optional | Cookie lifetime, `1`–`90`; default `30` |
 | `ANTHROPIC_API_KEY` | optional | Enables drafting/caption/intake. Without `SITESNAP_ACCESS_KEY`, protected provider routes stay fail-closed with HTTP 503 while the local app remains available. |
@@ -49,26 +49,35 @@ been proven to contain the reviewed revision.
 Do not add the access key, provider credentials or `TOKEN_KEY` to any
 `VITE_*` variable: Vite variables are public build output.
 
-## Current activation blockers (verified 23 September 2026)
+## Current activation state (verified 24 September 2026)
 
-- Railway production has only been verified successfully at commit
-  `f633838d202822d116336e63d87a88c088c1f41c`. This readiness change is not
-  active until the reviewed PR commit is deliberately deployed and its exact
-  SHA is returned by `/readyz`.
+- `https://sitesnap-production-821d.up.railway.app/readyz` returns HTTP 200,
+  version `2.1.0`, and reviewed commit
+  `d131460ae4d84bd24f67821bb752c85647ce0696`. Its Railway deployment also
+  passed the configured `/healthz` promotion gate. The similarly named
+  `sitesnap-production.up.railway.app` hostname is not this service and must
+  not be used.
+- The generated origin renders successfully at desktop and mobile widths with
+  no horizontal overflow or browser exceptions. The production security
+  headers, manifest, hashed assets, SPA routing and fail-closed capability
+  guards are active.
+- `GET /api/session` currently reports `required: false` and
+  `capabilitiesLocked: true`. The local capture UI remains available, but
+  protected AI and OneDrive routes correctly return HTTP 503. Set
+  `SITESNAP_ACCESS_KEY` in Railway and redeploy before handing the URL to the
+  client; then verify the unlock screen and authenticated provider flow.
 - `sitesnap.uk` currently has no A, AAAA or CNAME record, and
   `www.sitesnap.uk` is NXDOMAIN. Keep `PUBLIC_URL` on a generated Railway HTTPS
   domain until Railway provides the custom-domain target and DNS resolves;
   then set `PUBLIC_URL=https://sitesnap.uk` and redeploy. Do not activate OAuth
   providers before their callback URLs use the same working origin.
-- The GitHub production environment URL points to the Railway dashboard, not a
-  public application endpoint. Replace it with the working public HTTPS URL
-  after DNS or a generated Railway domain is available.
-- The release branch `claude/new-session-idpxy6` has no branch protection.
-  Require a manual review of the exact SHA and successful CI before deploying;
-  do not treat a branch-name deployment as immutable.
-- No deployment secrets are available to this automation. An operator must set
-  a new `SITESNAP_ACCESS_KEY` and verify the variables below in Railway. Add
-  provider credentials only after the protected deployment passes activation.
+- The latest GitHub production deployment now links to the verified generated
+  origin. Change it together with `PUBLIC_URL` when the custom domain is ready.
+- The release branch `claude/new-session-idpxy6` is protected for administrators
+  and requires the `test-and-build` status check. Continue reviewing the exact
+  SHA rather than treating a mutable branch name as release identity.
+- `SITESNAP_ACCESS_KEY` still needs to be set through Railway's masked
+  Variables UI. Never paste it in an issue, pull request, log or chat.
 
 ## First activation
 
