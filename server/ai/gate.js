@@ -5,7 +5,12 @@
 import { flagSeverity, sortFlags } from "../../shared/findingRules.js";
 
 const ASBESTOS_WORDS = /artex|textured (coating|ceiling|finish)|asbestos|insulation board|aib|soffit board|cement (sheet|board)|vinyl floor tile/i;
-const MATERIAL_TYPES = new Set(["observation", "measurement", "history", "extent"]);
+// Claim types the verifier can mark "unsupported" and have that alone block
+// the gate (as "contradicted" always does, any type). These are checkable
+// facts, not professional judgement — unlike "legal" or "causation", where
+// an unsupported citation/reasoning is common and left to its own dedicated
+// check (see legal.rejected below) rather than a hard block here.
+const MATERIAL_TYPES = new Set(["observation", "measurement", "history", "extent", "cost"]);
 
 export function computeConfidence({ evidence, causation, verification, packet, pricing }) {
   const reasons = [];
