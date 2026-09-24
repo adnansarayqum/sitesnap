@@ -13,12 +13,15 @@ import { sha } from "../reference.js";
 
 export const AI_MODEL = process.env.AI_MODEL || "claude-fable-5-1";
 // a different model for the verifier is the cheapest way to de-correlate
-// generator and checker once one is chosen. Sonnet matched Fable's verifier
-// catch rate (10/10) in the golden eval suite at a fifth of the cost, so it's
-// the default here even though the generation stages stay on Fable — those
-// showed real quality loss on Sonnet (an escaped cross-issue contamination,
-// ~30% of cases truncating past the analysis output limit).
-export const AI_VERIFY_MODEL = process.env.AI_VERIFY_MODEL || "claude-sonnet-5";
+// generator and checker once one is chosen — but NOT Sonnet by default yet.
+// It matched Fable's catch rate on the golden eval suite's dedicated
+// verifier cases (10/10), but a live-provider run with Sonnet as verifier
+// (Fable still generating) let two real cases escape every control —
+// sibling-issue wording bleeding into the wrong finding, gate returning
+// review_ready instead of blocked — a failure type the verifier test bank
+// doesn't cover at all. Revisit once that gap has a regression case and
+// Sonnet passes it.
+export const AI_VERIFY_MODEL = process.env.AI_VERIFY_MODEL || AI_MODEL;
 export const AI_EFFORT = process.env.AI_EFFORT || "high";
 export const AI_CAPTION_EFFORT = process.env.AI_CAPTION_EFFORT || "low";
 // per-stage thinking depth: observation and prose are cheaper tasks than
