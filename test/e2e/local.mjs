@@ -318,6 +318,25 @@ try {
   const activeSub = await page.locator(".ss-cap-active-sub").innerText();
   const chip = await page.locator(".ss-live-ichip.on").innerText();
   rec("S7d issue raised while shooting; photo files into the active issue", activeTitle === "Ceiling mould" && /1 photo/.test(activeSub) && /Ceiling mould/.test(chip) ? "PASS" : "FAIL", `active="${activeTitle}" sub="${activeSub}" chip="${chip}"`);
+  // the add-issue panel, the note box and the reading form all share one
+  // below-camera slot — opening one must close whichever of the other two
+  // was already open, never stack
+  await page.locator(".ss-live-ichip.add").click(); await w(page, 150);
+  const issueOpen = await page.locator(".ss-cap-issuepanel").count();
+  await page.locator(".ss-cap-act", { hasText: "Note" }).click(); await w(page, 150);
+  const issueGoneAfterNote = await page.locator(".ss-cap-issuepanel").count();
+  const noteOpen = await page.locator(".ss-live-note").count();
+  // the note textarea is focused (autoFocus); blur it first so the click on
+  // Reading isn't racing the blur-triggered re-render of its own panel
+  await page.evaluate(() => document.activeElement && document.activeElement.blur());
+  await w(page, 100);
+  await page.locator(".ss-cap-act", { hasText: "Reading" }).click(); await w(page, 150);
+  const noteGoneAfterReading = await page.locator(".ss-live-note").count();
+  const readingOpen = await page.locator(".ss-cap-reading").count();
+  rec("S7e add-issue/note/reading panels are mutually exclusive, never stacked",
+    issueOpen === 1 && issueGoneAfterNote === 0 && noteOpen === 1 && noteGoneAfterReading === 0 && readingOpen === 1 ? "PASS" : "FAIL",
+    `issueOpen=${issueOpen} issueGoneAfterNote=${issueGoneAfterNote === 0} noteOpen=${noteOpen} noteGoneAfterReading=${noteGoneAfterReading === 0} readingOpen=${readingOpen}`);
+  await page.locator(".ss-cap-reading button[aria-label=Cancel]").click(); await w(page, 150);
   // swipe starting on the note textarea must not change room
   await page.locator(".ss-cap-act", { hasText: "Note" }).click(); await w(page, 200);
   const ta = await page.locator(".ss-live-note").boundingBox();

@@ -1165,6 +1165,10 @@ export function StyleBlock() {
       .ss-cap-active.none { background: rgba(255,255,255,.08); color: #fff; border: 1px dashed rgba(var(--ss-color-accent-rgb),.45); }
       .ss-cap-active-label { font-size: 10.5px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; opacity: .75; }
       .ss-cap-active-title { font-size: 22px; font-weight: 900; line-height: 1.15; }
+      /* the "must never be ambiguous" weight belongs to the active issue's
+         own title, not to instructional copy with no data behind it yet —
+         the empty/no-selection state reads as guidance, not a headline */
+      .ss-cap-active.none .ss-cap-active-title { font-size: 15px; font-weight: 700; opacity: .92; }
       .ss-cap-active-sub { font-size: 12.5px; font-weight: 700; opacity: .8; margin-top: 2px; }
       .ss-cap-finish-issue {
         display: inline-flex; align-items: center; gap: 5px; align-self: flex-start; margin-top: 10px;
