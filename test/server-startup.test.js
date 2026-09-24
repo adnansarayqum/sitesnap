@@ -21,14 +21,14 @@ beforeAll(async () => {
       NODE_ENV: "production",
       PORT: String(port),
       PUBLIC_URL: base,
-      SITESNAP_ACCESS_KEY: "startup-test-access-key-1234",
+      SITESNAP_ACCESS_KEY: "short",
       SITESNAP_DIST_DIR: temp,
       DATABASE_URL: "postgres://unused:unused@127.0.0.1:1/unused",
       ANTHROPIC_API_KEY: "",
       OPENAI_API_KEY: "",
-      TOKEN_KEY: "",
-      MS_CLIENT_ID: "",
-      MS_CLIENT_SECRET: "",
+      TOKEN_KEY: "not-a-production-key",
+      MS_CLIENT_ID: "configured-client-id",
+      MS_CLIENT_SECRET: "configured-client-secret",
       GOOGLE_CLIENT_ID: "",
       GOOGLE_CLIENT_SECRET: "",
     },
@@ -54,8 +54,8 @@ afterAll(async () => {
   if (temp) await fs.rm(temp, { recursive: true, force: true });
 });
 
-describe("production startup with optional database", () => {
-  it("keeps the local-first app ready when Postgres is unreachable", async () => {
+describe("production startup with optional integrations", () => {
+  it("keeps the local-first app ready when Postgres and secrets are misconfigured", async () => {
     const readiness = await fetch(base + "/readyz");
     expect(readiness.status).toBe(200);
     expect((await readiness.json()).status).toBe("ok");
@@ -64,7 +64,18 @@ describe("production startup with optional database", () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
     expect(output).toMatch(/optional database unavailable; continuing without it/i);
+    expect(output).toMatch(/protected capabilities disabled; invalid SITESNAP_ACCESS_KEY/i);
+    expect(output).toMatch(/cloud OAuth disabled; invalid TOKEN_KEY/i);
     const health = await (await fetch(base + "/healthz")).json();
     expect(health).toEqual({ ok: true, mode: "local", db: false });
+    const session = await (await fetch(base + "/api/session")).json();
+    expect(session).toEqual({ required: false, authenticated: false, capabilitiesLocked: false });
+    const providers = await (await fetch(base + "/api/config")).json();
+    expect(providers.providers).toEqual({ onedrive: false, google: false });
+    expect((await fetch(base + "/api/cloud/pair", {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: base },
+      body: JSON.stringify({ provider: "onedrive" }),
+    })).status).toBe(503);
   });
 });
