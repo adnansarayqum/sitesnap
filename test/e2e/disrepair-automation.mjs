@@ -148,9 +148,8 @@ try {
     await page.waitForTimeout(4000); // mock is fast but the pipeline has several stages
   }
   // The mock finding is deliberately flagged (low confidence, unpriced — a
-  // real mock, not a rubber stamp), so the bulk "Approve unflagged" button
-  // correctly skips it; approve the individual finding's own card instead,
-  // same as a surveyor would for anything needing attention.
+  // real mock, not a rubber stamp); approve its own card, same as a
+  // surveyor would for anything needing attention.
   const approveBtn = page.getByRole("button", { name: /^Approve$/ }).first();
   let approved = false;
   if (await approveBtn.isVisible().catch(() => false) && !(await approveBtn.isDisabled().catch(() => true))) {

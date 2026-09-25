@@ -192,20 +192,14 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
     const ok = await decide(f, "edited", { reviewed, reason: "surveyor applied a saved rate" });
     if (ok) track("rate_applied", { case: inspection.id, finding: f.id, row: row.id });
   }
-  async function approveUnflagged() {
-    let working = state;
-    let n = 0;
-    for (const f of live) {
-      if (!["draft", "review_required"].includes(f.status)) continue;
-      const ef = effective(f);
-      if (needsAttention(ef) || (f.gate && f.gate.status !== "review_ready") || f.stale) continue;
-      const { state: next, error } = transition(working, f.id, "approved", { currentFingerprint: currentFp(f), by: me && me.user ? me.user.id : null });
-      if (error) continue;
-      working = next; n += 1;
-      reviewFinding(f.id, "approved", { snapshot: f.evidenceFingerprint });
-    }
-    if (n) { onFindings(working); onActivity && onActivity(`Approved ${n} unflagged finding${n === 1 ? "" : "s"}`); }
-  }
+  // A bulk "Approve unflagged" action used to live here. Removed for the
+  // pilot: a live real-provider run showed findings that pass every
+  // automated check (verifier, gate, no flags) can still be wrong — the
+  // model's own error, not something needsAttention() would ever catch.
+  // Every finding needs its own approve tap read against its own evidence
+  // until a full eval run shows escaped_all_controls: 0 on the deployed
+  // model pairing (see server/ai/provider.js).
+
   // deterministic re-pricing with the surveyor's quantities; no model involved
   async function recalc(f) {
     if (!qty || qty.id !== f.id) return;
@@ -598,7 +592,6 @@ export function FindingsTab({ inspection, rooms, photoCache, fullPhoto, audioCac
           </div>
         )}
         <div className="ss-finding-actions" style={{ marginTop: 0 }}>
-          {total > 0 && <Button variant="primary" onClick={approveUnflagged} disabled={!live.some((f) => ["draft", "review_required"].includes(f.status) && !needsAttention(effective(f)) && !(f.gate && f.gate.status !== "review_ready") && !f.stale)}><Check size={16} /> Approve unflagged</Button>}
           {progress && progress.running ? (
             <Button variant="danger-ghost" onClick={cancelDraft}><X size={15} /> Cancel</Button>
           ) : (

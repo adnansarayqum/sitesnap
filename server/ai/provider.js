@@ -22,6 +22,13 @@ export const AI_MODEL = process.env.AI_MODEL || "claude-fable-5-1";
 // doesn't cover at all. Revisit once that gap has a regression case and
 // Sonnet passes it.
 export const AI_VERIFY_MODEL = process.env.AI_VERIFY_MODEL || AI_MODEL;
+// a live real-provider run proved the danger above isn't theoretical, so an
+// override away from the generator model can't reach production by accident
+// the way an unreviewed env var change would — same shape as the AI_MOCK
+// guard below.
+if (process.env.AI_VERIFY_MODEL && process.env.AI_VERIFY_MODEL !== AI_MODEL && process.env.NODE_ENV === "production" && process.env.AI_VERIFY_MODEL_ALLOW_OVERRIDE !== "1") {
+  throw new Error(`AI_VERIFY_MODEL=${process.env.AI_VERIFY_MODEL} overrides the generator model (${AI_MODEL}) in a production process. A live run with Sonnet as verifier let real findings escape every control (see the comment above) — this must be a deliberate, re-tested choice, not an accidental env var. Unset AI_VERIFY_MODEL or set AI_VERIFY_MODEL_ALLOW_OVERRIDE=1 to confirm this is intended.`);
+}
 export const AI_EFFORT = process.env.AI_EFFORT || "high";
 export const AI_CAPTION_EFFORT = process.env.AI_CAPTION_EFFORT || "low";
 // per-stage thinking depth: observation and prose are cheaper tasks than

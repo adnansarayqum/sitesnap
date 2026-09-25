@@ -32,6 +32,8 @@ Set these in **Service → Variables**, then redeploy:
 | `SITESNAP_SESSION_DAYS` | optional | Cookie lifetime, `1`–`90`; default `30` |
 | `ANTHROPIC_API_KEY` | optional | Enables drafting/caption/intake. Without `SITESNAP_ACCESS_KEY`, protected provider routes stay fail-closed with HTTP 503 while the local app remains available. |
 | `OPENAI_API_KEY` | optional | Enables transcription; same fail-closed rule |
+| `AI_MODEL` | optional | Overrides the model that drafts findings; default `claude-fable-5-1`. Leave unset unless you've re-run the golden eval suite against the new value. |
+| `AI_VERIFY_MODEL` | optional, guarded | Overrides the second-opinion verifier model; defaults to `AI_MODEL`. **The server refuses to start in production** if this differs from `AI_MODEL` — a live run showed a mismatched verifier can let real findings escape every control (see `server/ai/provider.js`). Set `AI_VERIFY_MODEL_ALLOW_OVERRIDE=1` only for a deliberate, re-tested deployment. |
 | `TOKEN_KEY` | required for cloud OAuth | Exactly 32 random bytes encoded as 64 hexadecimal characters, used to seal cloud refresh tokens. Production rejects passphrases. Generate with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`. |
 | `MS_CLIENT_ID`, `MS_CLIENT_SECRET` | optional | OneDrive cloud link; requires `TOKEN_KEY` |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | optional | Google Drive cloud link; requires `TOKEN_KEY` |
@@ -49,25 +51,27 @@ been proven to contain the reviewed revision.
 Do not add the access key, provider credentials or `TOKEN_KEY` to any
 `VITE_*` variable: Vite variables are public build output.
 
-## Current activation state (verified 24 September 2026)
+## Current activation state (verified 25 September 2026)
 
 - `https://sitesnap-production-821d.up.railway.app/readyz` returns HTTP 200,
   version `2.1.0`, and the full deployed GitHub commit. Verify that live value
   against the release branch each time; do not pin a mutable deployment SHA in
   this runbook. The current release includes the reviewed application baseline
-  `d131460ae4d84bd24f67821bb752c85647ce0696` and passes Railway's configured
-  `/healthz` promotion gate. The similarly named
-  `sitesnap-production.up.railway.app` hostname is not this service and must
-  not be used.
+  `49c5f8bab33c96a36e8ecf01cadd06280ec78396` — the Home/case-file/Walk redesign
+  — and passes Railway's configured `/healthz` promotion gate. The similarly
+  named `sitesnap-production.up.railway.app` hostname is not this service and
+  must not be used.
 - The generated origin renders successfully at desktop and mobile widths with
   no horizontal overflow or browser exceptions. The production security
   headers, manifest, hashed assets, SPA routing and fail-closed capability
   guards are active.
-- `GET /api/session` currently reports `required: false` and
-  `capabilitiesLocked: true`. The local capture UI remains available, but
-  protected AI and OneDrive routes correctly return HTTP 503. Set
-  `SITESNAP_ACCESS_KEY` in Railway and redeploy before handing the URL to the
-  client; then verify the unlock screen and authenticated provider flow.
+- `SITESNAP_ACCESS_KEY` **is set**. `GET /api/session` reports `required: true`
+  and `capabilitiesLocked: false`; `GET /api/ai/config` returns HTTP 401
+  without a session. The unlock screen is the first thing a new device sees,
+  and protected AI/OneDrive routes require an authenticated session. This
+  closes the access-key blocker recorded in the previous version of this
+  section — verify it hasn't drifted before each go-live decision, the same
+  way you'd verify `commit` above, rather than trusting this line indefinitely.
 - `sitesnap.uk` currently has no A, AAAA or CNAME record, and
   `www.sitesnap.uk` is NXDOMAIN. Keep `PUBLIC_URL` on a generated Railway HTTPS
   domain until Railway provides the custom-domain target and DNS resolves;
@@ -78,8 +82,13 @@ Do not add the access key, provider credentials or `TOKEN_KEY` to any
 - The release branch `claude/new-session-idpxy6` is protected for administrators
   and requires the `test-and-build` status check. Continue reviewing the exact
   SHA rather than treating a mutable branch name as release identity.
-- `SITESNAP_ACCESS_KEY` still needs to be set through Railway's masked
-  Variables UI. Never paste it in an issue, pull request, log or chat.
+- **Not yet verified live from this environment, and blocking before the
+  client's first real job** (see `docs/ai-findings.md` and the pilot
+  conditions below): whether `ANTHROPIC_API_KEY` is set and the account has
+  enough credit for a real draft to succeed end to end; whether `AI_MODEL`/
+  `AI_VERIFY_MODEL` are unset (the safe default) or deliberately overridden;
+  whether `SENTRY_DSN` is set. Check these from the Railway dashboard, not by
+  guessing from application behaviour.
 
 ## First activation
 
