@@ -1,12 +1,17 @@
 import { useState } from "react";
 import {
-  ArrowRight, Briefcase, Check, Minus, Pencil, Plus, ScanLine, X,
+  AlertTriangle, ArrowRight, Briefcase, Check, Minus, Pencil, Plus, ScanLine, X,
 } from "lucide-react";
 import { ReorderableList } from "../components/shared.jsx";
 import { QRScanner } from "../components/QRScanner.jsx";
 import { PRESETS } from "../lib/presets.js";
 import { pad, uid } from "../lib/util.js";
 import { AppHeader, Button, InlineAlert, StickyActionBar } from "../ui/index.js";
+
+// A soft nudge, never a block — free-text addresses are deliberate (a
+// surveyor may type a partial address on site and fix it later), so this
+// only ever informs, same as Start/Next staying enabled either way.
+const addressLooksShort = (a) => { const t = a.trim(); return t.length > 0 && (t.length < 4 || !/[a-z]/i.test(t)); };
 
 /* ---------------- setup ---------------- */
 // Two presentations sharing one set of state and logic: guided (one
@@ -140,6 +145,11 @@ export function SetupScreen({ onBack, onStart }) {
           <ScanLine size={16} /> Scan
         </button>
       </div>
+      {addressLooksShort(address) && (
+        <InlineAlert tone="warn" icon={<AlertTriangle size={14} />} className="ss-address-warn">
+          That doesn't look like a full address — you can still continue.
+        </InlineAlert>
+      )}
       <input className="ss-input" placeholder="Postcode (optional)" style={{ marginTop: 8 }} value={postcode} onChange={(e) => setPostcode(e.target.value.toUpperCase())} />
 
       <input className="ss-input" style={{ marginTop: 8 }} placeholder="Your reference (optional)" value={ref} onChange={(e) => setRef(e.target.value)} />

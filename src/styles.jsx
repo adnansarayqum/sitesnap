@@ -761,7 +761,7 @@ export function StyleBlock() {
       .ss-ledger-ic { color: var(--pine); display: flex; flex-shrink: 0; }
       .ss-ledger-main { flex: 1; min-width: 0; }
       .ss-ledger-title { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .ss-ledger-sub { font-size: 12px; color: var(--muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .ss-ledger-sub { font-size: 12px; color: var(--muted); margin-top: 1px; line-height: 1.4; }
       .ss-ledger-status { font-size: 13px; color: var(--muted); font-weight: 600; flex-shrink: 0; }
       .ss-ledger-row.ss-no-border { border-bottom: none; }
 
@@ -782,6 +782,7 @@ export function StyleBlock() {
         background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .15s ease;
       }
       .ss-toggle.on span { transform: translateX(18px); }
+      .ss-settings-chev { color: var(--muted2); flex-shrink: 0; }
 
       .ss-storage-card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
 
