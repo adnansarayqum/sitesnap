@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import {
-  Aperture, Check, CircleCheck, CloudUpload, FileText, Link2, Loader2, Moon, Plus, Sun, X,
+  Aperture, Check, ChevronDown, ChevronUp, CircleCheck, CloudUpload, FileText, Link2, Loader2, Moon, Plus, Sun, X,
 } from "lucide-react";
 import {
   storageEstimate, loadMsClientId, saveMsClientId, hasBuiltInMsClientId,
@@ -147,12 +147,15 @@ function CrmWebhookCard({ flash }) {
 
   return (
     <div style={{ marginTop: 24 }}>
-      <button className="ss-settings-row" style={{ width: "100%", textAlign: "left" }} onClick={() => setOpen((o) => !o)}>
+      <button className="ss-settings-row" style={{ width: "100%", textAlign: "left" }} onClick={() => setOpen((o) => !o)} aria-expanded={open}>
         <span className="ss-settings-ic"><Link2 size={17} /></span>
         <div style={{ flex: 1 }}>
           <div className="ss-settings-title">CRM / ERP export</div>
           <div className="ss-settings-sub">{saved ? "An export link is set" : "Off — send exports to your own system instead"}</div>
         </div>
+        {/* a disclosure, not a live switch like Field mode above — the
+            chevron is the only thing on this screen that tells them apart */}
+        {open ? <ChevronUp size={17} className="ss-settings-chev" /> : <ChevronDown size={17} className="ss-settings-chev" />}
       </button>
       {open && (
         <div style={{ padding: "0 0 12px" }}>
